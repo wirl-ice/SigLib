@@ -1,0 +1,116 @@
+Introduction
+===============
+
+SigLib stands for Signature Library and is a suite of tools to query,
+manipulate and process remote sensing imagery (primarily SAR remote
+sensing) and store the data in a geodatabse. It uses open source
+libraries and can be run on Windows or Linux.
+
+Overview
+--------
+
+There are 4 main *modes* that it can run in (or combinations of these)
+
+#. A data **Discovery Mode** where remote sensing scenes are discovered
+   by ingesting a copy of the CIS archive (or other geodatabase
+   containing imagery, with tweaks), or by crawling through a hard drive
+   and extracting metadata from zipped SAR scenes, or by querying a
+   table in a local database that contains geospatial metadata. Queries
+   take a Region Of Interest -- **ROI shapefile** with a specific format
+   as input. The region of interest delineates the spatial and temporal
+   search boundaries and is elaborated upon in a section below.
+#. An **Exploratory Mode** where remote sensing scenes are made ready
+   for viewing. This includes opening zip files, converting imagery
+   (including SLC), geographical projection, cropping, masking, image
+   stretching, renaming, and pyramid generation. The user must supply
+   the name of a single zip file that contains the SAR imagery, a
+   directory where a batch of zip files to be prepared resides, or a
+   query that selects a list of zip files to be processed (functionality
+   to come).
+#. A **Scientific Mode** where remote sensing scenes can be converted to
+   either calibrated (sigma0), noise level, incidence angle images.
+   Image data (from each band) can be subsampled by way of an **ROI
+   shapefile** that references every image and specific polygon you want
+   to analyze. These polygons represent sampling regions that you know
+   about a priori or they are hand digitized from Exploratory mode
+   images. Data can be stored in a table in a geodatabase for further
+   processing. [Note this has not been used much either - need to shake
+   off the cobwebs here]
+#. An **Analysis Mode** where data that was stored in the geodatabase is
+   retrieved and plotted [Note, this is essentially depreciated since it
+   hasn't been used for over 5 years]
+
+These components are brought together to work in harmony by
+**SigLib.py** the recommended way to interact with the software. This
+program reads in a configuration file that provides all the parameters
+required to do various jobs. However, this is only one way to go...
+Anyone can call the modules identified above from a custom made python
+script to do what they wish.
+
+In addition, there are different ways to process *input* through
+SigLib.py that can be changed for these modes. You can input based on a
+recursive **scan** of a directory for files that match a pattern; you
+can input one **file** at a time (useful for parallelization, when many
+processes are spawned by gnu parallel) and; you can input an SQL
+**query** and run the resulting matching files through SigLib (note that
+query input is not yet enabled, but it wouldn't take long).
+
+Dependencies
+------------
+
+You will need a computer running linux or windoze (mac?... maybe, don't
+know)
+
+-  Python 2 (not 3), along with several scientific libraries - numpy,
+   pandas, psycopg2, matplotlib, datetime... Recommend you install the
+   pythonxy or anaconda package as these contain pretty well everything
+   you will need (To Be Confirmed).
+-  gdal/ogr libraries
+-  PostrgreSQL/PostGIS could be on another computer)
+
+Nice to haves/future...
+
+-  It is highly recommended that you have access to QGIS or ArcGIS to
+   manipulate shapefiles
+-  Also, if you want to work with ASF CEOS Files, you will need ASF
+   MapReady (some functionality)
+-  Eventually, there will be a push to integrate other remote sensing
+   tools - SNAP(replaces NEST,PolSARPro), CP Simulator, MADGIC, etc.
+
+Modules
+-------
+
+There are several modules that are organized according to core
+functionality.
+
+#. **Util.py** - a bunch of utilities for manipulating files,
+   shapefiles, etc
+#. **Metadata.py** - used to discover and extract metadata from image
+   files
+#. **Database.py** - used to interface between the PostGIS database for
+   storage and retrieval of information
+#. **Image.py** - used to manipulate images, project, calibrate, crop,
+   etc.
+
+**SigLib.py** is the front-end of the software. It calls the modules
+listed above and is in turn controlled by a configuration file. To run,
+simply edit the \*.cfg file with the paths and inputs you want and then
+run siglib.py.
+
+However, you can also code your own script to access the functionality
+of the modules if you wish.
+
+Acknowledgements
+----------------
+
+This software was conceived and advanced initially by Derek Mueller
+(while he was a Visiting Fellow at the Canadian Ice Service). Some code
+was derived from from Defence Research and Development Canada (DRDC). I
+benefited from discussions with Ron Saper, Angela Cheng and My salary
+was provided via a CSA GRIP project (PI Roger De Abreu).
+
+At Carleton this code was modified further and others have worked to
+improve it since the early days at CIS: Cindy Lopes (workstudy student &
+computer programmer) 2012 and Sougal Bouh-Ali (workstudy student &
+computer programmer) 2013-2016. Ron Saper, Anna Crawford and Greg
+Lewis-Paley helped out as well (indirectly).
