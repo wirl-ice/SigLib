@@ -9,8 +9,7 @@ later use, output to file, upload to database, etc.
 
         *This source code to extract metadata from CEOS-format RADARSAT-1 
         data was developed by Defence Research and Development Canada
-        [Used with permission]*
-        
+        [Used with permission]*       
 """
 
 import os
@@ -21,6 +20,7 @@ import math
 import numpy
 from scipy import interpolate
 import pdb
+import logging
 
 import subprocess
 import shlex
@@ -197,26 +197,40 @@ global gul
 global gur
 
 class Metadata(object):
-    '''
+    """
     This is the metadata class for each image RSAT2, RSAT1 (ASF and CDPF)
+    """
 
-    '''
-
-    def __init__(self, granule, imgname, path, zipfile, sattype):
+    def __init__(self, granule, imgname, path, zipfile, sattype, loghandler=None):
         """
-            This initializes the class based on input
+        This initializes the class based on input
+            
+        **Parameters**
+            
+            *granule*    : unique name of the image (String)
 
-            :arg granule: unique name of the image
-            :type granule: String
-            :arg imgname: name of the file to open, representing the image
-            :type imgname: String
-            :arg path: path to the image
-            :type path: String
-            :arg sattype: type of data
-            :type sattype: String
+            *imgname*    : name of the file to open, representing the image (String)
 
-            :ret: An instance of Meta
+            *path*       : path to the image (String)
+
+            *Zipfile*    : A valid zipfile name with full path (String)
+
+            *sattype*    : type of data (String)
+
+            *loghandler* : A valid pre-set loghandler (Optional)
+
+        **Returns**
+            
+            An instance of Meta
         """
+        
+        if loghandler != None:
+            self.loghandler = loghandler             #Logging setup if loghandler sent, otherwise, all errors are printed
+            self.logger = logging.getLogger(__name__)
+            self.logger.addHandler(loghandler)
+            
+            self.logger.setLevel(logging.DEBUG)
+        
         self.path = path
         self.granule = granule  #filename and extension of the file containing
                                       # all original data for this scene
@@ -258,7 +272,6 @@ class Metadata(object):
             self.getCornerPoints()
             self.getRS2metadata()
         else:
-            print
             pass # trap error here?
             
             #TODO - test these for a variety of images Desc, Asc, R1 and 2
@@ -272,10 +285,13 @@ class Metadata(object):
 
     def getgdalmeta(self):
         """
-            Open file with gdal and get metadata
+        Open file with gdal and get metadata
 
-            :ret: gdal_meta
+        **Returns**
+            
+            *gdal_meta* : Metadata found by gdal
         """
+        
         if self.sattype == "ASF_CEOS":
             imgname = self.imgname + '.D'
         if self.sattype == "CDPF":
@@ -293,18 +309,25 @@ class Metadata(object):
         #TODO, more info here
 
         if(ds == None):
-            print "Error with gdal.open"
-            self.status = "gdalerror"
-            return "gdalerror"
-
+            try:
+                self.logger.error("Error with gdal.open")
+                self.status = "gdalerror"
+                return "gdalerror"
+            except:
+                print("Error with gdal.open")
+                self.status = "gdalerror"
+                return "gdalerror"
 
         ### getting image dimensions
         self.n_rows = ds.RasterYSize
         self.n_cols = ds.RasterXSize
         self.n_bands = ds.RasterCount
-
-        print 'Img has:      ' + str(self.n_cols) + ' columns, ' + \
-        str(self.n_rows) + ' rows & ' + str(self.n_bands) + ' band(s)'      ###
+        try:
+            self.logger.info('Img has: ' + str(self.n_cols) + ' columns, ' + \
+            str(self.n_rows) + ' rows & ' + str(self.n_bands) + ' band(s)')
+        except:
+            print('Img has: ' + str(self.n_cols) + ' columns, ' + \
+            str(self.n_rows) + ' rows & ' + str(self.n_bands) + ' band(s)')
 
 
         #If the n_rows is not zero extract the GCPs through the dataset
@@ -314,7 +337,11 @@ class Metadata(object):
 
         #Otherwise extract them manually through the .img file
         else:
-            print "No GCPs in gdal dataset, manually extracting from the image."
+            try:
+                self.logger.debug("No GCPs in gdal dataset, manually extracting from the image.")
+            except:
+                print("No GCPs in gdal dataset, manually extracting from the image.")
+
             self.getCEOSmetafile()
             ### Take every nth line (specify nth) and save GCPs
             self.geopts = self.extractGCPs(50)          ### In this case nth = 50
@@ -328,9 +355,16 @@ class Metadata(object):
         proj = ds.GetProjectionRef()
 
         if proj == '':
-            print 'Img has:      ' + str(self.n_geopts) + ' GCPs'
+            try:
+                self.logger.info('Img has:      ' + str(self.n_geopts) + ' GCPs')
+            except:
+                print('Img has:      ' + str(self.n_geopts) + ' GCPs')
         else:
-            print 'Projection is:    ' + proj
+            try:
+                self.logger.info('Projection is:    ' + proj)
+            except:
+                print('Projection is:    ' + proj)
+            
 
         # All gdal_meta
         gdal_meta = ds.GetMetadata_List()
@@ -346,7 +380,7 @@ class Metadata(object):
         Given a set of geopts, calculate the corner coords to the nearest 1/2
         pixel. Assumes that the corners are among the GCPs (not randomly placed)
         """
-
+        
         x = numpy.zeros((len(self.geopts), 1), dtype=numpy.float64)
         y = numpy.zeros((len(self.geopts), 1), dtype=numpy.float64)
         z = numpy.zeros((len(self.geopts), 1), dtype=numpy.float64)
@@ -370,9 +404,13 @@ class Metadata(object):
 
         #Todo -- Check for no GCPs
         if(len(row) == 0):
-            print "No rows found in "
+            try:
+                self.logger.error("No rows found in ")
+                return "gdalerror"
+            except:
+                print("No rows found in ")
+                return "gdalerror"
             #sys.exit(0)
-            return "gdalerror"
 
         # check to see if the gcps cover the corners
         if self.sattype == 'RS2': # these ones are not in the middle of the pixel
@@ -446,8 +484,10 @@ class Metadata(object):
             if abs(self.ellip_maj - 6378.137) < 1 and abs(self.ellip_min - 6356.7523142) < 1:
                 self.geoptsSRID = 4326
             else:
-                print 'ERROR: The image GCPs were in an unexpected GCS'
-
+                try:
+                    self.logger.error('ERROR: The image GCPs were in an unexpected GCS')
+                except:
+                    print('ERROR: The image GCPs were in an unexpected GCS')
                 return 'gcperror'
         elif not wgs84_srs.IsSame(gcp_srs):
             # ok that's not cool, but maybe the projections are the same anyhow...
@@ -462,7 +502,10 @@ class Metadata(object):
             if counter == 3:  #then tranformation is *1 (no transform)
                 self.geoptsSRID = 4326 # the SRID for WGS84
             else:
-                print 'ERROR: The image GCPs were in an unexpected GCS'
+                try:
+                    self.logger.error('ERROR: The image GCPs were in an unexpected GCS')
+                except:
+                    print('ERROR: The image GCPs were in an unexpected GCS')
                 return 'gcperror'
                 # at this stage, you could transform the corner coords to wgs84
                 # and then continue... (note that this was done -below)
@@ -482,6 +525,14 @@ class Metadata(object):
         The GCPs will not necessarily be on the 'bottom corners' since the gcps
         will be spaced evenly to get n_gcps (or more if not divisible by 3)
         If you want corners the only way to guarentee this is to set n_gcps = 6
+        
+        **Parameters**
+            
+            *n_gcps*      : # of GCP's to return
+                
+        **Returns**
+            
+            *tuple(gcps)* : # of GCP's specified returned in tuple format
         """
 
         assert self.sattype == 'CDPF', 'You can only use this function with CDPF R1 data'
@@ -583,8 +634,8 @@ class Metadata(object):
     def saveMetaFile(self, dir=''):
         """
         Makes a text file with the metadata
-        
         """
+        
         #TODO: MAKE THIS AN XML FILE
         meta = self.createMetaDict()
         fout = open(os.path.join(dir, self.dimgname+".met"), 'w')
@@ -596,7 +647,6 @@ class Metadata(object):
         fout.close()
 #        doc = xml.dom.minidom.Document()
 #        dimgname = doc.createElementNS(self.dimgname, "dimgname")
-
     
     def createMetaDict(self):   
         """
@@ -604,6 +654,10 @@ class Metadata(object):
         this can be written to file or sent to database
 
         Note that the long boring metadata fields are not included
+        
+        **Returns**
+            
+            *metadict* : Dictionary containing all the metadata fields
         """
 
         #make a dictionary of all the meta.attributes
@@ -622,15 +676,22 @@ class Metadata(object):
                     metaDict[attr] = value
         return metaDict
 
-
     def get_ceos_metadata(self, *file_names):
         """
         Take file names as input and return a dictionary of metadata
-        file_names is a list or strings or a string (with one filename)
+        file_names is a list of strings or a string (with one filename)
         
         This source code to extract metadata from CEOS-format RADARSAT-1 
         data was developed by Defence Research and Development Canada
         [Used with Permission]
+        
+        **Parameters**
+           
+           **file_names* : List of strings 
+               
+        **Returns**
+            
+            *result*     : Dictionary of Metadata
         """
 
         # assert - only ASF_CEOS or CDPF
@@ -743,6 +804,17 @@ class Metadata(object):
         return result
 
     def extractGCPs(self, interval):
+        """
+        Description needed!
+        
+        **Parameters**
+            
+            *interval*    : 
+                
+        **Returns**
+            
+            *tuple(gcps)* : GCP's returned in tuple format
+        """
 
         file_name = self.image
         #print 'Looking in:   ',file_name,"..."       ###
@@ -833,16 +905,11 @@ class Metadata(object):
 
 
 
-
-
-
         self.geopts = tuple(gcps)
         self.n_geopts = n_gcps
         self.n_rows = line_num
 
         return tuple(gcps)
-
-
 
 
     def getRS2metadata(self):
@@ -913,7 +980,10 @@ class Metadata(object):
         elif self.order_Az.lower() == 'increasing':
             duration = readdate(stop,self.sattype)-readdate(start,self.sattype)
         else:
-            print 'No line order found'
+            try:
+                self.logger.error('No line order found')
+            except:
+                print('No line order found')
             return
 
         if duration.seconds > 120:
@@ -968,7 +1038,10 @@ class Metadata(object):
         # read in LUT
             xmldoc = minidom.parse(os.path.join(self.path, file))
         else:
-            print "lutSigma.xml cannot be found"
+            try:
+                self.logger.error("lutSigma.xml cannot be found")
+            except:
+                print("lutSigma.xml cannot be found")
             #error handler
 
         self.caloffset = float(xmldoc.getElementsByTagName('offset')[0].firstChild.data)
@@ -988,13 +1061,15 @@ class Metadata(object):
         xmldoc.unlink()
         self.getDimgname()
 
-
-
     def clean_metaCDPF(self, result):
         #ONLY CDPF
         """
         Takes meta data from origmeta and checks it for completeness, coerces data types
         splits values, if required and puts it all into a standard format
+        
+        **Parameters**
+            
+            *result* : A dictonary of metadata
         """
 
         if result.has_key('act_ing_start'): #try this first
@@ -1002,10 +1077,11 @@ class Metadata(object):
         elif result.has_key('state_time'):
             self.acDateTime = readdate(result['state_time'], self.sattype)
         else:
-            print 'No date field retrieved in metadata'
+            try:
+                self.logger.error('No date field retrieved in metadata')
+            except:
+                print('No date field retrieved in metadata')
             #error handler
-
-       ### print "result...:", result
 
         self.satellite = result['sensor_id'][0:6]
         # scen_id describes the product type an not the beam mode
@@ -1106,6 +1182,14 @@ class Metadata(object):
 
     #Too long at the moment
     def getASFProductType(self, ASFName):
+        """
+        Description needed!
+        
+        **Parameters**
+            
+            *ASFName* : ?            
+        """
+        
         cmd = "metadata " + "-dssr " + ASFName
         command = shlex.split(cmd)
 
@@ -1116,11 +1200,14 @@ class Metadata(object):
             if " PRODUCT TYPE" in line:
                 self.productType = line[15:]
 
-
     def getASFMetaCorners(self, ASFName):
-
-        #use ASF Mapready to generate the metadata
-
+        """
+        Use ASF Mapready to generate the metadata
+        
+        **Parameters**
+            
+            *ASFName* : ?            
+        """
 
         cmd = "metadata " + "-asf_facdr " + ASFName
         command = shlex.split(cmd)
@@ -1160,7 +1247,10 @@ class Metadata(object):
 
         #If Rsat 1 and Decending flip the corner points
         if self.passDirection == "Descending" and self.sattype != 'RS2':
-            print "Pass direction is descending flipping corners and GCPs"
+            try:
+                self.logger.debug("Pass direction is descending flipping corners and GCPs")
+            except:
+                print("Pass direction is descending flipping corners and GCPs")
             """FLIP GCP AROUND THE Y-AXIS"""
             ulX = ul[:ul.find(' ',0,len(ul))]
             urX = ur[:ur.find(' ',0,len(ur))]
@@ -1186,7 +1276,10 @@ class Metadata(object):
         splits values, if required and puts it all into a standard format
 
         NOT TESTED!!
-
+        
+        **Parameters**
+            
+            *result* : Dictionary of metadata
         """
 
         #Get the pass direction
@@ -1207,8 +1300,6 @@ class Metadata(object):
         self.productType = None
 
 
-
-
         self.theta_far = None
         self.theta_near = None
 
@@ -1216,7 +1307,10 @@ class Metadata(object):
         if result.has_key('inp_sctim'):
             self.acDateTime = readdate(result['inp_sctim'], self.sattype)
         else:
-            print 'No date field retrieved in metadata'
+            try:
+                self.logger.error('No date field retrieved in metadata')
+            except:
+                print('No date field retrieved in metadata')
             #error handler
 
         #Add the satellite type
@@ -1265,7 +1359,6 @@ class Metadata(object):
             self.antennaPointing = None
 
 
-
         #Get Noise vector
 
         noise = result['lookup_tab']
@@ -1285,6 +1378,10 @@ class Metadata(object):
         """
         Create a filename that conforms to my own standard naming convention:
             yyyymmdd_HHmmss_sat_beam_pol...
+            
+        **Returns**
+            
+            *dimgname* : Name for image file conforming to standards above
         """
 
         sep = "_"
@@ -1319,11 +1416,15 @@ class Metadata(object):
 
 
         return self.dimgname
+    
+    def removeHandler(self):
+        self.logger.handlers = []
 
 def byte2int(byte):
     """
     Reads a byte and converts to integer
     """
+    
     return int(binascii.b2a_hex(byte),16)
 
 def get_data_block(fp, offset, length):
@@ -1335,6 +1436,24 @@ def get_data_block(fp, offset, length):
     return  fp.read(length)
 
 def get_field_value(data, field_type, length, offset):
+    """
+    Description needed!
+    
+    **Parameters**
+       
+        *data*       :
+
+        *field_type* :
+
+        *length*     :
+
+        *offset*     :
+            
+    **Returns**
+        
+        converted data_str
+    """
+    
     #data_str = string.strip(data[offset:offset+length])
     data_str = data[offset:offset+length]
     if data_str == '':
@@ -1355,7 +1474,6 @@ def get_field_value(data, field_type, length, offset):
     if field_type == "BI":
         #values are binary integers
         return byte2int(data_str)
-
 
 def readdate(date, sattype):
     """
@@ -1399,8 +1517,8 @@ def date2doy(date, string=False, float=False):
     else:
         return doy
 
-
 def doy2date(year, doy):
+    logger = logging.getLogger(__name__)
     """
     Give a float, integer or string and get a datetime
     """
@@ -1411,9 +1529,11 @@ def doy2date(year, doy):
         year = int(year)
     if type(year) == type(2.0):
         year = int(year)
-        print 'Result might be invalid : year coerced to integer'
+        try:
+            logger.error('Result might be invalid : year coerced to integer')
+        except:
+            print('Result might be invalid : year coerced to integer')
     return datetime.datetime(year, 1, 1) + datetime.timedelta(doy - 1)
-
 
 def datetime2iso(datetimeobj):
     """
@@ -1421,7 +1541,6 @@ def datetime2iso(datetimeobj):
     """
 
     return datetimeobj.strftime('%Y-%m-%d %H:%M:%S')
-
 
 def getEarthRadius( ellip_maj, ellip_min, plat_lat):
     """
@@ -1432,7 +1551,6 @@ def getEarthRadius( ellip_maj, ellip_min, plat_lat):
           math.sqrt( 1 + math.tan( plat_lat*D2R )**2 ) / \
           math.sqrt( ((ellip_min**2) / (ellip_maj**2)) + math.tan( plat_lat*D2R )**2 ))
     return r
-
 
 def getSlantRange(gsr, pixelSpacing, n_cols, order_Rg, groundRangeOrigin=0.0):
     """
@@ -1473,8 +1591,6 @@ def getGroundRange(slantRange, radius, sat_alt):
     numer = A*A + 2*A*R + 2*R*R - r*r
     denom = 2*A*R + 2*R*R
     return R*numpy.arccos(numer/denom)
-
-
 
 def getThetaPixel(RS, r, h):
     """

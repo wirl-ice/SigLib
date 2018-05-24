@@ -6,39 +6,50 @@ This module contains miscellaneous code that helps siglib work with directories,
 zip files, clean up intermediate files and so on. 
 
 
-
 **Created on** Tue Feb 12 20:04:11 2013 **@author:** Cindy Lopes
 **Modified on** Sat Nov 23 14:49:18 2013 **@reason:** Added writeIssueFile and compareIssueFiles **@author:** Sougal Bouh Ali
 **Modified on** Sat Nov 30 15:37:22 2013 **@reason:** Redesigned getFilname, getZipRoot and unZip **@author:** Sougal Bouh Ali
-
+**Modified on** Wed May 23 14:41:40 2018 **@reason:** Added logging functionality **@author:** Cameron Fitzpatrick
 """
 
 import os
 import zipfile
 import subprocess
 import math
+import logging
 
 from osgeo import osr
 from osgeo import ogr
 import shlex
-import numpy
-
-
-def getFilename(zipname, unzipdir):
-    '''
+import numpy       
+    
+def getFilename(zipname, unzipdir, loghandler=None):
+    """
     Given the name of a zipfile, return the name of the image,
     the file name, and the corresponding sensor/platform (satellite).
 
     **Parameters**
-        *zipname*   : The basename of the zip file you are working with
-        *unzipdir*  : Where the zipfile will unzip to (find out with getZipRoot)
+        
+        *zipname*  : The basename of the zip file you are working with
+
+        *unzipdir* : Where the zipfile will unzip to (find out with getZipRoot)
 
     **Returns**
-        *fname* :  The file name that corresponds to the image
-        *imgname*   : The name of the image (the basename, sans extension)
-        *sattype*   : The type of satellite/image format this file represents
-    '''
+        
+        *fname*    :  The file name that corresponds to the image
 
+        *imgname*  : The name of the image (the basename, sans extension)
+
+        *sattype*  : The type of satellite/image format this file represents
+    """
+    
+    if loghandler != None:
+        loghandler = loghandler             #Logging setup if loghandler sent, otherwise, all errors are printed
+        logger = logging.getLogger(__name__)
+        logger.addHandler(loghandler)
+            
+        logger.setLevel(logging.DEBUG)
+    
     dirlist = os.listdir(unzipdir)      # List of all the files in zip_file to be used as the loop iterative element
     countdown = len(dirlist)            # Number of files in zip_file to be used as a counter inside the loop
 
@@ -63,14 +74,20 @@ def getFilename(zipname, unzipdir):
                 os.rename(os.path.join(unzipdir,imgname+".sarl"), os.path.join(unzipdir,imgname+".led"))
 
             else:
-                 print "No file named *.sarl found"
-                 return "error", "error", "error"
+                try:
+                    logger.error("No file named *.sarl found")
+                except:
+                    print("No file named *.sarl found")
+                return "error", "error", "error"
 
             if os.path.isfile(os.path.join(unzipdir,imgname+".sart")):
                 os.rename(os.path.join(unzipdir,imgname+".sart"), os.path.join(unzipdir,imgname+".trl"))
 
             else:
-                print "could not find a trailer file"
+                try:
+                    logger.error("could not find a trailer file")
+                except:
+                    print("could not find a trailer file")
                 return "error", "error", "error"
 
             if os.path.isfile(os.path.join(unzipdir,imgname+".sard")):
@@ -81,7 +98,10 @@ def getFilename(zipname, unzipdir):
                 os.rename(os.path.join(unzipdir,imgname+"01f.sard"), os.path.join(unzipdir,imgname+".img"))
 
             else:
-                print "could not find a CIS CEOS data file named *.sard"
+                try:
+                    logger.error("could not find a CIS CEOS data file named *.sard")
+                except:
+                    print("could not find a CIS CEOS data file named *.sard")
                 return "error", "error", "error"
 
             break
@@ -97,20 +117,28 @@ def getFilename(zipname, unzipdir):
             countdown-1
 
     if countdown == 0:
-        print "This zipfile contents are not recognised"
+        try:
+            logger.error("This zipfile contents are not recognised")
+        except:
+            print("This zipfile contents are not recognised")
         return "error", "error", "error"
 
     else:
+        try:
+            logger.handlers = []
+        except:
+            pass
         return fname, imgname, sattype
-
+    
 #TODO: this deletes the entire directory...fix it
 def deltree(dirname):
-    '''
+    """
     Delete all the files and sub-directories in a certain path
 
     **Parameters**
+        
         *dirname*   :
-    '''
+    """
 
     if os.path.exists(dirname):
         for root,dirs,files in os.walk(dirname):
@@ -121,6 +149,13 @@ def deltree(dirname):
         os.rmdir(dirname)
 
 def cleartree(dirname):
+    """
+    Delet all files in a certain path
+    
+    **Parameters**
+        
+        *dirname* :
+    """
 
     if os.path.exists(dirname):
         for root,dirs,files in os.walk(dirname):
@@ -131,7 +166,7 @@ def cleartree(dirname):
 
 
 def getZipRoot(zip_file, tmpDir):
-    '''
+    """
     Looks into a zipfile and determines if the contents will unzip into a subdirectory
     (named for the zipfile); or a sub-subdirectory; or no directory at all (loose files)
     
@@ -141,14 +176,17 @@ def getZipRoot(zip_file, tmpDir):
     Returns the unzipdir (where the files will -or should- go) and zipname (basename of the zipfile)
 
     **Parameters**
-        *zip_file*  : full path, name and ext of a zip file
-        *tmpDir*    : this is the path to the directory where you are 
-                        working with this file (the path of the zip_file - or wrkdir)
+        
+        *zip_file* : full path, name and ext of a zip file
+
+        *tmpDir*   : this is the path to the directory where you are working with this file (the path of the zip_file - or wrkdir)
 
     **Returns**
-        *unzipdir*  : the directory where the zip file will/should unzip to
-        *zipname*   : basename of the zip file AND/OR the name of the folder where the image files are  
-    '''
+
+        *unzipdir* : the directory where the zip file will/should unzip to
+
+        *zipname*  : basename of the zip file AND/OR the name of the folder where the image files are  
+    """
 
     path = os.path.dirname(zip_file)            # Directory of zip_file
     zipfname = os.path.basename(zip_file)       # File name of zip_file
@@ -195,7 +233,7 @@ def getZipRoot(zip_file, tmpDir):
 
 
 def unZip(zip_file, unzipdir, ext='all'):
-    '''
+    """
     Unzips the zip_file to unzipdir with python's zipfile module.
 
     "ext" is a keyword that defaults to all files, but can be set
@@ -203,12 +241,15 @@ def unZip(zip_file, unzipdir, ext='all'):
 
 
     **Parameters**
-        *zip_file*  : Name of a zip file - with extension
-        *unzipdir*  : Directory to unzip to
+       
+       *zip_file* : Name of a zip file - with extension
+
+        *unzipdir* : Directory to unzip to
         
     **Optional**
-        *ext* : 'all' or a specific ext as required
-    '''
+
+        *ext*      : 'all' or a specific ext as required
+    """
 
     zip = zipfile.ZipFile(zip_file)     # Open the zip_file as an object
 
@@ -239,11 +280,12 @@ def wktpoly2pts(wkt, bbox=False):
     derived from bounding boxes of projected coordinates
     
     **Parameters**
-    *wkt* : a well-known text string for a polygon
+        
+        *wkt*         : a well-known text string for a polygon
     
     **Returns**
-    *ul,ur,lr,ll* : a list of the four corners
-    
+        
+        *ul,ur,lr,ll* : a list of the four corners   
     """
     
     if bbox:
@@ -266,9 +308,9 @@ def wktpoly2pts(wkt, bbox=False):
      
     return ul, ur, lr, ll
 
-
 def llur2ullr(llur):
-    '''a function that returns:
+    """
+    a function that returns:
     upperleft, lower right when given...
     lowerleft, upper right
     a list of tupples [(x,y),(x,y)]
@@ -276,8 +318,10 @@ def llur2ullr(llur):
     Note - this will disappoint if proj is transformed (before or after)
     
     **Parameters**
-    *llur* : a list of tupples [(x,y),(x,y)] corresponding to lower left, upper right corners of a bounding box
-    '''
+        
+        *llur* : a list of tupples [(x,y),(x,y)] corresponding to lower left, upper right corners of a bounding box
+    """
+    
     ll = llur[0]
     ur = llur[1]
 
@@ -287,7 +331,8 @@ def llur2ullr(llur):
     return ul,lr
 
 def ullr2llur(ullr):
-    '''a function that returns:
+    """
+    a function that returns:
     lowerleft, upper right when given...
     upperleft, lower right
     a list of tupples [(x,y),(x,y)]
@@ -295,19 +340,20 @@ def ullr2llur(ullr):
     Note - this will disappoint if proj is transformed (before or after)
      
     **Parameters**
-    *ullr* : a list of tupples [(x,y),(x,y)] corresponding to upper right, lower left corners of a bounding box
-    '''
+        
+        *ullr* : a list of tupples [(x,y),(x,y)] corresponding to upper right, lower left corners of a bounding box
+    """
+    
     ul = ullr[0]
     lr = ullr[1]
 
     ur = (lr[0], ul[1])
     ll = (ul[0], lr[1])
 
-    return ll,ur
-    
+    return ll,ur    
 
 def reprojSHP(in_shp, vectdir, proj, projdir):
-    '''
+    """
     Opens a shapefile, saves it as a new shapefile in the same directory
     that is reprojected to the projection wkt provided.
 
@@ -315,14 +361,20 @@ def reprojSHP(in_shp, vectdir, proj, projdir):
     for masking lines (not areas) ogr2ogr -nlt MULTILINESTRING
 
     **Parameters**
-        *in_shp*    :
-        *vectdir*   :
-        *proj*      :
-        *projdir*   :
+        
+        *in_shp*  :
+
+        *vectdir* :
+
+        *proj*    :
+
+        *projdir* :
 
     **Returns**
-        *out_shp*   :   name of the proper shapefile
-    '''
+        
+        *out_shp* : name of the proper shapefile
+    """
+    
     extlist = ['.shp', '.dbf','.prj','.shx']
 
     #load the srs from the reference wkt
@@ -368,35 +420,41 @@ def reprojSHP(in_shp, vectdir, proj, projdir):
 
     return out_shp  # return the name of the proper shapefile
 
-
 def getdBScale(power):
-    """Convert a SAR backscatter value from the linear power scale to the log dB scale
+    """
+    Convert a SAR backscatter value from the linear power scale to the log dB scale
 
     **Note:** power must be a scalar or an array of scalars,negative powers will throw back NaN.
 
     **Parameters**
-        *power*     :  backscatter in power units
+       
+       *power* : backscatter in power units
 
     **Returns**
-        *dB*   :  backscatter in dB units
+        
+        *dB*    : backscatter in dB units
     """
+    
     dB = 10 * numpy.log10(power)
     return dB
 
 def getPowerScale(dB):
-    """Convert a SAR backscatter value from the log dB scale to the linear power scale
+    """
+    Convert a SAR backscatter value from the log dB scale to the linear power scale
 
     **Note:** dB must be a scalar or an array of scalars
 
     **Parameters**
-        *dB*     :  backscatter in dB units
+        
+        *dB*    : backscatter in dB units
 
     **Returns**
-        *power*   :  backscatter in power units
+        
+        *power* : backscatter in power units
     """
+    
     power = pow(10.0, dB/10.0)
     return power
-
 
 def az(pt1,pt2):
     """
@@ -409,12 +467,14 @@ def az(pt1,pt2):
     https://en.wikipedia.org/wiki/Vincenty%27s_formulae
     
     **Parameters:**
-    pt1 : point from (tuple of lon and lat)
-    pt2 : point to (tuple of lon and lat)
+        
+        *pt1* : point from (tuple of lon and lat)
+
+        *pt2* : point to (tuple of lon and lat)
     
     **Returns**
-    az : azimuth from North in degrees
-  
+
+        *az*  : azimuth from North in degrees
     """
 
     if (type(pt1) != tuple) or (type(pt2) != tuple):
@@ -431,25 +491,24 @@ def az(pt1,pt2):
     return (az+360) % 360
 
 
-
-
-
 def wkt2shp(shpname, vectdir, proj, projdir, wkt):
-    '''
+    """
     Takes a polygon defined by well-known-text and a projection name and outputs
     a shapefile into the current directory
 
     **Parameters**
-        *shpname*   :
+        
+        *shpname* :
 
-        *vectdir*   :
+        *vectdir* :
 
-        *proj*      :
+        *proj*    :
 
-        *projdir*   :
+        *projdir* :
 
-        *wkt*       :
-    '''
+        *wkt*     :
+    """
+    
     if wkt == 0:
         return -1
 
@@ -485,24 +544,35 @@ def wkt2shp(shpname, vectdir, proj, projdir, wkt):
     datasource.Destroy()
     del fout
 
-
-def writeIssueFile(fname, delimiter):
+def writeIssueFile(fname, delimiter, loghandler = None):
     """
     Generates a clean list of zipfiles, when given an Issue File written by scripts.
 
     **Parameters**
+        
         *fname*     :   name of the text file with extension to be cleaned(i.e. textfile.txt)
 
         *delimiter* :   separator used to split zipfile from unwanted errors (i.e. use most common " / " before zipfile)
     """
-
+    
+    if loghandler != None:
+        loghandler = loghandler             #Logging setup if loghandler sent, otherwise, all errors are printed
+        logger = logging.getLogger(__name__)
+        logger.addHandler(loghandler)
+            
+        logger.setLevel(logging.DEBUG)
+                        
     fr = open(fname, "r+")
     name, ext = os.path.splitext(fname)
     fw = open(name+"_cleaned.txt", "w+")
-
-    print "File read: ", fr.name
-    print "File writen: ", fw.name
-    print "\n"
+    
+    try:
+        logger.info("File read: ", fr.name)
+        logger.info("File writen: ", fw.name)
+        logger.handlers = []
+    except:
+        print("File read: ", fr.name)
+        print("File writen: ", fw.name)
 
     # Read lines 1 by 1
     for line in fr.readlines():
@@ -520,26 +590,38 @@ def writeIssueFile(fname, delimiter):
     fw.close()
 
 
-def compareIssueFiles(file1, file2):
-    '''
+def compareIssueFiles(file1, file2, loghandler = None):   
+    """
     Compares 2 clean issue files generated by writeIssueFile() and
     generates a separate file containing the list of matched & unmatched files in 2 files.
 
     **Parameters**
-        *file1*     :   name of the first text file with extension to be compared (i.e. textfile.txt)
+        
+        *file1* : name of the first text file with extension to be compared (i.e. textfile.txt)
 
-        *file2*     :   name of the second text file with extension to be compared (i.e. textfile.txt)
-
-    '''
+        *file2* : name of the second text file with extension to be compared (i.e. textfile.txt)
+    """
+    
+    if loghandler != None:
+        loghandler = loghandler             #Logging setup if loghandler sent, otherwise, all errors are printed
+        logger = logging.getLogger(__name__)
+        logger.addHandler(loghandler)
+            
+        logger.setLevel(logging.DEBUG)
+        
     # File pointers
     f1r = open(file1, "r+")
     f2r = open(file2, "r+")
     fxw = open("matchedFiles.txt", "w+")
     fyw = open("unmatchedFiles.txt", "w+")
-
-    print "First filename: ", f1r.name
-    print "Second filename: ", f2r.name
-    print "\n"
+    
+    try:
+        logger.info("First filename: ", f1r.name)
+        logger.info("Second filename: ", f2r.name)
+    except:
+        print("First filename: ", f1r.name)
+        print("Second filename: ", f2r.name)
+        print "\n"
 
     f1_lines = f1r.readlines()  # List of lines
     f2_lines = f2r.readlines()
@@ -564,11 +646,17 @@ def compareIssueFiles(file1, file2):
     for f3_line in f3_lines:
         countY = countY + 1
         fyw.write(f3_line)
-
-    print "The first list has ", len(f1_lines) ," files, and the second list has ", len(f2_lines) ,"files."
-    print "There's ", countX ," matched files, and they have stored in ", fxw.name
-    print "Please refer to ", fyw.name ," for the list of the ", countY ," files that have not been matched."
-
+        
+    try:
+        logger.info("The first list has ", len(f1_lines) ," files, and the second list has ", len(f2_lines) ,"files.")
+        logger.info("There's ", countX ," matched files, and they have stored in ", fxw.name)
+        logger.info("Please refer to ", fyw.name ," for the list of the ", countY ," files that have not been matched.")
+        logger.handlers = []
+    except:
+        print("The first list has ", len(f1_lines) ," files, and the second list has ", len(f2_lines) ,"files.")
+        print("There's ", countX ," matched files, and they have stored in ", fxw.name)
+        print("Please refer to ", fyw.name ," for the list of the ", countY ," files that have not been matched.")
+    
     f1r.close()
     f2r.close()
     fxw.close()

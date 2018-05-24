@@ -6,6 +6,7 @@ This script will bring together all the SigLib modules with a config script to
 
 
 **Created on** Mon Oct  7 20:27:19 2013 **@author:** Sougal Bouh Ali
+**Modified on** Wed May  23 11:37:40 2018 **@reason:** Sent instance of Metadata to data2img instead of calling Metadata again **@author:** Cameron Fitzpatrick
 """
 
 import os
@@ -15,6 +16,7 @@ import commands
 import ConfigParser
 import logging
 import shutil
+import time
 from time import localtime, strftime
 from glob import glob
 import pdb
@@ -25,7 +27,7 @@ from Metadata import Metadata
 from Image import Image
 import Util
 
-#1afijoptupdb.set_trace()
+#1afijoptpdb.set_trace()
 
 
 def syntax():
@@ -84,7 +86,7 @@ class SigLib:
         self.imgType = config.get(self.mode,"imgTypes")
         self.imgFormat = config.get(self.mode,"imgFormat")
 
-        self.timeout = 10 # set to 0 for 'off' or a number from 7 to 10 [needs testing]
+        self.timeout = 0   # set to 0 for 'off' or a number from 7 to 10 [needs testing]
 
         self.issueString = ""
         self.count_img = 0            # Number of images processed
@@ -92,46 +94,41 @@ class SigLib:
         self.starttime = strftime('%Y%m%d_%H%M%S', localtime())
         shutil.copy(os.path.abspath(os.path.expanduser(sys.argv[1])), os.path.join(self.logDir,self.cfg + "_" +\
             self.starttime +'.cfg')) # make a copy of the cfg file
-
-    def createLog(self,zipfile=None):
+        self.length_time = 0
+        self.loghandler = 0
+        self.logger = 0
+    
+    def createLog(self,zipfile=None):   
         """
         Creates log file that will be used to report progress and errors
         **Parameters**
+            
             *zipfile* : a valid zipfile name with full path (optional) for file input
-        """        
+        """
+        
         if zipfile is not None: 
             self.loggerFileName = os.path.basename(zipfile) + "_" + self.cfg \
                 + "_" + strftime('%Y%m%d_%H%M%S', localtime())+".log"
         else:
             self.loggerFileName = self.cfg + "_" + self.starttime+".log"
         #logging.basicConfig(level=logging.DEBUG)
-        logger = logging.getLogger(__name__)
-        loghandler = logging.FileHandler(os.path.join(self.logDir,self.loggerFileName))
+        self.logger = logging.getLogger(__name__)
+        self.logger.setLevel(logging.DEBUG)
+        self.loghandler = logging.FileHandler(os.path.join(self.logDir,self.loggerFileName))
         formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')        
-        loghandler.setFormatter(formatter)        
-        logger.addHandler(loghandler)
-        
-        logger.setLevel(logging.DEBUG)  # TODO - set a parameter in config file/self.loglevel to change this. 
-        
-        logger.info("SigLib Run w/ config: %s", self.cfg)
-        logger.info("User: %s",os.getenv('USER'))
+        self.loghandler.setFormatter(formatter)        
+        self.logger.addHandler(self.loghandler)
+                
+        self.logger.info("SigLib Run w/ config: %s", self.cfg)
+        self.logger.info("User: %s",os.getenv('USER'))
         
 
-    def logConcatenate(self):
-        """
-        Looks through log directory for log files associated with this cfg and starttime
-        Concatenates them into one master log file
-        Removes all the individual log files? 
-        Lists images that had an error? (grep through?)
-        """
-        #TODO
-
-    def handler(self, signum, frame):
+    def handler(self, signum, frame):   #This function needs work
         """
         Handles exceptions - most notably time out errors
-        """        
-        logger = logging.getLogger(__name__)
-        logger.error("Image processing is taking longer than usual, stopping/moving to next image")
+        """  
+        
+        self.logger.error("Image processing is taking longer than usual, stopping/moving to next image")
         self.bad_img += 1
         raise Exception
 
@@ -142,46 +139,51 @@ class SigLib:
         logging structure and other elements must parallelizable
         
         **Parameters**
-            *zipfile* : a valid zipfile name with full path
-        
+            
+            *zipfile* : a valid zipfile name with full path 
         """
-        self.createLog(zipfile)
-        logger = logging.getLogger(__name__)
+        
+        self.logger = self.createLog(zipfile)
+        self.logger = logging.getLogger(__name__)
         self.count_img += 1
       
         # Setting the handler
-        signal.signal(signal.SIGALRM, self.handler)
+        #signal.signal(signal.SIGALRM, self.handler)
         # A Zipfile that is ~100 MB takes about 15 min, but it gets much longer as file size increases
         if self.timeout !=0:
             #TODO - investigate the relationship between size and time (look at log and tif timestamps)
-            timeout = int(450*2.7**((self.timeout/1e9)*os.path.getsize(zipfile)))  
-            signal.alarm(timeout) 
+            timeout = int(450*2.7**((self.timeout/1e9)*os.path.getsize(zipfile)))
+            signal.alarm(timeout)
             
-        logger.info('Started processing image %s', zipfile)    
-
+                
+        self.logger.info('Started processing image %s', zipfile) 
+            
         try:
+            start_time = time.time()
             self.retrieve(zipfile)
-            logger.debug('image retrieved')
+            self.logger.debug('image retrieved')
             # Do clean-up
-                        
-        except Exception, e:
-            logger.error('Image failed %s, due to: %s', zipfile, e, exc_info=True)
-            logger.error("Image processing exception, moving to next image")
+                            
+        except Exception, e: #Normally Exception, e
+            self.logger.error('Image failed %s, due to: %s', zipfile, e, exc_info=True)
+            self.logger.error("Image processing exception, moving to next image")
             self.issueString += "\n\nERROR (exception): " + zipfile
             self.bad_img += 1
-        
+            
+            
+        end_time = time.time()
+        self.logger.info("Image Processing Time: " + str(int((end_time-start_time)/60)) + " Minutes " + str(int((end_time-start_time)%60)) + " Seconds")
         os.chdir(self.tmpDir)
         os.system("rm -r " +os.path.splitext(os.path.basename(zipfile))[0])
-        logger.debug('cleaned zip dir')
+        self.logger.debug('cleaned zip dir')
 
         good_img = self.count_img - self.bad_img
-        logger.info("%i images where successfully processed out of %i", good_img, self.count_img)
+        self.logger.info("%i images where successfully processed out of %i", good_img, self.count_img)
 
         if self.bad_img > 0:
             # Write the issue file
-            logger.error(self.issueString)
-
-
+            self.logger.error(self.issueString)
+          
     def proc_Dir(self, path, pattern):
         """
         Locates satelite image raw data files (zipfiles) using a
@@ -189,69 +191,94 @@ class SigLib:
         to process the data into image.
 
         **Parameters**
-            *path*  :   directory tree to scan
+            
+            *path*    : directory tree to scan
 
-            *pattern*   :   file pattern to discover
+            *pattern* : file pattern to discover
         """
-
-        self.createLog()
-        logger = logging.getLogger(__name__)
+            
+        self.logger = self.createLog()
+        self.logger = logging.getLogger(__name__)
         ziproots = []           # List of the zip files (dirpath + *.zip: '/xx/yy/zz/*.zip')
 
         # Returns a list 'ziproots' of the zip files with the specified path and pattern
         for dirpath, dirnames, filenames in os.walk(path):
             ziproots.extend(glob(os.path.join(dirpath,pattern)))
 
-        logger.info('Found %i files in %s matching pattern %s', len(ziproots), path, pattern)
+        self.logger.info('Found %i files in %s matching pattern %s', len(ziproots), path, pattern)
         ziproots.sort() # Nice to have this in some kind of order
         # Process every zipfile in ziproots 1 by 1
+        
         for zipfile in ziproots:
+            formatter = logging.Formatter('')        
+            self.loghandler.setFormatter(formatter)
+            self.logger.info('')
+            self.logger.info('')
+            self.logger.info('')
+            formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')         
+            self.loghandler.setFormatter(formatter)
+            
             self.count_img += 1
 
             # Setting the handler
-            signal.signal(signal.SIGALRM, self.handler)
+            #signal.signal(signal.SIGALRM, self.handler)
             # A Zipfile that is ~100 MB takes about 15 min, but it gets much longer as file size increases
+            
             if self.timeout !=0:
                 #TODO - investigate the relationship between size and time (look at log and tif timestamps)
-                timeout = int(450*2.7**((self.timeout/1e9)*os.path.getsize(zipfile)))  
-                signal.alarm(timeout) 
-
+                timeout = int(450*2.7**((self.timeout/1e9)*os.path.getsize(zipfile)))
+                signal.alarm(timeout)
+                
             try:
+                start_time = time.time()
                 self.retrieve(zipfile)
-                logger.debug('image retrieved') #TODO move to retrieve and return meaningful info. 
-            except Exception:
-                logger.error('Image failed %s', zipfile)
-                logger.error("Image processing exception, moving to next image")
+                self.logger.debug('image retrieved') #TODO move to retrieve and return meaningful info.
+            except Exception: #Normally Exception
+                self.logger.error('Image failed %s', zipfile)
+                self.logger.error("Image processing exception, moving to next image")
                 self.issueString += "\n\nERROR (exception): " + zipfile
                 self.bad_img += 1
+                        
 
             # Do clean-up
+            end_time = time.time()
+            self.logger.info("Image Processing Time: " + str(int((end_time-start_time)/60)) + " Minutes " + str(int((end_time-start_time)%60)) + " Seconds")
             os.chdir(self.tmpDir)
             os.system("rm -r " +os.path.splitext(os.path.basename(zipfile))[0])
-            logger.debug('cleaned zip dir')
+            self.logger.debug('cleaned zip dir')
 
         good_img = self.count_img - self.bad_img
-        logger.info("%i images where successfully processed out of %i", good_img, self.count_img)
+        self.logger.info("%i images where successfully processed out of %i", good_img, self.count_img)
 
         if self.bad_img > 0:
             # Write the issue file
-            logger.error(self.issueString)
+            self.logger.error(self.issueString)
+        
+        self.logger.handlers = []
+        logging.shutdown()
+        del sys.modules['Image']
+        del sys.modules['Metadata']
+        del sys.modules['Database']
+        del sys.modules['Util']
 
     def retrieve(self, zipfile):
         """
-        given a zip file name this function will..... find out what satellite it is, unzip it, ...
+        Given a zip file name this function will: find out what satellite it is, unzip it, get instance of metadata, then 
+        dependant on the config, save metadata in a file and/or one of the following: Process to image or process to database.
+        
+        **Parameters**
+            
+            *zipfile* : A valid zipfile name with full extention
         """
-        logger = logging.getLogger(__name__)    
         
         # Verify if zipfile has its own subdirectory before unzipping
         unzipdir, granule, nested = Util.getZipRoot(os.path.join(self.scanDir,zipfile), self.tmpDir)
-        logger.debug("Zipfile %s will unzip to %s. Granule is %s and Nested is %s", zipfile, unzipdir, granule, nested)        
+        self.logger.debug("Zipfile %s will unzip to %s. Granule is %s and Nested is %s", zipfile, unzipdir, granule, nested)        
         # Unzip the zip file into the unzip directory
         Util.unZip(zipfile, unzipdir)
-        logger.debug("Unzip ok")
+        self.logger.debug("Unzip ok")
 
         zipname, ext = os.path.splitext(os.path.basename(zipfile))
-        logger.info('Zipname: %s', zipname)
         
         if unzipdir == self.tmpDir:      # If files have been unzipped in their own subdirectory
             unzipdir = os.path.join(self.tmpDir, granule)    # Then correct the name of unzipdir
@@ -259,45 +286,60 @@ class SigLib:
                 unzipdir = os.path.join(unzipdir, granule)    # Then correct the name of unzipdir
 
         # Parse zipfile
-        fname, imgname, sattype = Util.getFilename(granule, unzipdir)
+        fname, imgname, sattype = Util.getFilename(granule, unzipdir, self.loghandler)
 
-        logger.info("granule:  %s", granule)
-        logger.info("sat type:  %s", sattype)
+        formatter = logging.Formatter('')        
+        self.loghandler.setFormatter(formatter)
+        self.logger.info('\n' + 'Zipname: %s', zipname)
+        self.logger.info('Imgname: %s', imgname)
+        self.logger.info("granule:  %s", granule)
+        self.logger.info("sat type:  %s", sattype + '\n')
+        formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')         
+        self.loghandler.setFormatter(formatter)
 
         if fname == "error":
-            logger.error("File not valid or available, moving to next file")
+            self.logger.error("File not valid or available, moving to next file")
             self.issueString += "\n\nERROR (retrieve): " + zipfile    # Take note
             self.bad_img += 1
 
         else:#begin processing data ...
-            sar_meta = Metadata(granule, imgname, unzipdir, zipfile, sattype)   # Retrieve metadata
+            sar_meta = Metadata(granule, imgname, unzipdir, zipfile, sattype, self.loghandler)   # Retrieve metadata          
         
             if sar_meta.status != "ok":       # Meta class unsuccessful
-                logger.error("Creating an instance of the meta class failed, moving to next image")
+                self.logger.error("Creating an instance of the meta class failed, moving to next image")
                 self.bad_img += 1
                 self.issueString += "\n\nERROR (meta class): " + zipfile
+            
+            else:
+                formatter = logging.Formatter('')        
+                self.loghandler.setFormatter(formatter)
+                self.logger.info('\n' + 'Dimgname: %s', sar_meta.dimgname + '\n')
+                formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')         
+                self.loghandler.setFormatter(formatter)
 
             if self.saveMeta:
                 sar_meta.saveMetaFile(self.imgDir)
                         
             if self.processData2db == "1":
                 db = Database(self.dbName, host=self.dbHost)  # Connect to the database
-                self.data2db(sar_meta, db)
+                self.data2db(sar_meta, db, zipfile)
+                db.removeHandler()
 
             if self.processData2img == "1":
-                logger.debug("processing data to image")
-                self.data2img(fname, imgname, zipname, sattype, granule, zipfile, unzipdir)
-
-
-    def data2db(self, meta, db):
+                self.logger.debug("processing data to image")
+                sar_meta.removeHandler()
+                self.data2img(fname, imgname, zipname, sattype, granule, zipfile, sar_meta, unzipdir)
+            
+    def data2db(self, meta, db, zipfile):
         """
         Adds the image file metadata to tblmetadata table in the specified database.
         Will create/overwrite the table tblmetadata if prompted (be carefull)
 
         **Parameters**
+            
             *meta* :   A metadata instance from Metadata.py
-        
-            *db*    :   database connection
+
+            *db*   :   database connection            
         """
 
         if meta.status == "ok":
@@ -305,94 +347,90 @@ class SigLib:
             db.meta2db(meta_dict)       # Upload metadata to database
           
         else:
-            print "Creating an instance of the meta class failed, moving to next file"
+            self.logger.error("Creating an instance of the meta class failed, moving to next file")
             self.bad_img += 1
             self.issueString += "\n\nERROR (Metadata): " + zipfile
 
         return
 
-
-    def data2img(self, fname, imgname, zipname, sattype, granule, zipfile, unzipdir):
+    def data2img(self, fname, imgname, zipname, sattype, granule, zipfile, sar_meta, unzipdir):
         """
         Opens an image file and converts it to the format given in the config file
 
         **Parameters**
-            *fname* :   image filename (i.e. R1_980705_114117.img OR product.xml)
-            *imgname*   :   image name (i.e. R1_980705_114117)
-            *zipname*   :  zipname
-            *sattype*   :   satelite platform
-            *granule*   :   granule name
-            *zipfile*   :   zipfile
-            *unzipdir*  :   unzip directory
             
+            *fname*    : image filename (i.e. R1_980705_114117.img OR product.xml)
+
+            *imgname*  : image name (i.e. R1_980705_114117)
+
+            *zipname*  : zipname
+
+            *sattype*  : satelite platform
+
+            *granule*  : granule name
+
+            *zipfile*  : zipfile
+
+            *unzipdir* : unzip directory      
         """
-        logger = logging.getLogger(__name__)
-
-        #TODO remove from here and pass a metadata instance to this function. 
-        sar_meta = Metadata(granule, imgname, unzipdir, zipfile, sattype)   # Retrieve metadata
         
-        if sar_meta.status != "ok":       # Meta class unsuccessful
-            logger.error("Creating an instance of the meta class failed, moving to next image")
+        # Change working directories so that processed image can be stored in imgDir
+        os.chdir(self.imgDir)
+        
+        # Process the image
+        sar_img = Image(fname, unzipdir, sar_meta, self.imgType, self.imgFormat, zipname, self.loghandler)
+        
+        if sar_img.status == "error":
+            self.logger.error("Image could not be opened or manipulated, moving to next image")
+            os.remove(sar_img.tifname)
+            self.issueString += "\n\nERROR (image processing): " + zipfile
             self.bad_img += 1
-            self.issueString += "\n\nERROR (meta class): " + zipfile
-
         else:
-            logger.debug('Metadata ok')
-            # Change working directories so that processed image can be stored in imgDir
-            os.chdir(self.imgDir)
-            
-            # Process the image
-            sar_img = Image(fname, unzipdir, sar_meta, self.imgType, self.imgFormat, zipname)
-
-            if sar_img.status == "error":
-                logger.error("Image could not be opened or manipulated, moving to next image")
-                os.remove(sar_img.tifname)
-                self.issueString += "\n\nERROR (image processing): " + zipfile
-                self.bad_img += 1
+            self.logger.debug('Image read ok')
+            if self.imgType == 'amp':
+                ok = sar_img.projectImg(self.proj, self.projDir, resample='bilinear')
+            else:  # no smoothing for quantitative images
+                ok = sar_img.projectImg(self.proj, self.projDir, resample='near')
+            #pdb.set_trace()
+            if ok != 0: # trap errors here
+                self.logger.error('ERROR: Issue with projection... will stop projecting this img')
+                self.issueString += "\n\nWARNING (image projection): " + zipfile
+                #sar_img.cleanFiles(['proj'])
             else:
-                logger.debug('Image read ok')
-                if self.imgType == 'amp':
-                    ok = sar_img.projectImg(self.proj, self.projDir, resample='bilinear')
-                else:  # no smoothing for quantitative images
-                    ok = sar_img.projectImg(self.proj, self.projDir, resample='near')
-                #pdb.set_trace()
-                if ok != 0: # trap errors here
-                    logger.error('ERROR: Issue with projection... will stop projecting this img')
-                    self.issueString += "\n\nWARNING (image projection): " + zipfile
-                    #sar_img.cleanFiles(['proj'])
-                else:
-                    logger.debug('Image projected ok')
-                    if self.crop is not "":
-                        logger.debug('Image crop')
-                        sar_img.cropImg([tuple(map(float, self.crop.split(" "))[:2]), \
-                            tuple(map(float, self.crop.split(" "))[2:])], 'crop')
-                        logger.debug('Image crop done')    
-                    try: 
-                        sar_img.vrt2RealImg()
-                        logger.debug('Image convert vrt to real ok')
-                    except:
-                        logger.error("Issue converting from vrt to real image")
-                        self.issueString += "\n\nWARNING (vrt2real): " + zipfile
-                        self.bad_img += 1
-                    #TODO  #mask here...
-                    # For removing data: sar_img.maskImg(mask, vectdir, 'inside', imgType) #mask the coastline
-                    # For retaining data: 
-                    #              maskwkt = dbImg.qryMaskZone(zipname, roi, spatialrel, proj, inst)
-                    #                ingestutil.wkt2shp('instmask', vectdir, proj, projdir, maskwkt)
-                    #                sar_img.maskImg('instmask', vectdir, 'outside', imgType)
-                    #sar_img.reduceImg(2,2)                    
-                    stats = sar_img.getImgStats()
-                    #logger.debug('Image statistics retreived: %s', stats)  #TODO - hook this up, need to mind the data type
-                    sar_img.applyStretch(stats, procedure='std', sd=3, sep='sep')
-                    logger.debug('Image stretch ok')
-                    sar_img.makePyramids()
-                    logger.debug('Image pyramid ok')
+                self.logger.debug('Image projected ok')
+                if self.crop is not "":
+                    self.logger.debug('Image crop')
+                    sar_img.cropImg([tuple(map(float, self.crop.split(" "))[:2]), \
+                        tuple(map(float, self.crop.split(" "))[2:])], 'crop')
+                    self.logger.debug('Image crop done')    
+                try: 
+                    sar_img.vrt2RealImg()
+                    self.logger.debug('Image convert vrt to real ok')
+                except:
+                    self.logger.error("Issue converting from vrt to real image")
+                    self.issueString += "\n\nWARNING (vrt2real): " + zipfile
+                    self.bad_img += 1
+                    
+                #TODO  #mask here...
+                # For removing data: sar_img.maskImg(mask, vectdir, 'inside', imgType) #mask the coastline
+                # For retaining data: 
+                #              maskwkt = dbImg.qryMaskZone(zipname, roi, spatialrel, proj, inst)
+                #                ingestutil.wkt2shp('instmask', vectdir, proj, projdir, maskwkt)
+                #                sar_img.maskImg('instmask', vectdir, 'outside', imgType)
+                #sar_img.reduceImg(2,2)                    
+                stats = sar_img.getImgStats()
+                #logger.debug('Image statistics retreived: %s', stats)  #TODO - hook this up, need to mind the data type
+                sar_img.applyStretch(stats, procedure='std', sd=3, sep='sep')
+                self.logger.debug('Image stretch ok')
+                sar_img.makePyramids()
+                self.logger.debug('Image pyramid ok')
 
-                sar_img.cleanFiles(levels=['nil','proj','crop']) 
-                logger.debug('Intermediate file cleanup done')
+            sar_img.cleanFiles(levels=['nil','proj','crop']) 
+            self.logger.debug('Intermediate file cleanup done')
+            sar_img.removeHandler()
+            sar_meta.removeHandler()
 
-
-    def run(self):
+    def run(self):      
         if self.create_tblmetadata == "1":
             ans = raw_input("Confirm you want to create/overwrite tblMetadata? Y/N")
             if ans.lower == 'y':
@@ -406,7 +444,6 @@ class SigLib:
         else:
             print "\nPlease specify one method to scan the data in the config file.\n"
 
-
-if __name__ == "__main__":
-    
+if __name__ == "__main__":   
     SigLib().run()
+    

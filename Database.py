@@ -15,6 +15,8 @@ Tables of note include:
 **tblArchive** - a copy of the metadata from the CIS image archive
 
 Other tables could contain data from drifting beacons or other data
+
+**Modified on** 23 May 14:43:40 2018 **@reason:** Added logging functionality **@author:** Cameron Fitzpatrick
 """
 
 import psycopg2
@@ -34,50 +36,67 @@ import glob
 import getpass
 import pandas as pd
 import pdb
+import logging
 
 class Database:
     """
     This is the Database class for each database connection.
-    """
     
-    def __init__(self, dbname, user=None, password=None, port='5432', host='localhost'):
-        """
-        Creates a connection to the specified database.  You can connect as a specific user or 
-        default to your own username, which assumes you have priviledges and a password stored in your  ~/.pgpass file
+    Creates a connection to the specified database.  You can connect as a specific user or 
+        default to your own username, which assumes you have privileges and a password stored in your  ~/.pgpass file
         
         Note: if you have any issues with a bad query, send a rollback to the database to reset the connection.
         >>>>db.connection.rollback()
         
         **Parameters**
-            *dbname*    : database name
-                
-            *user*  :   user with sudo access on the specified databse (i.e. postgres user has sudo 
-                access to all databses), 
-            *password* : password to go with user
-                
-            *port*  :   server port (i.e. 5432)
-                
-            *host*  :   hostname (i.e. localhost)
-        """
+        
+            *dbname*   : database name 
+               
+            *user*     : user with sudo access on the specified databse (i.e. postgres user has sudo access to all databses)
+            
+            *password* : password to go with user  
+              
+            *port*     : server port (i.e. 5432) 
+               
+            *host*     : hostname (i.e. localhost)
+    """
+    
+    def __init__(self, dbname, user=None, password=None, port='5432', host='localhost', loghandler = None):
+        
+        if loghandler != None:
+            self.loghandler = loghandler             #Logging setup if loghandler sent, otherwise, all errors are printed
+            self.logger = logging.getLogger('Database')
+            self.logger.addHandler(loghandler)
+            
+            self.logger.setLevel(logging.DEBUG)
+        
         self.dbName = dbname
         self.port = port
         self.host = host
         self.user = user
-        self.password = password
+        self.password = "dbpass"
         
         if user == None:
-            print "Connecting to ", dbname, " with user ", getpass.getuser()
+            try:
+                self.logger.info("Connecting to ", dbname, " with user ", getpass.getuser())
+            except:
+                print "Connecting to ", dbname, " with user ", getpass.getuser()
             connectionSetUp = "dbname=" + dbname + " port=" + port + " host=" + host
-        else: 
-            print "Connecting to ", dbname, " with user ", user
+        else:
+            try:
+                self.logger.info("Connecting to ", dbname, " with user ", user)
+            except:
+                print "Connecting to ", dbname, " with user ", user
             connectionSetUp = "dbname=" + dbname + " user=" + user  + " password="+ password +" port=" + port + " host=" + host        
         self.connection = psycopg2.connect(connectionSetUp)
-
-        print "Connection successful"
+        try:
+            self.logger.info("Connection successful")
+        except:
+            print "Connection successful"
         
 
     
-    def meta2db(self, metaDict):
+    def meta2db(self, metaDict, overwrite=True):
         """
         Uploads image metadata to the database as discovered by the meta module.
         *meta* is a dictionary - no need to upload all the fields (some are not
@@ -89,7 +108,8 @@ class Database:
         
         
         **Parameters**
-            *metaDict*  : dictionnary containing the metadata
+        
+            *metaDict* : dictionnary containing the metadata
         """
         
         #First, look to see if granule or dimgname exists in tblmetadata
@@ -97,7 +117,8 @@ class Database:
             # in this case the previous file is overwritten (a bit of a time waster)
         ###sqlDel = '''DELETE FROM tblbanddata WHERE granule = %(granule)s
             ####OR dimgname = %(dimgname)s'''
-            
+        
+        sqlSel = '''SELECT FROM tblmetadata WHERE dimgname = %(dimgname)s'''
         sqlDel = '''DELETE FROM tblmetadata WHERE dimgname = %(dimgname)s'''
         
         #print "The dictionary is: ", metaDict        
@@ -119,13 +140,18 @@ class Database:
                     
         
         curs = self.connection.cursor()
-        
+        if not overwrite:
+            curs.execute(sqlSel, metaDict) #TODO
+            
         curs.execute(sqlDel, metaDict)
         curs.execute(sqlIns, metaDict)
         self.connection.commit()
-        
-        print "dimgname:    ", metaDict['dimgname'] ###
-        print "[Succesfuly added "+ metaDict['dimgname'] + " metadata into tblmetadata.]"   ###
+        try:
+            self.logger.info("dimgname:    ", metaDict['dimgname'])
+            self.logger.info("[Succesfuly added "+ metaDict['dimgname'] + " metadata into tblmetadata.]")
+        except:
+            print "dimgname:    ", metaDict['dimgname'] ###
+            print "[Succesfuly added "+ metaDict['dimgname'] + " metadata into tblmetadata.]"   ###
     
     def createTblMetadata(self):
         """
@@ -149,8 +175,7 @@ class Database:
         sql6 = 'looks_Az int, looks_Rg int, lutApplied varchar(50), antennaPointing varchar(10), orbit int, order_Az varchar(20), '
         sql7 = 'order_Rg varchar(20), passDirection varchar(20), sat_heading double precision, theta_far double precision, '
         sql8 = 'theta_near double precision, airtemp double precision, location character varying(300));'   
-        
-              
+                     
         
         createSql = sql1 + sql2 + sql3 + sql4 + sql5 + sql6 + sql7 + sql8
         curs.execute(createSql) #Create the table
@@ -163,8 +188,11 @@ class Database:
         srid4326Result = curs.fetchall()
         if len(srid4326Result) == 0:
             #TODO throw exception and exit at this point?  
-            # hard to imagine needing this, to be honest.  
-            print "The database does not have SRID 4326, adding this now" 
+            # hard to imagine needing this, to be honest.
+            try:
+                self.logger.debug("The database does not have SRID 4326, adding this now")
+            except:
+                print "The database does not have SRID 4326, adding this now" 
             srid4326Sql1 = '''INSERT into spatial_ref_sys (srid, auth_name, auth_srid, proj4text, srtext) values '''
             srid4326Sql2 = '''( 4326, 'sr-org', 14, '+proj=longlat +ellps=WGS84 +datum=WGS84 +no_defs ', 'GEOGCS["GCS_WGS_1984",DATUM'''
             srid4326Sql3 ='''["WGS_1984",SPHEROID["WGS_1984",6378137,298.257223563]],PRIMEM["Greenwich",0],UNIT["Degree",0.017453292519943295]]');'''     
@@ -185,11 +213,11 @@ class Database:
         curs.execute(alterSql)
         curs.execute(indexSql)
         self.connection.commit()
+        try:
+            self.logger.info("tblmetadata created")
+        except:
+            print "tblmetadata created"
         
-        print "tblmetadata created"
-        
-        
-
     def updateFromArchive(self, archDir):
         """
         Goes to CIS Archive metadata shapefiles and (re)creates and updates tblArchive in the connected database
@@ -201,8 +229,8 @@ class Database:
         Can be extended to import from other archives (In the long term - PDC?)
         
         **Parameters**
-            *archDir*   : archive directory
-            
+        
+            *archDir* : archive directory           
         """
         
         #pdb.set_trace()
@@ -235,12 +263,21 @@ class Database:
             try:
                 ok = os.system(cmd) 
                 if ok == 0: 
-                    print "added shapefile %s." % shpname
+                    try:
+                        self.logger.info("added shapefile %s." % shpname)
+                    except:
+                        print "added shapefile %s." % shpname
                 else: 
-                    print "Problem with shapefile %s." % shpname
+                    try:   
+                        self.logger.error("Problem with shapefile %s." % shpname)
+                    except:
+                        print "Problem with shapefile %s." % shpname
                 create="NO"
             except:
-                print "Problem with shapefile %s." % shpname           
+                try:
+                    self.logger.error("Problem with shapefile %s." % shpname)
+                except:
+                    print "Problem with shapefile %s." % shpname           
             
         qryAlt = """ALTER TABLE tblArchive ALTER COLUMN \"valid time\"
                 TYPE TIMESTAMP USING CAST (\"valid time\" AS timestamp);"""
@@ -261,9 +298,10 @@ class Database:
         self.connection.commit()
         curs.execute(qryCountAllImgs)
         n_imgs = curs.fetchall()
-        print "tblArchive updated with " + str(n_imgs[0][0]) + " SAR images"
-     
-      
+        try:
+            self.logger.info("tblArchive updated with " + str(n_imgs[0][0]) + " SAR images")
+        except:
+            print "tblArchive updated with " + str(n_imgs[0][0]) + " SAR images"     
         
     def qryGetInstances(self, granule, roi, spatialrel, proj):
         """
@@ -271,16 +309,18 @@ class Database:
         associated spatially in the relational table.
         
         **Parameters**
-            *granule*   :   granule name
+        
+            *granule*    : granule name 
+            
+            *roi*        : region of interest file 
+               
+            *spatialrel* : spatial relationhip (i.e. ST_Contains or ST_Intersect)
                 
-            *roi*   :   region of interest file
-                
-            *spatialrel*    :   spatial relationhip (i.e. ST_Contains or ST_Intersect)
-                
-            *proj*  :   projection name
+            *proj*       : projection name
                 
         **Returns**
-            *instances* :   instances id (unique for entire project, i.e. 5-digit string)
+        
+            *instances*  : instances id (unique for entire project, i.e. 5-digit string)
         """
     
         #trelname = self.nameTable(roi, spatialrel)
@@ -310,12 +350,14 @@ class Database:
         Automatically gives a name to a relational table
         
         **Parameters**
-            *roi*   :   region of interest
-                
-            *spatialrel*    :   spatial relationship (i.e. ST_Contains or ST_Intersect)
-                
+        
+            *roi*        : region of interest 
+            
+            *spatialrel* : spatial relationship (i.e. ST_Contains or ST_Intersect)
+                            
         **Returns**
-            *name*   :  name of the table
+        
+            *name*       : name of the table
         """
         
         if spatialrel == 'ST_Intersects':
@@ -327,7 +369,7 @@ class Database:
         
         return name
         
-    def updateROI(self, inFile, path, proj):
+    def updateROI(self, inFile, path, proj, ogr=False):   #Where are these required and optional fields?
         """
         This function will update an ROI (Region Of Interest) table in the database. It has a prescribed format
         It will take the shapefile named inFile and update the database with the info
@@ -337,35 +379,33 @@ class Database:
         The generated table will include a column *inst* - a unique identifier created by 
         concatenating obj and instid
 
-
-
         **Parameters**
-            *inFile*    :  basename of a shapefile (becomes an roi table name too)
+        
+            *inFile*   : basename of a shapefile (becomes an roi table name too)
             
-            *path*  :   full path to inFile
+            *path*     : full path to inFile
                 
-            *proj*  :   projection name
+            *proj*     : projection name
            
         **Required**
-            obj, inst, fromdate, todate 
-
-            *obj* - the id or name of an object/polygon that defines a region of interest. Very systematic, no spaces.
+        
+            *obj*      - the id or name of an object/polygon that defines a region of interest. Very systematic, no spaces. 
             
-            *instid* - a number to distinguish repetitions of each obj in time or space.  For example an ROI that occurs several summers would have several instids.
+            *instid*   - a number to distinguish repetitions of each obj in time or space.  For example an ROI that occurs several summers would have several instids.            
             
-            *fromdate* - a valid iso time denoting the start of the ROI - can be blank if imgref is used
+            *fromdate* - a valid iso time denoting the start of the ROI - can be blank if imgref is used            
             
-            *todate* - a valid iso time denoting the start of the ROI - can be blank if imgref is used
+            *todate*   - a valid iso time denoting the start of the ROI - can be blank if imgref is used
    
         **Optional**
-            *imgref* - a reference image dimage name (for a given ROI) - this can be provided in place of datefrom and dateto
-                                 
-            *name* - a name for each obj (Area51_1950s, Target7, Ayles)
             
-            *comment* - a comment field
+            *imgref*   - a reference image dimage name (for a given ROI) - this can be provided in place of datefrom and dateto                                 
             
-            Any other field can be added... 
+            *name*     - a name for each obj (Area51_1950s, Target7, Ayles)            
             
+            *comment*  - a comment field
+            
+            Any other field can be added...            
         """
     
         srid = self.dbProj(proj) 
@@ -373,22 +413,32 @@ class Database:
         
         #pdb.set_trace()
         #Create / recreate the table in the database
+        if ogr:
+            
+            cmd = "ogr2ogr --config PG_USE_COPY YES -f PGDump "\
+                +"-lco GEOMETRY_NAME=geom -lco DROP_TABLE=IF_EXISTS -lco SRID="\
+                + str(srid) + " /vsistdout/ " + inFile +".shp "+ inFile +  \
+                " | psql -h "+self.host+" -d "+self.dbName+" -f -"
+        else:
+            #Note there is another way to do this step using psql utilities.
+            # pay attention to mulitpolygon vs polygon.  -S may be helpful 
+            cmd = 'shp2pgsql -D -d -I -s '+ str(srid) +" "+ inFile +".shp "\
+            + " | psql -h "+self.host+" -d "+self.dbName+" -f -"
         
-        cmd = "ogr2ogr --config PG_USE_COPY YES -f PGDump "\
-            +"-lco GEOMETRY_NAME=geom -lco DROP_TABLE=IF_EXISTS -lco SRID="\
-            + str(srid) + " /vsistdout/ " + inFile +".shp "+ inFile +  \
-            " | psql -h "+self.host+" -d "+self.dbName+" -f -"
+
         ok = os.system(cmd)
 
-        #Note there is another way to do this step using psql utilities.   
-        #cmdpth1 = 'shp2pgsql.bin -D -c -I -S -s 96718 ' + 
-        #cmdpth2 = ' tblArchive complete | psql -d complete -U postgres -w'
-        #cmd1 = cmdpth1 + os.path.join(archdir, rsat2_shp) + cmdpth2
         
         if ok == 0:
-            print "added shapefile %s." % inFile
+            try:
+                self.logger.info("added shapefile %s." % inFile)
+            except:
+                print "added shapefile %s." % inFile
         else: 
-            print "Problem with shapefile %s." % inFile
+            try:
+                self.logger.error("Problem with shapefile %s." % inFile)
+            except:
+                print "Problem with shapefile %s." % inFile
             return
     
         # can't be done in a transaction  qryClean = """VACUUM ANALYZE;"""
@@ -418,20 +468,23 @@ class Database:
         qryCastDate = 'ALTER TABLE ' + outTable + ' ALTER COLUMN FromDate TYPE '+ \
                     'TIMESTAMP USING CAST (FromDate AS timestamp), ' + \
                     'ALTER COLUMN ToDate TYPE TIMESTAMP USING CAST (ToDate AS timestamp);'
-    
-        curs = self.connection.cursor()
-    
-        #print qryCountAllPoly
+                    
+                    
         try:
+            curs = self.connection.cursor()
             curs.execute(qryCountAllPoly)
             n_rows = curs.fetchall()
             curs.execute(qryCheckFieldExists)
             field = curs.fetchall()
             
         except:
-            print "Can't query the database"
+            try:
+                self.logger.error("Can't query the database")
+            except:
+                print "Can't query the database"
+               
+        #curs.execute(qryNewColInst)
             
-        curs.execute(qryNewColInst)
         curs.execute(qryUpdateInstField)      
         curs.execute(qryLongerDate)
         #pdb.set_trace()
@@ -446,19 +499,22 @@ class Database:
         curs.execute(qryKey2)
         self.connection.commit()
         
-        print "Database updated with " + str(n_rows[0][0]) + " ROI polygons"
-        
-        
+        try:
+            self.logger.info("Database updated with " + str(n_rows[0][0]) + " ROI polygons")
+        except:
+            print "Database updated with " + str(n_rows[0][0]) + " ROI polygons"
         
     def dbProj(self, proj):
         """
         Relates *proj* the name (ie. proj.wkt) to *proj* the number (i.e. srid #).
-        
+        from Metadata import Metadata
         **Parameters**
-            *proj*  :   projection name
+            
+            *proj* : projection name
                 
         **Returns**
-            *srid*  :   spatial reference id number of that projection
+            
+            *srid* : spatial reference id number of that projection
         """
     
         if proj == 'wgs84' or proj == 'nil':
@@ -468,10 +524,12 @@ class Database:
         elif proj == 'lcc' or proj == 'cis_lcc':
             srid = 96718
         else:
-            print 'srid not yet defined... update database table'
+            try:
+                self.logger.error('srid not yet defined... update database table')
+            except:
+                print 'srid not yet defined... update database table'
             srid = None
-        return srid
-        
+        return srid        
 
     def qryFromText(self, sql, output=False):
         """
@@ -483,12 +541,16 @@ class Database:
         you can format the SQL nicely with an online tool - like SQLinForm
         
         **Parameters**
-            *sql*  :   the sql text that you want to send
+            
+            *sql*    : the sql text that you want to send
+            
             *output* : make true if you expect/want the query to return results
             
         **Returns**
-            The result of the query as a tupple containing a numpy array and the column names as a list (if requested and available)
+           
+           The result of the query as a tupple containing a numpy array and the column names as a list (if requested and available)
         """
+        
         #pdb.set_trace()
         curs = self.connection.cursor()
         try:
@@ -496,21 +558,36 @@ class Database:
             if output:
                 rows = curs.fetchall()
                 colnames = [desc[0] for desc in curs.description]
+                
         except ValueError, e:
-            print 'ERROR(value): Confirm that the values sent or retrieved are as expected--> ' +str(e)
-            self.connection.rollback()
+            try:
+                self.logger.error('ERROR(value): Confirm that the values sent or retrieved are as expected--> ' +str(e))
+            except:
+                print 'ERROR(value): Confirm that the values sent or retrieved are as expected--> ' +str(e)
+            self.connection.rollback() #from Metadata import Metadatalback()
+            
         except psycopg2.ProgrammingError, e:
-            print 'ERROR(programming): Confirm the SQL statement is valid--> ' +str(e)
+            try:
+                self.logger.error('ERROR(programming): Confirm the SQL statement is valid--> ' +str(e))
+            except:
+                print 'ERROR(programming): Confirm the SQL statement is valid--> ' +str(e)
             self.connection.rollback()
+            
         except StandardError, e:
-            print 'ERROR(standard): ' +str(e)    
+            try:
+                self.logger.error('ERROR(standard): ' +str(e))
+            except:
+                print 'ERROR(standard): ' +str(e)    
             self.connection.rollback()
+            
         else:
             self.connection.commit()
-            print 'Query sent successfully'
+            try:
+                self.logger.debug('Query sent successfully')
+            except:
+                print 'Query sent successfully'
             if output:
-                return(numpy.asarray(rows), colnames)
-        
+                return(numpy.asarray(rows), colnames)       
         
     def qryFromFile(self, fname, path, output=False):
         """
@@ -521,8 +598,11 @@ class Database:
         used by psycopg2
         
         **Parameters**
-            *fname* :   file name (don't put the sql extension, it's assumed)
-            *path*  :   full path to fname
+            
+            *fname*  : file name (don't put the sql extension, it's assumed)
+
+            *path*   : full path to fname
+
             *output* : make true if you expect/want the query to return results
         """
         
@@ -532,9 +612,7 @@ class Database:
         sql = fp.read()
         data = self.qryFromText(sql, output)
         if output:
-            return(data)
-  
-        
+            return(data)       
             
     def qrySelectFromArchive(self, roi, spatialrel, proj):
         """
@@ -542,31 +620,32 @@ class Database:
         from start (str that looks like iso date) to end (same format).
         
         Eventually include criteria:
-            subtype - a single satellite name: ALOS_AR, RADAR_AR, RSAT2_AR (or ANY)
-            
+            subtype - a single satellite name: ALOS_AR, RADAR_AR, RSAT2_AR (or ANY)        
             beam - a beam mode
     
         comes back with - a list of images+inst - the bounding box
         
         **Parameters**
-            *roi*   :   region of interest table in the database
-                
-            *spatialrel*    :   spatial relationship (i.e. ST_Contains or ST_Intersect)
-                
-            *proj*  :   projection name
+            
+            *roi*        : region of interest table in the database                
+
+            *spatialrel* : spatial relationship (i.e. ST_Contains or ST_Intersect)                
+
+            *proj*       : projection name
                 
         **Returns**
-            *copylist*  :   a list of image catalog ids
-                
-            *instimg*   :   a list of each instance and the images that correspond
+
+            *copylist* : a list of image catalog ids                
+
+            *instimg*  : a list of each instance and the images that correspond
         """
+        
         #pdb.set_trace()
         tblROI = roi
     
         assert spatialrel.lower() == 'st_contains' or spatialrel.lower() == 'st_intersects'
        
-        curs = self.connection.cursor()
-        
+        curs = self.connection.cursor()       
 
         curs.execute('SELECT inst, fromdate, todate FROM ' + tblROI + ';')
         
@@ -614,7 +693,10 @@ class Database:
             rows = curs.fetchall()
     
             #Changed to instid
-            print "Found ", len(rows), " images associated with instance number " + inst
+            try:
+                self.logger.debug("Found ", len(rows), " images associated with instance number " + inst)
+            except:
+                print "Found ", len(rows), " images associated with instance number " + inst
         
             for i in range(len(rows)):
     
@@ -648,18 +730,16 @@ class Database:
         Refresh - Adds new data (leaves the old stuff intact)
         
         **Parameters**
-            *roi*   :   region of interest table
-                
-            *spatialrel*    :   spatial relationship (i.e. ST_Contains or ST_Intersect)
-                
-            *instimg*  :    a list of only images of that instance id
-                
-            *copylist*  :   a list of images + inst
-                
-            *mode*  :   create or refresh mode
-                
-        **Returns**
-          
+            
+            *roi*        : region of interest table                
+
+            *spatialrel* : spatial relationship (i.e. ST_Contains or ST_Intersect)                
+
+            *instimg*    : a list of only images of that instance id                
+
+            *copylist*   : a list of images + inst                
+
+            *mode*       : create or refresh mode
         """
         
         name = self.nameTable(roi, spatialrel)
@@ -693,17 +773,22 @@ class Database:
           (%(inst)s, %(granule)s)""", instimg)
         self.connection.commit()
         
-        print "Uploaded new data to " + name
+        try:
+            self.logger.info("Uploaded new data to " + name)
+        except:
+            print "Uploaded new data to " + name
 
     def instimgExport(self, instimg, fname):
         """
         Saves the instimg listing as a csv file named fname.csv in the current dir.
 
         **Parameters**
-            *instimg*   :  a list of images and where they cover 
-                
-            *fname*    :    filename to write to
-        """   
+           
+           *instimg* : a list of images and where they cover                 
+
+            *fname*   : filename to write to
+        """  
+        
         tmp = pd.DataFrame.from_dict(instimg)
         for col in tmp.columns:
             if tmp[col].dtype == 'O' or tmp[col].dtype == 'S':
@@ -716,10 +801,12 @@ class Database:
         Saves the copylist as a text file named fname.txt in the current dir.
 
         **Parameters**
-            *copylist*   :  a list of images - catalog ids or files
-                
-            *fname*    :    filename to write copylist to
+           
+           *copylist* : a list of images - catalog ids or files               
+
+            *fname*    : filename to write copylist to
         """
+        
         fout = open(fname+".txt", 'w')
     
         for line in copylist:
@@ -732,10 +819,12 @@ class Database:
         Reads the copylist text file named fname.txt in the current dir.
         
         **Parameters**
-            *fname* :   filename to read copylist from
+           
+           *fname*        : filename to read copylist from
                 
         **Returns**
-            *new_copylist*  :   a list of images + inst
+            
+            *new_copylist* : a list of images + inst
         """
         
         new_copylist = []
@@ -745,9 +834,7 @@ class Database:
             new_copylist.append(line.rstrip('\n'))
         
         fp.close()
-        return new_copylist
-    
-    
+        return new_copylist  
     
     def copyfiles(self, copylist, wrkdir):
         """
@@ -755,25 +842,35 @@ class Database:
         drive mapping is correct (above).
         
         **Parameters**
-            *copylist*  :   a list of images + inst
-                
-            *wrkdir*    :   working directory
+            
+            *copylist* : a list of images + inst             
+
+            *wrkdir*   : working directory
         """
         
         for fname in copylist:
             destination = os.path.join(wrkdir,os.path.split(fname)[1])
             if not os.path.isfile(fname):
-                print fname + ' does not exist'
+                try:
+                    self.logger.error(fname + ' does not exist')
+                except:
+                    print fname + ' does not exist'
                 continue        
             if os.path.isfile(destination):
-                print destination + " exists already and will not be copied"
+                try:
+                    self.logger.debug(destination + " exists already and will not be copied")
+                except:
+                    print destination + " exists already and will not be copied"
             else:
                 shutil.copy(fname,wrkdir)
-                print "Copied File " + fname
-    
-        print "Finished File Copy"
-        
-        
+                try:
+                    self.logger.debug("Copied File " + fname)
+                except:
+                    print "Copied File " + fname
+        try:
+            self.logger.info("Finished File Copy")
+        except:
+            print "Finished File Copy"
         
     def qrySelectFromLocal(self, roi, spatialrel, proj):
         """
@@ -781,25 +878,29 @@ class Database:
         from start (str that looks like iso date) to end (same format).
         
         Eventually include criteria:
-            subtype - a single satellite name: ALOS_AR, RADAR_AR, RSAT2_AR (or ANY)
-            
-            beam - a beam mode
+        
+            subtype - a single satellite name: ALOS_AR, RADAR_AR, RSAT2_AR (or ANY)           
+           
+           beam - a beam mode
     
         comes back with - a list of images+inst - the bounding box
         
         **Parameters**
-            *roi* : region of interest
-                
-            *spatialrel*    :   spatial relationship (i.e. ST_Contains or ST_Intersect)
-                
-            *proj*  :   projection
+            
+            *roi*        : region of interest                
+
+            *spatialrel* : spatial relationship (i.e. ST_Contains or ST_Intersect)                
+
+            *proj*       : projection
                 
         **Returns**
-            *copylist*  :   a list of image names including full paths
-                
-            *instimg*   :   a list of the images and their corresponding instance ids
+           
+            *copylist*   : a list of image names including full paths                
+
+            *instimg*    : a list of the images and their corresponding instance ids
         """
-#TODO make this tblmetadata
+        
+        #TODO make this tblmetadata
         
         #tblROI = 'tbl'+roi
         tblROI = 'tblroi'
@@ -851,7 +952,10 @@ class Database:
             curs.execute(qry, param)
             rows = curs.fetchall()
            
-            print "Found ", len(rows), " images associated with instance number " + inst
+            try:
+                self.logger.debug("Found ", len(rows), " images associated with instance number " + inst)
+            except:
+                print "Found ", len(rows), " images associated with instance number " + inst
     
             for i in range(len(rows)):
     
@@ -882,7 +986,7 @@ class Database:
         #copylist.sort()
         #copylist.reverse()
         #print copylist
-    #print instimg
+        #print instimg
 
         return copyfiles, instimg
 
@@ -893,18 +997,20 @@ class Database:
         returns a crop ullr tupple pair in the projection given
         
         **Parameters**
-            *granule* : granule name
-                
-            *roi*   :   region of interest file
-                
-            *spatialrel*    :   spatial relationship (i.e. ST_Contains or ST_Intersect)
-                
-            *proj*  :   projection name
-                
-            *inst*  :   instance id (i.e. a 5-digit string)
+            
+            *granule*    : granule name                
+
+            *roi*        : region of interest file                
+
+            *spatialrel* : spatial relationship (i.e. ST_Contains or ST_Intersect)                
+
+            *proj*       : projection name                
+
+            *inst*       : instance id (i.e. a 5-digit string)
                 
         **Returns**
-            *ullr*  :   upper left, lower right tupple pair in the projection given
+            
+            *ullr*       : upper left, lower right tupple pair in the projection given
         """
         
         #tblroi = 'tbl'+roi
@@ -947,7 +1053,7 @@ class Database:
         
         #parse the text to get the pair of tupples
         bbtext = bbtext[0][0]  #slice the piece you need
-        print bbtext
+        #print bbtext
         
         if bbtext == 'GEOMETRYCOLLECTION EMPTY' or bbtext == None:
             ullr = 0
@@ -971,7 +1077,7 @@ class Database:
 
             #ullr = (ulx, uly), (lrx, lry)
             ullr  = (urx, ury), (llx, lly)
-            print ullr[0:2]
+            #print ullr[0:2]
 #==============================================================================
 #             ul = bbtext.split(',')[1]            
 #             lr = bbtext.split(',')[3]            
@@ -987,19 +1093,22 @@ class Database:
         returns gml text but also saves a file... mask.gml in the current dir
         
         **Parameters**
-            *granule* : granule name
-                
-            *roi*   :   region of interest file
-                
-            *spatialrel*    :   spatial relationship (i.e. ST_Contains or ST_Intersect)
-                
-            *proj*  :   projection name
-                
-            *inst*  :   instance id (i.e. a 5-digit string)
+            
+            *granule*    : granule name               
+
+            *roi*        : region of interest file                
+
+            *spatialrel* : spatial relationship (i.e. ST_Contains or ST_Intersect)                
+
+            *proj*       : projection name                
+
+            *inst*       : instance id (i.e. a 5-digit string)
                 
         **Returns**
+            
             *polytext*  :   gml text
         """
+        
         tblroi = 'tbl'+roi
         trelname = self.nameTable(roi, spatialrel)
         srid = self.dbProj(proj)
@@ -1041,19 +1150,20 @@ class Database:
         and send them to db as well
 
         **Parameters**
-            *imgData*   :
-                
-            *xSpacing*  :
-                
-            *ySpacing*  :
-                
-            *bandName*  :   
-                
-            *inst*  :   instance id (i.e. a 5-digit string)
-                
-            *dimgname*  :   Derek's image name
-                
-            *granule*   :   granule name
+            
+            *imgData*   :               
+
+            *xSpacing*  :                
+
+            *ySpacing*  :                
+
+            *bandName*  :                   
+
+            *inst*      : instance id (i.e. a 5-digit string)                
+
+            *dimgname*  : Derek's image name                
+
+            *granule*   : granule name
         """
         
         noDataVal = 0
@@ -1112,13 +1222,22 @@ class Database:
         try:
             curs.execute(sqlDel, upload)
         except:
-            print curs.query()
+            try:
+                self.logger.error(curs.query())
+            except:
+                print curs.query()
         try:
             curs.execute(sqlIns, upload)
         except: 
-            print curs.query()
+            try:
+                self.logger.error(curs.query())
+            except:
+                print curs.query()
         self.connection.commit()
-        print 'Image ' + bandName + ' data uploaded to database'
+        try:
+            self.logger.info('Image ' + bandName + ' data uploaded to database')
+        except:
+            print 'Image ' + bandName + ' data uploaded to database'
         
         
     def numpy2sql(self, numpyArray, dims):
@@ -1127,12 +1246,14 @@ class Database:
         Do not use with a string array! 
         
         **Parameters**
-            *numpyArray*    :   numpy array to convert
-                
-            *dims*  :   dimension (1 or 2)
+            
+            *numpyArray* : numpy array to convert                
+
+            *dims*       : dimension (1 or 2)
 
         **Returns**
-            *array_sql* :   an sql friendly array
+            
+            *array_sql*  : an sql friendly array
         """
         
         assert dims == 1 or dims == 2, 'Specify dimension of array - 1 or 2'
@@ -1164,12 +1285,14 @@ class Database:
         Defaults to float32
         
         **Parameters**
-            *sqlArray*  : an sql friendly array
-                
-            *dtype* :   default type (float32)
+            
+            *sqlArray* : an sql friendly array               
+
+            *dtype*    : default type (float32)
                 
         **Returns**
-            *list*  :   list containing the arrays
+            
+            *list*     : list containing the arrays
         """
         
         list = numpy.asarray(sqlArray, dtype=dtype) 
@@ -1182,33 +1305,36 @@ class Database:
         Assumes dbase postgis exists and that outTable does as well - this overwrites!
     
         **Parameters**
-            *inFile*    :    basename of a shapefile
             
-            *path*  :   full path to inFile
-                
-            *proj*  :   projection name
+            *inFile* : basename of a shapefile           
+
+            *path*   : full path to inFile               
+
+            *proj*   : projection name
             
         **Required**
-            name, inst, obj, type, fromdate, todate(optional)
             
-            fromdate - a valid time_start (ie it is here, when was it here?)
-            
-            todate - a valid time_end (ie it is here, when was it here?)
-            
-            inst - an instance id (unique for entire project) - Nominally a 5-digit string
+            name, inst, obj, type, fromdate, todate(optional)            
+
+            fromdate - a valid time_start (ie it is here, when was it here?)            
+
+            todate   - a valid time_end (ie it is here, when was it here?)            
+
+            inst     - an instance id (unique for entire project) - Nominally a 5-digit string
     
         **Optional**
-            refimg - a reference image name (ie how do you know it was here)
             
-            type - an ice type (ie ice island, ice shelf, mlsi, fyi, myi, epishelf, open water)
-            
-            subtype - an ice subtype (ie ice island could be iced firn, basement; open water could be calm, windy)
-            
-            comment - a comment field
-            
-            name - a name (Target7, Ayles)
-            
-            obj - an object id tag (to go with name but very systematic: 2342, and if it splits 2342_11 & 2342_12)
+            refimg   - a reference image name (ie how do you know it was here)           
+
+            type     - an ice type (ie ice island, ice shelf, mlsi, fyi, myi, epishelf, open water)            
+
+            subtype  - an ice subtype (ie ice island could be iced firn, basement; open water could be calm, windy)            
+
+            comment  - a comment field            
+
+            name     - a name (Target7, Ayles)            
+
+            obj      - an object id tag (to go with name but very systematic: 2342, and if it splits 2342_11 & 2342_12)
         """
     
         srid = self.dbProj(proj)
@@ -1231,8 +1357,7 @@ class Database:
                 cmdpth3 + cmdpth4
         os.system(cmd)
     
-
-        print "Done."
+        #print "Done."
         #print "Database updated with " + str(n_rows[0][0]) + " ROI polygons"
 
 
@@ -1242,18 +1367,20 @@ class Database:
         and returns a dictionary with all the requested attributes for the results that matched the query
         
         **Parameters**
-            *attributeList* :
-                
-            *roi*   :
-                
-            *spatialrel*    :
-                
-            *proj*  :
+            
+            *attributeList* :                
+
+            *roi*           :                
+
+            *spatialrel*    :                
+
+            *proj*          :
                 
         **Returns**
-            *copylist*  :
-                
-            *instimg*   :
+
+            *copylist*      :                
+
+            *instimg*       :
         """
         
         tblROI = 'tbl'+roi
@@ -1305,7 +1432,6 @@ class Database:
             sql8 =  tblROI+'.geom, %(srid)s)) '
             sql9 = """ORDER BY substring("granule", 1, 27), "granule" DESC"""
             qry = sql1 + sql2 + sql3 + sql4 + sql5 + sql6 + sql7 + sql8+ sql9
-
             
             
             inst = instances[i][0]
@@ -1324,11 +1450,12 @@ class Database:
             curs.execute(qry, param)
             rows = curs.fetchall()
             
-           
-            print "Found ", len(rows), " images associated with instance number " + inst
-            
-            
-    
+            try:
+                self.logger.debug("Found ", len(rows), " images associated with instance number " + inst)
+            except:
+                print "Found ", len(rows), " images associated with instance number " + inst
+        
+        
             for i in range(len(rows)):
     
                 #Add inst to the start of row [i]
@@ -1336,9 +1463,7 @@ class Database:
                 
                 #granule = rows[i][1]
                 #Get the location:
-                location= rows[i][2]
-
-                
+                location= rows[i][2]               
                 
                 instimg.append(dict(zip(dictAttributes, rowList)))
                 
@@ -1355,18 +1480,18 @@ class Database:
         
         return copylist, instimg
 
-
     def exportToCSV(self, qryOutput, outputName):
         """
         Given a dictionary of results from the database and a filename puts all the results
         into a csv with the filename outputName
         
         **Parameters**
-            *qryOutput*   : output from a query - needs to be a tupple - numpy data and list of column names
-                
-            *outputName*    : the file name
-                
+            
+            *qryOutput*  : output from a query - needs to be a tupple - numpy data and list of column names                
+
+            *outputName* : the file name             
         """
+        
         tmp = pd.DataFrame(qryOutput[0], columns=qryOutput[1])
         for col in tmp.columns:
             if tmp[col].dtype == 'O' or tmp[col].dtype == 'S':
@@ -1381,8 +1506,10 @@ class Database:
         inserts them into the database appending *beacon_* before the name
         
         **Parameters**
-            *dirName*   :
+           
+           *dirName* :
         """
+        
         os.chdir(dirName)        
         
         #Go through and get the names of all the shapefiles in the directory
@@ -1390,8 +1517,10 @@ class Database:
         
         for sFile in glob.glob("*.shp"):
             shapefiles.append(sFile)
-            
-        print "shape files are", shapefiles
+        try:
+            self.logger.info("shape files are", shapefiles)
+        except:
+            print "shape files are", shapefiles
         
         #issue with shp2pgsql use shp2pgsql.bin instead
         #cmdpth1 = 'shp2pgsql.bin'
@@ -1410,24 +1539,27 @@ class Database:
                     """ ALTER COLUMN gps_time TYPE TIMESTAMP USING CAST (gps_time AS timestamp);"""
                 self.qryFromText(qryAlt)
                 if ok == 0: 
-                    print "added shapefile %s." % shpname
-                else: 
-                    print "Problem with shapefile %s." % shpname                  
+                    try:
+                        self.logger.debug("added shapefile %s." % shpname)
+                    except:
+                        print "added shapefile %s." % shpname
+                else:
+                    try:
+                        self.logger.error("Problem with shapefile %s." % shpname)
+                    except:
+                        print "Problem with shapefile %s." % shpname                  
             except:
-                print "Problem with shapefile %s." % shpname           
-            
-             
-            
-            
-            
+                try:
+                    self.logger.error("Problem with shapefile %s." % shpname)
+                except:
+                    print "Problem with shapefile %s." % shpname           
  
     def bothArchiveandMetadata(self):
         """
         Finds all the results in both the archive and tblmetadata.
         """
-        sql1 = """SELECT granule, "file name", "beam mode", beam, satellite  """
-            
         
+        sql1 = """SELECT granule, "file name", "beam mode", beam, satellite  """
         sql2 = 'FROM tblmetadata, tblArchive '
         sql3 = 'WHERE '
         sql4 = """tblArchive."valid time" <= tblmetadata.acdatetime + interval '1 second'"""
@@ -1452,33 +1584,34 @@ class Database:
         self.connection.commit()    
    
         for entry in results:
-            
-            
-            print entry 
-            print entry['beam mode']
-            
-            
+            #print entry 
+            #print entry['beam mode']
+                        
             # now put the new data into the database
             curs.execute("""INSERT INTO """+'tblOverlap'+"""(granule, "file name", "beam mode", beam, satellite) VALUES
               (%s, %s, %s, %s, %s) """, (entry['granule'], entry['file name'], entry['beam mode'], entry['beam'], entry['satellite'])) 
             self.connection.commit()
             
-        
-        print "Uploaded new data to " + 'tblOverlap'
+        try:
+            self.logger.info("Uploaded new data to " + 'tblOverlap')
+        except:
+            print "Uploaded new data to " + 'tblOverlap'
         
         #print "the results are: ", results
-        
-        
+                
     def checkTblArchiveOverLapsTblMetadata(self, filename):
         """
         Check if a file name from tblArchive is in the overlap table.
         
         **Parameters**
-            *filename*  :
+            
+            *filename*   :
                 
         **Returns**
-            *dictionary*    :
+            
+            *dictionary* :
         """
+        
         curs = self.connection.cursor() 
         
         query = """SELECT granule FROM tblOverlap WHERE "file name" LIKE '""" + filename + "'"     
@@ -1510,19 +1643,25 @@ class Database:
                   
         return dictionary
         
-
     def alterTimestamp(self, shpTable):
         """
         Takes a shape file and converts the gps_time from character type to timestamp time.
         
         **Parameters**
-            *shpTable*  :
+            
+            *shpTable* :
         """
         
         sql1 = "ALTER TABLE " + shpTable + ' '
         sql2 = "ALTER COLUMN gps_time TYPE timestamp USING gps_time::timestamp"
         query = sql1 + sql2
-        print "query is" + query
+        try:
+            self.logger.debug("query is" + query)
+        except:
+            print "query is" + query
         curs = self.connection.cursor()
         curs.execute(query) 
         self.connection.commit()
+        
+    def removeHandler(self):
+        self.logger.handlers = []
