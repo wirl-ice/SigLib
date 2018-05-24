@@ -22,12 +22,12 @@
 
 
 \title{SigLib Documentation}
-\date{January 27, 2018}
-\release{2.6}
+\date{May 24, 2018}
+\release{2.7}
 \author{Derek Mueller, Sougal Bouh Ali, Cindy Lopes}
 \newcommand{\sphinxlogo}{}
 \renewcommand{\releasename}{Release}
-\setcounter{tocdepth}{1}
+
 \makeindex
 
 \makeatletter
@@ -718,16 +718,6 @@ add proper logging to replace print statements AND standardize error
 trapping and handling
 \begin{enumerate}
 \item {} 
-Add both the zipfile and dimgname to the log
-
-\item {} 
-Need a marker at the start and end of each file logger.info...
-
-\item {} 
-Must work across all modules -eg
-\href{https://fangpenlin.com/posts/2012/08/26/good-logging-practice-in-python/}{https://fangpenlin.com/posts/2012/08/26/good-logging-practice-in-python/}
-
-\item {} 
 capture stdout and stderr from spawned processes
 
 \item {} 
@@ -853,10 +843,168 @@ pandoc -s -S -f mediawiki intro.wik -t rst -o intro.rst
 This script will bring together all the SigLib modules with a config script to
 
 \textbf{Created on} Mon Oct  7 20:27:19 2013 \textbf{@author:} Sougal Bouh Ali
+\textbf{Modified on} Wed May  23 11:37:40 2018 \textbf{@reason:} Sent instance of Metadata to data2img instead of calling Metadata again \textbf{@author:} Cameron Fitzpatrick
+\index{SigLib (class in SigLib)}
+
+\begin{fulllineitems}
+\phantomsection\label{code:SigLib.SigLib}\pysigline{\strong{class }\code{SigLib.}\bfcode{SigLib}}~\index{createLog() (SigLib.SigLib method)}
+
+\begin{fulllineitems}
+\phantomsection\label{code:SigLib.SigLib.createLog}\pysiglinewithargsret{\bfcode{createLog}}{\emph{zipfile=None}}{}
+Creates log file that will be used to report progress and errors
+\textbf{Parameters}
+\begin{quote}
+
+\emph{zipfile} : a valid zipfile name with full path (optional) for file input
+\end{quote}
+
+\end{fulllineitems}
+
+\index{data2db() (SigLib.SigLib method)}
+
+\begin{fulllineitems}
+\phantomsection\label{code:SigLib.SigLib.data2db}\pysiglinewithargsret{\bfcode{data2db}}{\emph{meta}, \emph{db}, \emph{zipfile}}{}
+Adds the image file metadata to tblmetadata table in the specified database.
+Will create/overwrite the table tblmetadata if prompted (be carefull)
+
+\textbf{Parameters}
+\begin{quote}
+
+\emph{meta} :   A metadata instance from Metadata.py
+
+\emph{db}   :   database connection
+\end{quote}
+
+\end{fulllineitems}
+
+\index{data2img() (SigLib.SigLib method)}
+
+\begin{fulllineitems}
+\phantomsection\label{code:SigLib.SigLib.data2img}\pysiglinewithargsret{\bfcode{data2img}}{\emph{fname}, \emph{imgname}, \emph{zipname}, \emph{sattype}, \emph{granule}, \emph{zipfile}, \emph{sar\_meta}, \emph{unzipdir}}{}
+Opens an image file and converts it to the format given in the config file
+
+\textbf{Parameters}
+\begin{quote}
+
+\emph{fname}    : image filename (i.e. R1\_980705\_114117.img OR product.xml)
+
+\emph{imgname}  : image name (i.e. R1\_980705\_114117)
+
+\emph{zipname}  : zipname
+
+\emph{sattype}  : satelite platform
+
+\emph{granule}  : granule name
+
+\emph{zipfile}  : zipfile
+
+\emph{unzipdir} : unzip directory
+\end{quote}
+
+\end{fulllineitems}
+
+\index{handler() (SigLib.SigLib method)}
+
+\begin{fulllineitems}
+\phantomsection\label{code:SigLib.SigLib.handler}\pysiglinewithargsret{\bfcode{handler}}{\emph{signum}, \emph{frame}}{}
+Handles exceptions - most notably time out errors
+
+\end{fulllineitems}
+
+\index{proc\_Dir() (SigLib.SigLib method)}
+
+\begin{fulllineitems}
+\phantomsection\label{code:SigLib.SigLib.proc_Dir}\pysiglinewithargsret{\bfcode{proc\_Dir}}{\emph{path}, \emph{pattern}}{}
+Locates satelite image raw data files (zipfiles) using a
+\emph{pattern} in \emph{path} search method, and then calls createImg()
+to process the data into image.
+
+\textbf{Parameters}
+\begin{quote}
+
+\emph{path}    : directory tree to scan
+
+\emph{pattern} : file pattern to discover
+\end{quote}
+
+\end{fulllineitems}
+
+\index{proc\_File() (SigLib.SigLib method)}
+
+\begin{fulllineitems}
+\phantomsection\label{code:SigLib.SigLib.proc_File}\pysiglinewithargsret{\bfcode{proc\_File}}{\emph{zipfile}}{}
+Locates a single satellite image zip file and processes it according 
+to the config file.  Note this cannot be nested in proc\_dir since the 
+logging structure and other elements must parallelizable
+
+\textbf{Parameters}
+\begin{quote}
+
+\emph{zipfile} : a valid zipfile name with full path
+\end{quote}
+
+\end{fulllineitems}
+
+\index{retrieve() (SigLib.SigLib method)}
+
+\begin{fulllineitems}
+\phantomsection\label{code:SigLib.SigLib.retrieve}\pysiglinewithargsret{\bfcode{retrieve}}{\emph{zipfile}}{}
+Given a zip file name this function will: find out what satellite it is, unzip it, get instance of metadata, then 
+dependant on the config, save metadata in a file and/or one of the following: Process to image or process to database.
+
+\textbf{Parameters}
+\begin{quote}
+
+\emph{zipfile} : A valid zipfile name with full extention
+\end{quote}
+
+\end{fulllineitems}
+
+
+\end{fulllineitems}
+
 
 
 \section{Metadata}
-\label{code:module-Metadata}\label{code:metadata}\index{Metadata (module)}
+\label{code:metadata}\index{Metadata (class in SigLib)}
+
+\begin{fulllineitems}
+\phantomsection\label{code:SigLib.Metadata}\pysiglinewithargsret{\strong{class }\code{SigLib.}\bfcode{Metadata}}{\emph{granule}, \emph{imgname}, \emph{path}, \emph{zipfile}, \emph{sattype}, \emph{loghandler=None}}{}
+This is the metadata class for each image RSAT2, RSAT1 (ASF and CDPF)
+\index{\_\_init\_\_() (SigLib.Metadata method)}
+
+\begin{fulllineitems}
+\phantomsection\label{code:SigLib.Metadata.__init__}\pysiglinewithargsret{\bfcode{\_\_init\_\_}}{\emph{granule}, \emph{imgname}, \emph{path}, \emph{zipfile}, \emph{sattype}, \emph{loghandler=None}}{}
+This initializes the class based on input
+
+\textbf{Parameters}
+\begin{quote}
+
+\emph{granule}    : unique name of the image (String)
+
+\emph{imgname}    : name of the file to open, representing the image (String)
+
+\emph{path}       : path to the image (String)
+
+\emph{Zipfile}    : A valid zipfile name with full path (String)
+
+\emph{sattype}    : type of data (String)
+
+\emph{loghandler} : A valid pre-set loghandler (Optional)
+\end{quote}
+
+\textbf{Returns}
+\begin{quote}
+
+An instance of Meta
+\end{quote}
+
+\end{fulllineitems}
+
+
+\end{fulllineitems}
+
+\phantomsection\label{code:module-Metadata}\index{Metadata (module)}
 \textbf{Metadata.py}
 
 \textbf{Created on} Jan 1, 2009 \textbf{@author:} Derek Mueller
@@ -873,7 +1021,7 @@ data was developed by Defence Research and Development Canada
 \index{Metadata (class in Metadata)}
 
 \begin{fulllineitems}
-\phantomsection\label{code:Metadata.Metadata}\pysiglinewithargsret{\strong{class }\code{Metadata.}\bfcode{Metadata}}{\emph{granule}, \emph{imgname}, \emph{path}, \emph{zipfile}, \emph{sattype}}{}
+\phantomsection\label{code:Metadata.Metadata}\pysiglinewithargsret{\strong{class }\code{Metadata.}\bfcode{Metadata}}{\emph{granule}, \emph{imgname}, \emph{path}, \emph{zipfile}, \emph{sattype}, \emph{loghandler=None}}{}
 This is the metadata class for each image RSAT2, RSAT1 (ASF and CDPF)
 \index{clean\_metaASF() (Metadata.Metadata method)}
 
@@ -884,6 +1032,12 @@ splits values, if required and puts it all into a standard format
 
 NOT TESTED!!
 
+\textbf{Parameters}
+\begin{quote}
+
+\emph{result} : Dictionary of metadata
+\end{quote}
+
 \end{fulllineitems}
 
 \index{clean\_metaCDPF() (Metadata.Metadata method)}
@@ -892,6 +1046,12 @@ NOT TESTED!!
 \phantomsection\label{code:Metadata.Metadata.clean_metaCDPF}\pysiglinewithargsret{\bfcode{clean\_metaCDPF}}{\emph{result}}{}
 Takes meta data from origmeta and checks it for completeness, coerces data types
 splits values, if required and puts it all into a standard format
+
+\textbf{Parameters}
+\begin{quote}
+
+\emph{result} : A dictonary of metadata
+\end{quote}
 
 \end{fulllineitems}
 
@@ -903,6 +1063,60 @@ Creates a dictionary of all the metadata fields for an image
 this can be written to file or sent to database
 
 Note that the long boring metadata fields are not included
+
+\textbf{Returns}
+\begin{quote}
+
+\emph{metadict} : Dictionary containing all the metadata fields
+\end{quote}
+
+\end{fulllineitems}
+
+\index{extractGCPs() (Metadata.Metadata method)}
+
+\begin{fulllineitems}
+\phantomsection\label{code:Metadata.Metadata.extractGCPs}\pysiglinewithargsret{\bfcode{extractGCPs}}{\emph{interval}}{}
+Description needed!
+
+\textbf{Parameters}
+\begin{quote}
+
+\emph{interval}    :
+\end{quote}
+
+\textbf{Returns}
+\begin{quote}
+
+\emph{tuple(gcps)} : GCP's returned in tuple format
+\end{quote}
+
+\end{fulllineitems}
+
+\index{getASFMetaCorners() (Metadata.Metadata method)}
+
+\begin{fulllineitems}
+\phantomsection\label{code:Metadata.Metadata.getASFMetaCorners}\pysiglinewithargsret{\bfcode{getASFMetaCorners}}{\emph{ASFName}}{}
+Use ASF Mapready to generate the metadata
+
+\textbf{Parameters}
+\begin{quote}
+
+\emph{ASFName} : ?
+\end{quote}
+
+\end{fulllineitems}
+
+\index{getASFProductType() (Metadata.Metadata method)}
+
+\begin{fulllineitems}
+\phantomsection\label{code:Metadata.Metadata.getASFProductType}\pysiglinewithargsret{\bfcode{getASFProductType}}{\emph{ASFName}}{}
+Description needed!
+
+\textbf{Parameters}
+\begin{quote}
+
+\emph{ASFName} : ?
+\end{quote}
 
 \end{fulllineitems}
 
@@ -932,6 +1146,12 @@ yyyymmdd\_HHmmss\_sat\_beam\_pol...
 
 \end{description}
 
+\textbf{Returns}
+\begin{quote}
+
+\emph{dimgname} : Name for image file conforming to standards above
+\end{quote}
+
 \end{fulllineitems}
 
 \index{getMoreGCPs() (Metadata.Metadata method)}
@@ -946,6 +1166,18 @@ subselect n\_gcps of these to return.
 The GCPs will not necessarily be on the `bottom corners' since the gcps
 will be spaced evenly to get n\_gcps (or more if not divisible by 3)
 If you want corners the only way to guarentee this is to set n\_gcps = 6
+
+\textbf{Parameters}
+\begin{quote}
+
+\emph{n\_gcps}      : \# of GCP's to return
+\end{quote}
+
+\textbf{Returns}
+\begin{quote}
+
+\emph{tuple(gcps)} : \# of GCP's specified returned in tuple format
+\end{quote}
 
 \end{fulllineitems}
 
@@ -962,11 +1194,23 @@ Open a Radarsat2 file and get all the required metadata
 \begin{fulllineitems}
 \phantomsection\label{code:Metadata.Metadata.get_ceos_metadata}\pysiglinewithargsret{\bfcode{get\_ceos\_metadata}}{\emph{*file\_names}}{}
 Take file names as input and return a dictionary of metadata
-file\_names is a list or strings or a string (with one filename)
+file\_names is a list of strings or a string (with one filename)
 
 This source code to extract metadata from CEOS-format RADARSAT-1 
 data was developed by Defence Research and Development Canada
 {[}Used with Permission{]}
+
+\textbf{Parameters}
+\begin{quote}
+
+{\color{red}\bfseries{}**}file\_names* : List of strings
+\end{quote}
+
+\textbf{Returns}
+\begin{quote}
+
+\emph{result}     : Dictionary of Metadata
+\end{quote}
 
 \end{fulllineitems}
 
@@ -975,11 +1219,12 @@ data was developed by Defence Research and Development Canada
 \begin{fulllineitems}
 \phantomsection\label{code:Metadata.Metadata.getgdalmeta}\pysiglinewithargsret{\bfcode{getgdalmeta}}{}{}
 Open file with gdal and get metadata
-\begin{quote}\begin{description}
-\item[{Ret}] \leavevmode
-gdal\_meta
 
-\end{description}\end{quote}
+\textbf{Returns}
+\begin{quote}
+
+\emph{gdal\_meta} : Metadata found by gdal
+\end{quote}
 
 \end{fulllineitems}
 
@@ -1015,14 +1260,6 @@ Give a python datetime and get an integer or string doy fractional doy returned 
 \begin{fulllineitems}
 \phantomsection\label{code:Metadata.datetime2iso}\pysiglinewithargsret{\code{Metadata.}\bfcode{datetime2iso}}{\emph{datetimeobj}}{}
 Return iso string from a python datetime
-
-\end{fulllineitems}
-
-\index{doy2date() (in module Metadata)}
-
-\begin{fulllineitems}
-\phantomsection\label{code:Metadata.doy2date}\pysiglinewithargsret{\code{Metadata.}\bfcode{doy2date}}{\emph{year}, \emph{doy}}{}
-Give a float, integer or string and get a datetime
 
 \end{fulllineitems}
 
@@ -1081,6 +1318,32 @@ gets a block of data from file
 
 \end{fulllineitems}
 
+\index{get\_field\_value() (in module Metadata)}
+
+\begin{fulllineitems}
+\phantomsection\label{code:Metadata.get_field_value}\pysiglinewithargsret{\code{Metadata.}\bfcode{get\_field\_value}}{\emph{data}, \emph{field\_type}, \emph{length}, \emph{offset}}{}
+Description needed!
+
+\textbf{Parameters}
+\begin{quote}
+
+\emph{data}       :
+
+\emph{field\_type} :
+
+\emph{length}     :
+
+\emph{offset}     :
+\end{quote}
+
+\textbf{Returns}
+\begin{quote}
+
+converted data\_str
+\end{quote}
+
+\end{fulllineitems}
+
 \index{readdate() (in module Metadata)}
 
 \begin{fulllineitems}
@@ -1093,7 +1356,7 @@ and converts it to python datetime
 
 
 \section{Image Processing}
-\label{code:module-Image}\label{code:image-processing}\index{Image (module)}
+\label{code:image-processing}\phantomsection\label{code:module-Image}\index{Image (module)}
 \textbf{imgProcess.py}
 
 \textbf{Created on} ??? Jul  ? ??:??:?? 2009 \textbf{@author:} Derek Mueller
@@ -1104,11 +1367,32 @@ gdal dataset to be processed into an amplitude, calibrated, noise or theta
 cropped, masked, stretched, etc.
 
 \textbf{Modified on} ??? Feb  ? ??:??:?? 2012 \textbf{@reason:} Repackaged for r2convert \textbf{@author:} Derek Mueller
+\textbf{Modified on} 23 May 14:43:40 2018 \textbf{@reason:} Added logging functionality \textbf{@author:} Cameron Fitzpatrick
 \index{Image (class in Image)}
 
 \begin{fulllineitems}
-\phantomsection\label{code:Image.Image}\pysiglinewithargsret{\strong{class }\code{Image.}\bfcode{Image}}{\emph{fname}, \emph{path}, \emph{meta}, \emph{imgType}, \emph{imgFormat}, \emph{zipname}}{}
+\phantomsection\label{code:Image.Image}\pysiglinewithargsret{\strong{class }\code{Image.}\bfcode{Image}}{\emph{fname}, \emph{path}, \emph{meta}, \emph{imgType}, \emph{imgFormat}, \emph{zipname}, \emph{loghandler=None}}{}
 This is the Img class for each image.  RSAT2, RSAT1 (ASF and CDPF)
+
+Opens the file specified by fname, passes reference to the meta class and declares the imgType of interest.
+\begin{quote}
+
+\textbf{Parameters}
+\begin{quote}
+
+\emph{fname}     : filename
+
+\emph{path}      : full directory path of the filename
+
+\emph{meta}      : reference to the meta class
+
+\emph{imgType}   : amp, sigma, noise, theta...
+
+\emph{imgFormat} : gdal format code gtiff, vrt
+
+\emph{zipname}   : name of the image's zipfile
+\end{quote}
+\end{quote}
 \index{applyStretch() (Image.Image method)}
 
 \begin{fulllineitems}
@@ -1143,11 +1427,12 @@ For further ideas see: \href{http://en.wikipedia.org/wiki/Histogram\_equalizatio
 Removes files that have been written.
 
 Input a list of items to delete: raw, nil, proj,crop
-\begin{description}
-\item[{\textbf{Parameters}}] \leavevmode
-\emph{levels} = a list of different types of files to delete
 
-\end{description}
+\textbf{Parameters}
+\begin{quote}
+
+\emph{levels} : a list of different types of files to delete
+\end{quote}
 
 \end{fulllineitems}
 
@@ -1157,12 +1442,14 @@ Input a list of items to delete: raw, nil, proj,crop
 \phantomsection\label{code:Image.Image.cropBig}\pysiglinewithargsret{\bfcode{cropBig}}{\emph{llur}, \emph{subscene}}{}
 Here we have a way to crop that will expand the area of an image.
 However, this uses gdalwarp - and resampling/offsetting could skew result - by a fraction of a pixel obviously, but still..
-\begin{description}
-\item[{\textbf{Parameters}}] \leavevmode
-\emph{llur}  : list/tuple of tuples in projected units
-\emph{subscene} : the name of a subscene
 
-\end{description}
+\textbf{Parameters}
+\begin{quote}
+
+\emph{llur}     : list/tuple of tuples in projected units
+
+\emph{subscene} : the name of a subscene
+\end{quote}
 
 \end{fulllineitems}
 
@@ -1173,12 +1460,14 @@ However, this uses gdalwarp - and resampling/offsetting could skew result - by a
 Given the cropping coordinates, this function tries to crop in a straight-forward way.
 If this cannot be accomplished (likely because the corner coordinates of an image are not known to a sufficient precision)
 then gdalwarp (cropBig) will do the job.
-\begin{description}
-\item[{\textbf{Parameters}}] \leavevmode
-\emph{ullr}  : upper left and lower right coordinates
-\emph{subscene} : the name of a subscene
 
-\end{description}
+\textbf{Parameters}
+\begin{quote}
+
+\emph{ullr}     : upper left and lower right coordinates
+
+\emph{subscene} : the name of a subscene
+\end{quote}
 
 \end{fulllineitems}
 
@@ -1188,12 +1477,14 @@ then gdalwarp (cropBig) will do the job.
 \phantomsection\label{code:Image.Image.cropSmall}\pysiglinewithargsret{\bfcode{cropSmall}}{\emph{urll}, \emph{subscene}}{}
 This is a better way to crop b/c no potential for warping...
 However, this will only work if the region falls completely within the image.
-\begin{description}
-\item[{\textbf{Parameters}}] \leavevmode
-\emph{urll}  : list/tuple of tuples in projected units
-\emph{subscene} : the name of a subscene
 
-\end{description}
+\textbf{Parameters}
+\begin{quote}
+
+\emph{urll}     : list/tuple of tuples in projected units
+
+\emph{subscene} : the name of a subscene
+\end{quote}
 
 \end{fulllineitems}
 
@@ -1203,6 +1494,7 @@ However, this will only work if the region falls completely within the image.
 \phantomsection\label{code:Image.Image.decomp}\pysiglinewithargsret{\bfcode{decomp}}{\emph{format='imgFormat'}}{}
 Takes an input ds of a fully polarimetric image and writes an image of
 the data using a decomposition - could be 1) pauli
+
 TODO: 2) freeman 3) cloude
 
 Differs from imgWrite b/c it ingests all bands at once...
@@ -1214,6 +1506,16 @@ Differs from imgWrite b/c it ingests all bands at once...
 \begin{fulllineitems}
 \phantomsection\label{code:Image.Image.fnameGenerate}\pysiglinewithargsret{\bfcode{fnameGenerate}}{\emph{projout=None}, \emph{subset=None}, \emph{band=None}}{}
 Decide on some parameters based on self.imgType we want...
+
+\textbf{Returns}
+\begin{quote}
+
+\emph{bands}    : Integer
+
+\emph{dataType} : GDal data type
+
+\emph{outname}  : String
+\end{quote}
 
 \end{fulllineitems}
 
@@ -1233,6 +1535,16 @@ the nodata value by clipping the highest value...
 opens an img file and reads in data from a given band
 assume that the dataset is small enough to fit into memory all at once
 
+\textbf{Returns}
+\begin{quote}
+
+\emph{imgData}  : data from the given band
+
+\emph{xSpacing} :
+
+\emph{ySpacing} :
+\end{quote}
+
 \end{fulllineitems}
 
 \index{getImgStats() (Image.Image method)}
@@ -1242,6 +1554,12 @@ assume that the dataset is small enough to fit into memory all at once
 Opens a raster and calculates (approx) the stats
 returns an array - 1 row per band
 cols: band, dynamicRange, dataType, nodata value, min, max, mean, std
+
+\textbf{Returns}
+\begin{quote}
+
+\emph{stats} : stats from raster returned in an array of 1 row per band
+\end{quote}
 
 \end{fulllineitems}
 
@@ -1321,14 +1639,18 @@ Masks all bands with gdal\_rasterize using the `layer'
 side = `inside' burns 0 inside the vector, `outside' burns outside the vector
 
 Note: make sure that the vector shapefile is in the same proj as img (Use reprojSHP from ingestutil)
-\begin{description}
-\item[{\textbf{Parameters}}] \leavevmode
-\emph{mask}  :
-\emph{vectdir}   :
-\emph{side}  :
-\emph{imgType}   :
 
-\end{description}
+\textbf{Parameters}
+\begin{quote}
+
+\emph{mask}    :
+
+\emph{vectdir} :
+
+\emph{side}    :
+
+\emph{imgType} :
+\end{quote}
 
 \end{fulllineitems}
 
@@ -1337,11 +1659,12 @@ Note: make sure that the vector shapefile is in the same proj as img (Use reproj
 \begin{fulllineitems}
 \phantomsection\label{code:Image.Image.openDataset}\pysiglinewithargsret{\bfcode{openDataset}}{\emph{fname}, \emph{path='`}}{}
 Opens a dataset with gdal
-\begin{description}
-\item[{\textbf{Parameters}}] \leavevmode
-\emph{fname} : filename
 
-\end{description}
+\textbf{Parameters}
+\begin{quote}
+
+\emph{fname} : filename
+\end{quote}
 
 \end{fulllineitems}
 
@@ -1350,15 +1673,20 @@ Opens a dataset with gdal
 \begin{fulllineitems}
 \phantomsection\label{code:Image.Image.projectImg}\pysiglinewithargsret{\bfcode{projectImg}}{\emph{projout}, \emph{projdir}, \emph{format=None}, \emph{resample='bilinear'}, \emph{clobber=True}}{}
 Looks for a file, already created and projects it to a vrt file.
-\begin{description}
-\item[{\textbf{Parameters}}] \leavevmode
-\emph{projout}   : projection base name
-\emph{projdir}   : path to the projection
-\emph{format}    : the image format, defaults to VRT
-\emph{resample}  : resample method (as per gdalwarp)
-\emph{clobber}   : True/False should old output be overwritten?
 
-\end{description}
+\textbf{Parameters}
+\begin{quote}
+
+\emph{projout}  : projection base name
+
+\emph{projdir}  : path to the projection
+
+\emph{format}   : the image format, defaults to VRT
+
+\emph{resample} : resample method (as per gdalwarp)
+
+\emph{clobber}  : True/False should old output be overwritten?
+\end{quote}
 
 NOTE THE PIXEL SIZE IS NOT PROSCRIBED! (it will be the smallest possible)
 
@@ -1370,12 +1698,14 @@ NOTE THE PIXEL SIZE IS NOT PROSCRIBED! (it will be the smallest possible)
 \phantomsection\label{code:Image.Image.reduceImg}\pysiglinewithargsret{\bfcode{reduceImg}}{\emph{xfactor}, \emph{yfactor}}{}
 Uses gdal to reduce the image by a given factor (i.e, factor 2 is 50\%
 smaller or half the \# of pixels) and saves as a temporary file and then overwrites.
-\begin{description}
-\item[{\textbf{Parameters}}] \leavevmode
-\emph{xfactor}   : float
-\emph{yfactor}   : float
 
-\end{description}
+\textbf{Parameters}
+\begin{quote}
+
+\emph{xfactor} : float
+
+\emph{yfactor} : float
+\end{quote}
 
 \end{fulllineitems}
 
@@ -1389,6 +1719,24 @@ Note: make sure min/max don't exceed the natural limits of dataType
 takes a numpy array datachunk the range to scale to, the range to scale
 from, the minVal to start from and an offset required for some stretches
 (see applyStretch keyword sep/tog)
+
+\textbf{Parameters}
+\begin{quote}
+
+\emph{datachunk}   : array
+
+\emph{scaleRange}  : Range to scale to
+
+\emph{dynRange}    : Range to scale from
+
+\emph{minVal}      : strating min value
+\end{quote}
+
+\textbf{Returns}
+\begin{quote}
+
+\emph{stretchData} : datachunk, now linearly rescaled
+\end{quote}
 
 \end{fulllineitems}
 
@@ -1406,7 +1754,7 @@ When it is time to convert a vrt to a tiff (or even img, etc) use this
 
 
 \section{Database}
-\label{code:module-Database}\label{code:database}\index{Database (module)}
+\label{code:database}\phantomsection\label{code:module-Database}\index{Database (module)}
 \textbf{Database.py}
 
 \textbf{Created on} Tue Feb 12 23:12:13 2013 \textbf{@author:} Cindy Lopes
@@ -1422,21 +1770,46 @@ Tables of note include:
 \textbf{tblArchive} - a copy of the metadata from the CIS image archive
 
 Other tables could contain data from drifting beacons or other data
+
+\textbf{Modified on} 23 May 14:43:40 2018 \textbf{@reason:} Added logging functionality \textbf{@author:} Cameron Fitzpatrick
 \index{Database (class in Database)}
 
 \begin{fulllineitems}
-\phantomsection\label{code:Database.Database}\pysiglinewithargsret{\strong{class }\code{Database.}\bfcode{Database}}{\emph{dbname}, \emph{user=None}, \emph{password=None}, \emph{port=`5432'}, \emph{host='localhost'}}{}
+\phantomsection\label{code:Database.Database}\pysiglinewithargsret{\strong{class }\code{Database.}\bfcode{Database}}{\emph{dbname}, \emph{user=None}, \emph{password=None}, \emph{port=`5432'}, \emph{host='localhost'}, \emph{loghandler=None}}{}
 This is the Database class for each database connection.
+\begin{description}
+\item[{Creates a connection to the specified database.  You can connect as a specific user or }] \leavevmode
+default to your own username, which assumes you have privileges and a password stored in your  \textasciitilde{}/.pgpass file
+
+Note: if you have any issues with a bad query, send a rollback to the database to reset the connection.
+\textgreater{}\textgreater{}\textgreater{}\textgreater{}db.connection.rollback()
+
+\textbf{Parameters}
+\begin{quote}
+
+\emph{dbname}   : database name
+
+\emph{user}     : user with sudo access on the specified databse (i.e. postgres user has sudo access to all databses)
+
+\emph{password} : password to go with user
+
+\emph{port}     : server port (i.e. 5432)
+
+\emph{host}     : hostname (i.e. localhost)
+\end{quote}
+
+\end{description}
 \index{alterTimestamp() (Database.Database method)}
 
 \begin{fulllineitems}
 \phantomsection\label{code:Database.Database.alterTimestamp}\pysiglinewithargsret{\bfcode{alterTimestamp}}{\emph{shpTable}}{}
 Takes a shape file and converts the gps\_time from character type to timestamp time.
-\begin{description}
-\item[{\textbf{Parameters}}] \leavevmode
-\emph{shpTable}  :
 
-\end{description}
+\textbf{Parameters}
+\begin{quote}
+
+\emph{shpTable} :
+\end{quote}
 
 \end{fulllineitems}
 
@@ -1446,11 +1819,12 @@ Takes a shape file and converts the gps\_time from character type to timestamp t
 \phantomsection\label{code:Database.Database.beaconShapefilesToTables}\pysiglinewithargsret{\bfcode{beaconShapefilesToTables}}{\emph{dirName}}{}
 Takes a directory containing beacon shape files and converts them to tables and 
 inserts them into the database appending \emph{beacon\_} before the name
-\begin{description}
-\item[{\textbf{Parameters}}] \leavevmode
-\emph{dirName}   :
 
-\end{description}
+\textbf{Parameters}
+\begin{quote}
+
+\emph{dirName} :
+\end{quote}
 
 \end{fulllineitems}
 
@@ -1467,14 +1841,18 @@ Finds all the results in both the archive and tblmetadata.
 \begin{fulllineitems}
 \phantomsection\label{code:Database.Database.checkTblArchiveOverLapsTblMetadata}\pysiglinewithargsret{\bfcode{checkTblArchiveOverLapsTblMetadata}}{\emph{filename}}{}
 Check if a file name from tblArchive is in the overlap table.
-\begin{description}
-\item[{\textbf{Parameters}}] \leavevmode
-\emph{filename}  :
 
-\item[{\textbf{Returns}}] \leavevmode
-\emph{dictionary}    :
+\textbf{Parameters}
+\begin{quote}
 
-\end{description}
+\emph{filename}   :
+\end{quote}
+
+\textbf{Returns}
+\begin{quote}
+
+\emph{dictionary} :
+\end{quote}
 
 \end{fulllineitems}
 
@@ -1484,13 +1862,14 @@ Check if a file name from tblArchive is in the overlap table.
 \phantomsection\label{code:Database.Database.copyfiles}\pysiglinewithargsret{\bfcode{copyfiles}}{\emph{copylist}, \emph{wrkdir}}{}
 Copies files from cisarchive.  If file could not be found, check that the 
 drive mapping is correct (above).
-\begin{description}
-\item[{\textbf{Parameters}}] \leavevmode
-\emph{copylist}  :   a list of images + inst
 
-\emph{wrkdir}    :   working directory
+\textbf{Parameters}
+\begin{quote}
 
-\end{description}
+\emph{copylist} : a list of images + inst
+
+\emph{wrkdir}   : working directory
+\end{quote}
 
 \end{fulllineitems}
 
@@ -1499,13 +1878,16 @@ drive mapping is correct (above).
 \begin{fulllineitems}
 \phantomsection\label{code:Database.Database.copylistExport}\pysiglinewithargsret{\bfcode{copylistExport}}{\emph{copylist}, \emph{fname}}{}
 Saves the copylist as a text file named fname.txt in the current dir.
-\begin{description}
-\item[{\textbf{Parameters}}] \leavevmode
-\emph{copylist}   :  a list of images - catalog ids or files
 
-\emph{fname}    :    filename to write copylist to
+\textbf{Parameters}
+\begin{quote}
 
-\end{description}
+\emph{copylist} : a list of images - catalog ids or files
+\begin{quote}
+
+\emph{fname}    : filename to write copylist to
+\end{quote}
+\end{quote}
 
 \end{fulllineitems}
 
@@ -1514,14 +1896,18 @@ Saves the copylist as a text file named fname.txt in the current dir.
 \begin{fulllineitems}
 \phantomsection\label{code:Database.Database.copylistImport}\pysiglinewithargsret{\bfcode{copylistImport}}{\emph{fname}}{}
 Reads the copylist text file named fname.txt in the current dir.
-\begin{description}
-\item[{\textbf{Parameters}}] \leavevmode
-\emph{fname} :   filename to read copylist from
 
-\item[{\textbf{Returns}}] \leavevmode
-\emph{new\_copylist}  :   a list of images + inst
+\textbf{Parameters}
+\begin{quote}
 
-\end{description}
+\emph{fname}        : filename to read copylist from
+\end{quote}
+
+\textbf{Returns}
+\begin{quote}
+
+\emph{new\_copylist} : a list of images + inst
+\end{quote}
 
 \end{fulllineitems}
 
@@ -1539,22 +1925,26 @@ Creates a metadata table called \emph{tblmetadata}. It overwrites if \emph{tblme
 \phantomsection\label{code:Database.Database.customizedQuery}\pysiglinewithargsret{\bfcode{customizedQuery}}{\emph{attributeList}, \emph{roi}, \emph{spatialrel}, \emph{proj}}{}
 Customizable query that takes an list of attributes to search for, a roi, a spatialrel, and a proj
 and returns a dictionary with all the requested attributes for the results that matched the query
-\begin{description}
-\item[{\textbf{Parameters}}] \leavevmode
+
+\textbf{Parameters}
+\begin{quote}
+
 \emph{attributeList} :
 
-\emph{roi}   :
+\emph{roi}           :
 
 \emph{spatialrel}    :
 
-\emph{proj}  :
+\emph{proj}          :
+\end{quote}
 
-\item[{\textbf{Returns}}] \leavevmode
-\emph{copylist}  :
+\textbf{Returns}
+\begin{quote}
 
-\emph{instimg}   :
+\emph{copylist}      :
 
-\end{description}
+\emph{instimg}       :
+\end{quote}
 
 \end{fulllineitems}
 
@@ -1563,14 +1953,18 @@ and returns a dictionary with all the requested attributes for the results that 
 \begin{fulllineitems}
 \phantomsection\label{code:Database.Database.dbProj}\pysiglinewithargsret{\bfcode{dbProj}}{\emph{proj}}{}
 Relates \emph{proj} the name (ie. proj.wkt) to \emph{proj} the number (i.e. srid \#).
-\begin{description}
-\item[{\textbf{Parameters}}] \leavevmode
-\emph{proj}  :   projection name
+from Metadata import Metadata
+\textbf{Parameters}
+\begin{quote}
 
-\item[{\textbf{Returns}}] \leavevmode
-\emph{srid}  :   spatial reference id number of that projection
+\emph{proj} : projection name
+\end{quote}
 
-\end{description}
+\textbf{Returns}
+\begin{quote}
+
+\emph{srid} : spatial reference id number of that projection
+\end{quote}
 
 \end{fulllineitems}
 
@@ -1580,13 +1974,14 @@ Relates \emph{proj} the name (ie. proj.wkt) to \emph{proj} the number (i.e. srid
 \phantomsection\label{code:Database.Database.exportToCSV}\pysiglinewithargsret{\bfcode{exportToCSV}}{\emph{qryOutput}, \emph{outputName}}{}
 Given a dictionary of results from the database and a filename puts all the results
 into a csv with the filename outputName
-\begin{description}
-\item[{\textbf{Parameters}}] \leavevmode
-\emph{qryOutput}   : output from a query - needs to be a tupple - numpy data and list of column names
 
-\emph{outputName}    : the file name
+\textbf{Parameters}
+\begin{quote}
 
-\end{description}
+\emph{qryOutput}  : output from a query - needs to be a tupple - numpy data and list of column names
+
+\emph{outputName} : the file name
+\end{quote}
 
 \end{fulllineitems}
 
@@ -1599,8 +1994,10 @@ need the imgData, the imgType, the bandName, the inst, dimgname and granule
 
 will compute the count, mean, std, min, max for non-zero elements
 and send them to db as well
-\begin{description}
-\item[{\textbf{Parameters}}] \leavevmode
+
+\textbf{Parameters}
+\begin{quote}
+
 \emph{imgData}   :
 
 \emph{xSpacing}  :
@@ -1609,13 +2006,12 @@ and send them to db as well
 
 \emph{bandName}  :
 
-\emph{inst}  :   instance id (i.e. a 5-digit string)
+\emph{inst}      : instance id (i.e. a 5-digit string)
 
-\emph{dimgname}  :   Derek's image name
+\emph{dimgname}  : Derek's image name
 
-\emph{granule}   :   granule name
-
-\end{description}
+\emph{granule}   : granule name
+\end{quote}
 
 \end{fulllineitems}
 
@@ -1632,21 +2028,20 @@ This function runs in create mode or refresh mode
 Create - Drops and re-creates the table
 
 Refresh - Adds new data (leaves the old stuff intact)
-\begin{description}
-\item[{\textbf{Parameters}}] \leavevmode
-\emph{roi}   :   region of interest table
 
-\emph{spatialrel}    :   spatial relationship (i.e. ST\_Contains or ST\_Intersect)
+\textbf{Parameters}
+\begin{quote}
 
-\emph{instimg}  :    a list of only images of that instance id
+\emph{roi}        : region of interest table
 
-\emph{copylist}  :   a list of images + inst
+\emph{spatialrel} : spatial relationship (i.e. ST\_Contains or ST\_Intersect)
 
-\emph{mode}  :   create or refresh mode
+\emph{instimg}    : a list of only images of that instance id
 
-\end{description}
+\emph{copylist}   : a list of images + inst
 
-\textbf{Returns}
+\emph{mode}       : create or refresh mode
+\end{quote}
 
 \end{fulllineitems}
 
@@ -1655,20 +2050,23 @@ Refresh - Adds new data (leaves the old stuff intact)
 \begin{fulllineitems}
 \phantomsection\label{code:Database.Database.instimgExport}\pysiglinewithargsret{\bfcode{instimgExport}}{\emph{instimg}, \emph{fname}}{}
 Saves the instimg listing as a csv file named fname.csv in the current dir.
-\begin{description}
-\item[{\textbf{Parameters}}] \leavevmode
-\emph{instimg}   :  a list of images and where they cover
 
-\emph{fname}    :    filename to write to
+\textbf{Parameters}
+\begin{quote}
 
-\end{description}
+\emph{instimg} : a list of images and where they cover
+\begin{quote}
+
+\emph{fname}   : filename to write to
+\end{quote}
+\end{quote}
 
 \end{fulllineitems}
 
 \index{meta2db() (Database.Database method)}
 
 \begin{fulllineitems}
-\phantomsection\label{code:Database.Database.meta2db}\pysiglinewithargsret{\bfcode{meta2db}}{\emph{metaDict}}{}
+\phantomsection\label{code:Database.Database.meta2db}\pysiglinewithargsret{\bfcode{meta2db}}{\emph{metaDict}, \emph{overwrite=True}}{}
 Uploads image metadata to the database as discovered by the meta module.
 \emph{meta} is a dictionary - no need to upload all the fields (some are not
 included in the table structure)
@@ -1676,11 +2074,12 @@ included in the table structure)
 Note that granule and dimgname are unique - as a precaution - a first query
 deletes records that would otherwise be duplicated 
 This assumes that they should be overwritten!
-\begin{description}
-\item[{\textbf{Parameters}}] \leavevmode
-\emph{metaDict}  : dictionnary containing the metadata
 
-\end{description}
+\textbf{Parameters}
+\begin{quote}
+
+\emph{metaDict} : dictionnary containing the metadata
+\end{quote}
 
 \end{fulllineitems}
 
@@ -1689,16 +2088,20 @@ This assumes that they should be overwritten!
 \begin{fulllineitems}
 \phantomsection\label{code:Database.Database.nameTable}\pysiglinewithargsret{\bfcode{nameTable}}{\emph{roi}, \emph{spatialrel}}{}
 Automatically gives a name to a relational table
-\begin{description}
-\item[{\textbf{Parameters}}] \leavevmode
-\emph{roi}   :   region of interest
 
-\emph{spatialrel}    :   spatial relationship (i.e. ST\_Contains or ST\_Intersect)
+\textbf{Parameters}
+\begin{quote}
 
-\item[{\textbf{Returns}}] \leavevmode
-\emph{name}   :  name of the table
+\emph{roi}        : region of interest
 
-\end{description}
+\emph{spatialrel} : spatial relationship (i.e. ST\_Contains or ST\_Intersect)
+\end{quote}
+
+\textbf{Returns}
+\begin{quote}
+
+\emph{name}       : name of the table
+\end{quote}
 
 \end{fulllineitems}
 
@@ -1708,16 +2111,20 @@ Automatically gives a name to a relational table
 \phantomsection\label{code:Database.Database.numpy2sql}\pysiglinewithargsret{\bfcode{numpy2sql}}{\emph{numpyArray}, \emph{dims}}{}
 Converts a 1- or 2-D numpy array to an sql friendly array
 Do not use with a string array!
-\begin{description}
-\item[{\textbf{Parameters}}] \leavevmode
-\emph{numpyArray}    :   numpy array to convert
 
-\emph{dims}  :   dimension (1 or 2)
+\textbf{Parameters}
+\begin{quote}
 
-\item[{\textbf{Returns}}] \leavevmode
-\emph{array\_sql} :   an sql friendly array
+\emph{numpyArray} : numpy array to convert
 
-\end{description}
+\emph{dims}       : dimension (1 or 2)
+\end{quote}
+
+\textbf{Returns}
+\begin{quote}
+
+\emph{array\_sql}  : an sql friendly array
+\end{quote}
 
 \end{fulllineitems}
 
@@ -1728,22 +2135,26 @@ Do not use with a string array!
 Writes a query to fetch the bounding box of the area that the inst polygon and
 image in question intersect.
 returns a crop ullr tupple pair in the projection given
-\begin{description}
-\item[{\textbf{Parameters}}] \leavevmode
-\emph{granule} : granule name
 
-\emph{roi}   :   region of interest file
+\textbf{Parameters}
+\begin{quote}
 
-\emph{spatialrel}    :   spatial relationship (i.e. ST\_Contains or ST\_Intersect)
+\emph{granule}    : granule name
 
-\emph{proj}  :   projection name
+\emph{roi}        : region of interest file
 
-\emph{inst}  :   instance id (i.e. a 5-digit string)
+\emph{spatialrel} : spatial relationship (i.e. ST\_Contains or ST\_Intersect)
 
-\item[{\textbf{Returns}}] \leavevmode
-\emph{ullr}  :   upper left, lower right tupple pair in the projection given
+\emph{proj}       : projection name
 
-\end{description}
+\emph{inst}       : instance id (i.e. a 5-digit string)
+\end{quote}
+
+\textbf{Returns}
+\begin{quote}
+
+\emph{ullr}       : upper left, lower right tupple pair in the projection given
+\end{quote}
 
 \end{fulllineitems}
 
@@ -1756,13 +2167,16 @@ Runs a query in the current databse by opening a file - adds the path and
 
 \textbf{Note:} do not use \% in the query b/c it interfers with the pyformat protocol
 used by psycopg2
-\begin{description}
-\item[{\textbf{Parameters}}] \leavevmode
-\emph{fname} :   file name (don't put the sql extension, it's assumed)
-\emph{path}  :   full path to fname
-\emph{output} : make true if you expect/want the query to return results
 
-\end{description}
+\textbf{Parameters}
+\begin{quote}
+
+\emph{fname}  : file name (don't put the sql extension, it's assumed)
+
+\emph{path}   : full path to fname
+
+\emph{output} : make true if you expect/want the query to return results
+\end{quote}
 
 \end{fulllineitems}
 
@@ -1776,15 +2190,20 @@ Runs a query in the current databse by sending an sql string
 used by psycopg2; also be sure to triple quote your string to avoid escaping single quotes;
 IF EVER THE Transaction block fails, just conn.rollback();try to use pyformat for queries - see dbapi2 (PEP);
 you can format the SQL nicely with an online tool - like SQLinForm
-\begin{description}
-\item[{\textbf{Parameters}}] \leavevmode
-\emph{sql}  :   the sql text that you want to send
+
+\textbf{Parameters}
+\begin{quote}
+
+\emph{sql}    : the sql text that you want to send
+
 \emph{output} : make true if you expect/want the query to return results
+\end{quote}
 
-\item[{\textbf{Returns}}] \leavevmode
+\textbf{Returns}
+\begin{quote}
+
 The result of the query as a tupple containing a numpy array and the column names as a list (if requested and available)
-
-\end{description}
+\end{quote}
 
 \end{fulllineitems}
 
@@ -1794,20 +2213,24 @@ The result of the query as a tupple containing a numpy array and the column name
 \phantomsection\label{code:Database.Database.qryGetInstances}\pysiglinewithargsret{\bfcode{qryGetInstances}}{\emph{granule}, \emph{roi}, \emph{spatialrel}, \emph{proj}}{}
 Writes a query to fetch the instance names that are
 associated spatially in the relational table.
-\begin{description}
-\item[{\textbf{Parameters}}] \leavevmode
-\emph{granule}   :   granule name
 
-\emph{roi}   :   region of interest file
+\textbf{Parameters}
+\begin{quote}
 
-\emph{spatialrel}    :   spatial relationhip (i.e. ST\_Contains or ST\_Intersect)
+\emph{granule}    : granule name
 
-\emph{proj}  :   projection name
+\emph{roi}        : region of interest file
 
-\item[{\textbf{Returns}}] \leavevmode
-\emph{instances} :   instances id (unique for entire project, i.e. 5-digit string)
+\emph{spatialrel} : spatial relationhip (i.e. ST\_Contains or ST\_Intersect)
 
-\end{description}
+\emph{proj}       : projection name
+\end{quote}
+
+\textbf{Returns}
+\begin{quote}
+
+\emph{instances}  : instances id (unique for entire project, i.e. 5-digit string)
+\end{quote}
 
 \end{fulllineitems}
 
@@ -1818,22 +2241,26 @@ associated spatially in the relational table.
 Writes a query to fetch the gml polygon of the area that the inst polygon and
 image in question intersect.
 returns gml text but also saves a file... mask.gml in the current dir
-\begin{description}
-\item[{\textbf{Parameters}}] \leavevmode
-\emph{granule} : granule name
 
-\emph{roi}   :   region of interest file
+\textbf{Parameters}
+\begin{quote}
 
-\emph{spatialrel}    :   spatial relationship (i.e. ST\_Contains or ST\_Intersect)
+\emph{granule}    : granule name
 
-\emph{proj}  :   projection name
+\emph{roi}        : region of interest file
 
-\emph{inst}  :   instance id (i.e. a 5-digit string)
+\emph{spatialrel} : spatial relationship (i.e. ST\_Contains or ST\_Intersect)
 
-\item[{\textbf{Returns}}] \leavevmode
+\emph{proj}       : projection name
+
+\emph{inst}       : instance id (i.e. a 5-digit string)
+\end{quote}
+
+\textbf{Returns}
+\begin{quote}
+
 \emph{polytext}  :   gml text
-
-\end{description}
+\end{quote}
 
 \end{fulllineitems}
 
@@ -1845,27 +2272,30 @@ Given a table name (with polygons, from/todates), determine the scenes that cove
 from start (str that looks like iso date) to end (same format).
 \begin{description}
 \item[{Eventually include criteria:}] \leavevmode
-subtype - a single satellite name: ALOS\_AR, RADAR\_AR, RSAT2\_AR (or ANY)
-
+subtype - a single satellite name: ALOS\_AR, RADAR\_AR, RSAT2\_AR (or ANY)        
 beam - a beam mode
 
 \end{description}
 
 comes back with - a list of images+inst - the bounding box
-\begin{description}
-\item[{\textbf{Parameters}}] \leavevmode
-\emph{roi}   :   region of interest table in the database
 
-\emph{spatialrel}    :   spatial relationship (i.e. ST\_Contains or ST\_Intersect)
+\textbf{Parameters}
+\begin{quote}
 
-\emph{proj}  :   projection name
+\emph{roi}        : region of interest table in the database
 
-\item[{\textbf{Returns}}] \leavevmode
-\emph{copylist}  :   a list of image catalog ids
+\emph{spatialrel} : spatial relationship (i.e. ST\_Contains or ST\_Intersect)
 
-\emph{instimg}   :   a list of each instance and the images that correspond
+\emph{proj}       : projection name
+\end{quote}
 
-\end{description}
+\textbf{Returns}
+\begin{quote}
+
+\emph{copylist} : a list of image catalog ids
+
+\emph{instimg}  : a list of each instance and the images that correspond
+\end{quote}
 
 \end{fulllineitems}
 
@@ -1875,29 +2305,36 @@ comes back with - a list of images+inst - the bounding box
 \phantomsection\label{code:Database.Database.qrySelectFromLocal}\pysiglinewithargsret{\bfcode{qrySelectFromLocal}}{\emph{roi}, \emph{spatialrel}, \emph{proj}}{}
 Determines the scenes that cover the area (spatialrel = contains or intersects)
 from start (str that looks like iso date) to end (same format).
-\begin{description}
-\item[{Eventually include criteria:}] \leavevmode
+
+Eventually include criteria:
+\begin{quote}
+\begin{quote}
+
 subtype - a single satellite name: ALOS\_AR, RADAR\_AR, RSAT2\_AR (or ANY)
+\end{quote}
 
 beam - a beam mode
-
-\end{description}
+\end{quote}
 
 comes back with - a list of images+inst - the bounding box
-\begin{description}
-\item[{\textbf{Parameters}}] \leavevmode
-\emph{roi} : region of interest
 
-\emph{spatialrel}    :   spatial relationship (i.e. ST\_Contains or ST\_Intersect)
+\textbf{Parameters}
+\begin{quote}
 
-\emph{proj}  :   projection
+\emph{roi}        : region of interest
 
-\item[{\textbf{Returns}}] \leavevmode
-\emph{copylist}  :   a list of image names including full paths
+\emph{spatialrel} : spatial relationship (i.e. ST\_Contains or ST\_Intersect)
 
-\emph{instimg}   :   a list of the images and their corresponding instance ids
+\emph{proj}       : projection
+\end{quote}
 
-\end{description}
+\textbf{Returns}
+\begin{quote}
+
+\emph{copylist}   : a list of image names including full paths
+
+\emph{instimg}    : a list of the images and their corresponding instance ids
+\end{quote}
 
 \end{fulllineitems}
 
@@ -1907,16 +2344,20 @@ comes back with - a list of images+inst - the bounding box
 \phantomsection\label{code:Database.Database.sql2numpy}\pysiglinewithargsret{\bfcode{sql2numpy}}{\emph{sqlArray}, \emph{dtype='float32'}}{}
 Comming from SQL queries, arrays are stored as a list (or list of lists)
 Defaults to float32
-\begin{description}
-\item[{\textbf{Parameters}}] \leavevmode
-\emph{sqlArray}  : an sql friendly array
 
-\emph{dtype} :   default type (float32)
+\textbf{Parameters}
+\begin{quote}
 
-\item[{\textbf{Returns}}] \leavevmode
-\emph{list}  :   list containing the arrays
+\emph{sqlArray} : an sql friendly array
 
-\end{description}
+\emph{dtype}    : default type (float32)
+\end{quote}
+
+\textbf{Returns}
+\begin{quote}
+
+\emph{list}     : list containing the arrays
+\end{quote}
 
 \end{fulllineitems}
 
@@ -1931,18 +2372,19 @@ Then it uses ogr2ogr to upload each shp in the archDir
 The script looks for the {\color{red}\bfseries{}*}.last files to know which files are the most current (these need to be updated)
 
 Can be extended to import from other archives (In the long term - PDC?)
-\begin{description}
-\item[{\textbf{Parameters}}] \leavevmode
-\emph{archDir}   : archive directory
 
-\end{description}
+\textbf{Parameters}
+\begin{quote}
+
+\emph{archDir} : archive directory
+\end{quote}
 
 \end{fulllineitems}
 
 \index{updateROI() (Database.Database method)}
 
 \begin{fulllineitems}
-\phantomsection\label{code:Database.Database.updateROI}\pysiglinewithargsret{\bfcode{updateROI}}{\emph{inFile}, \emph{path}, \emph{proj}}{}
+\phantomsection\label{code:Database.Database.updateROI}\pysiglinewithargsret{\bfcode{updateROI}}{\emph{inFile}, \emph{path}, \emph{proj}, \emph{ogr=False}}{}
 This function will update an ROI (Region Of Interest) table in the database. It has a prescribed format
 It will take the shapefile named inFile and update the database with the info
 
@@ -1950,35 +2392,40 @@ Note that this will overwrite any table named \emph{inFile} in the database
 
 The generated table will include a column \emph{inst} - a unique identifier created by 
 concatenating obj and instid
-\begin{description}
-\item[{\textbf{Parameters}}] \leavevmode
-\emph{inFile}    :  basename of a shapefile (becomes an roi table name too)
 
-\emph{path}  :   full path to inFile
+\textbf{Parameters}
+\begin{quote}
 
-\emph{proj}  :   projection name
+\emph{inFile}   : basename of a shapefile (becomes an roi table name too)
 
-\item[{\textbf{Required}}] \leavevmode
-obj, inst, fromdate, todate
+\emph{path}     : full path to inFile
 
-\emph{obj} - the id or name of an object/polygon that defines a region of interest. Very systematic, no spaces.
+\emph{proj}     : projection name
+\end{quote}
 
-\emph{instid} - a number to distinguish repetitions of each obj in time or space.  For example an ROI that occurs several summers would have several instids.
+\textbf{Required}
+\begin{quote}
+
+\emph{obj}      - the id or name of an object/polygon that defines a region of interest. Very systematic, no spaces.
+
+\emph{instid}   - a number to distinguish repetitions of each obj in time or space.  For example an ROI that occurs several summers would have several instids.
 
 \emph{fromdate} - a valid iso time denoting the start of the ROI - can be blank if imgref is used
 
-\emph{todate} - a valid iso time denoting the start of the ROI - can be blank if imgref is used
+\emph{todate}   - a valid iso time denoting the start of the ROI - can be blank if imgref is used
+\end{quote}
 
-\item[{\textbf{Optional}}] \leavevmode
-\emph{imgref} - a reference image dimage name (for a given ROI) - this can be provided in place of datefrom and dateto
+\textbf{Optional}
+\begin{quote}
 
-\emph{name} - a name for each obj (Area51\_1950s, Target7, Ayles)
+\emph{imgref}   - a reference image dimage name (for a given ROI) - this can be provided in place of datefrom and dateto
 
-\emph{comment} - a comment field
+\emph{name}     - a name for each obj (Area51\_1950s, Target7, Ayles)
+
+\emph{comment}  - a comment field
 
 Any other field can be added...
-
-\end{description}
+\end{quote}
 
 \end{fulllineitems}
 
@@ -1988,37 +2435,44 @@ Any other field can be added...
 \phantomsection\label{code:Database.Database.update_NTAI_FLUX_ROI}\pysiglinewithargsret{\bfcode{update\_NTAI\_FLUX\_ROI}}{\emph{inFile}, \emph{path}, \emph{proj}}{}
 Goes to a shapefile named inFile and updates the postGIS database
 Assumes dbase postgis exists and that outTable does as well - this overwrites!
-\begin{description}
-\item[{\textbf{Parameters}}] \leavevmode
-\emph{inFile}    :    basename of a shapefile
 
-\emph{path}  :   full path to inFile
+\textbf{Parameters}
+\begin{quote}
 
-\emph{proj}  :   projection name
+\emph{inFile} : basename of a shapefile
 
-\item[{\textbf{Required}}] \leavevmode
+\emph{path}   : full path to inFile
+
+\emph{proj}   : projection name
+\end{quote}
+
+\textbf{Required}
+\begin{quote}
+
 name, inst, obj, type, fromdate, todate(optional)
 
 fromdate - a valid time\_start (ie it is here, when was it here?)
 
-todate - a valid time\_end (ie it is here, when was it here?)
+todate   - a valid time\_end (ie it is here, when was it here?)
 
-inst - an instance id (unique for entire project) - Nominally a 5-digit string
+inst     - an instance id (unique for entire project) - Nominally a 5-digit string
+\end{quote}
 
-\item[{\textbf{Optional}}] \leavevmode
-refimg - a reference image name (ie how do you know it was here)
+\textbf{Optional}
+\begin{quote}
 
-type - an ice type (ie ice island, ice shelf, mlsi, fyi, myi, epishelf, open water)
+refimg   - a reference image name (ie how do you know it was here)
 
-subtype - an ice subtype (ie ice island could be iced firn, basement; open water could be calm, windy)
+type     - an ice type (ie ice island, ice shelf, mlsi, fyi, myi, epishelf, open water)
 
-comment - a comment field
+subtype  - an ice subtype (ie ice island could be iced firn, basement; open water could be calm, windy)
 
-name - a name (Target7, Ayles)
+comment  - a comment field
 
-obj - an object id tag (to go with name but very systematic: 2342, and if it splits 2342\_11 \& 2342\_12)
+name     - a name (Target7, Ayles)
 
-\end{description}
+obj      - an object id tag (to go with name but very systematic: 2342, and if it splits 2342\_11 \& 2342\_12)
+\end{quote}
 
 \end{fulllineitems}
 
@@ -2028,7 +2482,7 @@ obj - an object id tag (to go with name but very systematic: 2342, and if it spl
 
 
 \section{Utilities}
-\label{code:utilities}\phantomsection\label{code:module-Util}\index{Util (module)}
+\label{code:module-Util}\label{code:utilities}\index{Util (module)}
 \textbf{util.py}
 
 This module contains miscellaneous code that helps siglib work with directories, 
@@ -2037,6 +2491,7 @@ zip files, clean up intermediate files and so on.
 \textbf{Created on} Tue Feb 12 20:04:11 2013 \textbf{@author:} Cindy Lopes
 \textbf{Modified on} Sat Nov 23 14:49:18 2013 \textbf{@reason:} Added writeIssueFile and compareIssueFiles \textbf{@author:} Sougal Bouh Ali
 \textbf{Modified on} Sat Nov 30 15:37:22 2013 \textbf{@reason:} Redesigned getFilname, getZipRoot and unZip \textbf{@author:} Sougal Bouh Ali
+\textbf{Modified on} Wed May 23 14:41:40 2018 \textbf{@reason:} Added logging functionality \textbf{@author:} Cameron Fitzpatrick
 \index{az() (in module Util)}
 
 \begin{fulllineitems}
@@ -2050,27 +2505,49 @@ for better precision
 \href{https://en.wikipedia.org/wiki/Vincenty\%27s\_formulae}{https://en.wikipedia.org/wiki/Vincenty\%27s\_formulae}
 
 \textbf{Parameters:}
-pt1 : point from (tuple of lon and lat)
-pt2 : point to (tuple of lon and lat)
+\begin{quote}
+
+\emph{pt1} : point from (tuple of lon and lat)
+
+\emph{pt2} : point to (tuple of lon and lat)
+\end{quote}
 
 \textbf{Returns}
-az : azimuth from North in degrees
+\begin{quote}
+
+\emph{az}  : azimuth from North in degrees
+\end{quote}
+
+\end{fulllineitems}
+
+\index{cleartree() (in module Util)}
+
+\begin{fulllineitems}
+\phantomsection\label{code:Util.cleartree}\pysiglinewithargsret{\code{Util.}\bfcode{cleartree}}{\emph{dirname}}{}
+Delet all files in a certain path
+
+\textbf{Parameters}
+\begin{quote}
+
+\emph{dirname} :
+\end{quote}
 
 \end{fulllineitems}
 
 \index{compareIssueFiles() (in module Util)}
 
 \begin{fulllineitems}
-\phantomsection\label{code:Util.compareIssueFiles}\pysiglinewithargsret{\code{Util.}\bfcode{compareIssueFiles}}{\emph{file1}, \emph{file2}}{}
+\phantomsection\label{code:Util.compareIssueFiles}\pysiglinewithargsret{\code{Util.}\bfcode{compareIssueFiles}}{\emph{file1}, \emph{file2}, \emph{loghandler=None}}{}
 Compares 2 clean issue files generated by writeIssueFile() and
 generates a separate file containing the list of matched \& unmatched files in 2 files.
-\begin{description}
-\item[{\textbf{Parameters}}] \leavevmode
-\emph{file1}     :   name of the first text file with extension to be compared (i.e. textfile.txt)
 
-\emph{file2}     :   name of the second text file with extension to be compared (i.e. textfile.txt)
+\textbf{Parameters}
+\begin{quote}
 
-\end{description}
+\emph{file1} : name of the first text file with extension to be compared (i.e. textfile.txt)
+
+\emph{file2} : name of the second text file with extension to be compared (i.e. textfile.txt)
+\end{quote}
 
 \end{fulllineitems}
 
@@ -2079,31 +2556,39 @@ generates a separate file containing the list of matched \& unmatched files in 2
 \begin{fulllineitems}
 \phantomsection\label{code:Util.deltree}\pysiglinewithargsret{\code{Util.}\bfcode{deltree}}{\emph{dirname}}{}
 Delete all the files and sub-directories in a certain path
-\begin{description}
-\item[{\textbf{Parameters}}] \leavevmode
-\emph{dirname}   :
 
-\end{description}
+\textbf{Parameters}
+\begin{quote}
+
+\emph{dirname}   :
+\end{quote}
 
 \end{fulllineitems}
 
 \index{getFilename() (in module Util)}
 
 \begin{fulllineitems}
-\phantomsection\label{code:Util.getFilename}\pysiglinewithargsret{\code{Util.}\bfcode{getFilename}}{\emph{zipname}, \emph{unzipdir}}{}
+\phantomsection\label{code:Util.getFilename}\pysiglinewithargsret{\code{Util.}\bfcode{getFilename}}{\emph{zipname}, \emph{unzipdir}, \emph{loghandler=None}}{}
 Given the name of a zipfile, return the name of the image,
 the file name, and the corresponding sensor/platform (satellite).
-\begin{description}
-\item[{\textbf{Parameters}}] \leavevmode
-\emph{zipname}   : The basename of the zip file you are working with
-\emph{unzipdir}  : Where the zipfile will unzip to (find out with getZipRoot)
 
-\item[{\textbf{Returns}}] \leavevmode
-\emph{fname} :  The file name that corresponds to the image
-\emph{imgname}   : The name of the image (the basename, sans extension)
-\emph{sattype}   : The type of satellite/image format this file represents
+\textbf{Parameters}
+\begin{quote}
 
-\end{description}
+\emph{zipname}  : The basename of the zip file you are working with
+
+\emph{unzipdir} : Where the zipfile will unzip to (find out with getZipRoot)
+\end{quote}
+
+\textbf{Returns}
+\begin{quote}
+
+\emph{fname}    :  The file name that corresponds to the image
+
+\emph{imgname}  : The name of the image (the basename, sans extension)
+
+\emph{sattype}  : The type of satellite/image format this file represents
+\end{quote}
 
 \end{fulllineitems}
 
@@ -2114,14 +2599,18 @@ the file name, and the corresponding sensor/platform (satellite).
 Convert a SAR backscatter value from the log dB scale to the linear power scale
 
 \textbf{Note:} dB must be a scalar or an array of scalars
-\begin{description}
-\item[{\textbf{Parameters}}] \leavevmode
-\emph{dB}     :  backscatter in dB units
 
-\item[{\textbf{Returns}}] \leavevmode
-\emph{power}   :  backscatter in power units
+\textbf{Parameters}
+\begin{quote}
 
-\end{description}
+\emph{dB}    : backscatter in dB units
+\end{quote}
+
+\textbf{Returns}
+\begin{quote}
+
+\emph{power} : backscatter in power units
+\end{quote}
 
 \end{fulllineitems}
 
@@ -2136,20 +2625,22 @@ Run this function to determine where the files will be unzipped to. If the files
 the immediate subfolder, then that is what is required.
 
 Returns the unzipdir (where the files will -or should- go) and zipname (basename of the zipfile)
-\begin{description}
-\item[{\textbf{Parameters}}] \leavevmode
-\emph{zip\_file}  : full path, name and ext of a zip file
-\emph{tmpDir}    : this is the path to the directory where you are
+
+\textbf{Parameters}
 \begin{quote}
 
-working with this file (the path of the zip\_file - or wrkdir)
+\emph{zip\_file} : full path, name and ext of a zip file
+
+\emph{tmpDir}   : this is the path to the directory where you are working with this file (the path of the zip\_file - or wrkdir)
 \end{quote}
 
-\item[{\textbf{Returns}}] \leavevmode
-\emph{unzipdir}  : the directory where the zip file will/should unzip to
-\emph{zipname}   : basename of the zip file AND/OR the name of the folder where the image files are
+\textbf{Returns}
+\begin{quote}
 
-\end{description}
+\emph{unzipdir} : the directory where the zip file will/should unzip to
+
+\emph{zipname}  : basename of the zip file AND/OR the name of the folder where the image files are
+\end{quote}
 
 \end{fulllineitems}
 
@@ -2160,14 +2651,18 @@ working with this file (the path of the zip\_file - or wrkdir)
 Convert a SAR backscatter value from the linear power scale to the log dB scale
 
 \textbf{Note:} power must be a scalar or an array of scalars,negative powers will throw back NaN.
-\begin{description}
-\item[{\textbf{Parameters}}] \leavevmode
-\emph{power}     :  backscatter in power units
 
-\item[{\textbf{Returns}}] \leavevmode
-\emph{dB}   :  backscatter in dB units
+\textbf{Parameters}
+\begin{quote}
 
-\end{description}
+\emph{power} : backscatter in power units
+\end{quote}
+
+\textbf{Returns}
+\begin{quote}
+
+\emph{dB}    : backscatter in dB units
+\end{quote}
 
 \end{fulllineitems}
 
@@ -2183,7 +2678,10 @@ a list of tupples {[}(x,y),(x,y){]}
 Note - this will disappoint if proj is transformed (before or after)
 
 \textbf{Parameters}
+\begin{quote}
+
 \emph{llur} : a list of tupples {[}(x,y),(x,y){]} corresponding to lower left, upper right corners of a bounding box
+\end{quote}
 
 \end{fulllineitems}
 
@@ -2196,17 +2694,24 @@ that is reprojected to the projection wkt provided.
 
 \textbf{Note:} this could be expanded to get polyline data from polygon data
 for masking lines (not areas) ogr2ogr -nlt MULTILINESTRING
-\begin{description}
-\item[{\textbf{Parameters}}] \leavevmode
-\emph{in\_shp}    :
-\emph{vectdir}   :
-\emph{proj}      :
-\emph{projdir}   :
 
-\item[{\textbf{Returns}}] \leavevmode
-\emph{out\_shp}   :   name of the proper shapefile
+\textbf{Parameters}
+\begin{quote}
 
-\end{description}
+\emph{in\_shp}  :
+
+\emph{vectdir} :
+
+\emph{proj}    :
+
+\emph{projdir} :
+\end{quote}
+
+\textbf{Returns}
+\begin{quote}
+
+\emph{out\_shp} : name of the proper shapefile
+\end{quote}
 
 \end{fulllineitems}
 
@@ -2222,7 +2727,10 @@ a list of tupples {[}(x,y),(x,y){]}
 Note - this will disappoint if proj is transformed (before or after)
 
 \textbf{Parameters}
+\begin{quote}
+
 \emph{ullr} : a list of tupples {[}(x,y),(x,y){]} corresponding to upper right, lower left corners of a bounding box
+\end{quote}
 
 \end{fulllineitems}
 
@@ -2234,15 +2742,22 @@ Unzips the zip\_file to unzipdir with python's zipfile module.
 
 ``ext'' is a keyword that defaults to all files, but can be set
 to just extract a leader file L or xml for example.
-\begin{description}
-\item[{\textbf{Parameters}}] \leavevmode
-\emph{zip\_file}  : Name of a zip file - with extension
-\emph{unzipdir}  : Directory to unzip to
 
-\item[{\textbf{Optional}}] \leavevmode
-\emph{ext} : `all' or a specific ext as required
+\textbf{Parameters}
+\begin{quote}
 
-\end{description}
+\emph{zip\_file} : Name of a zip file - with extension
+\begin{quote}
+
+\emph{unzipdir} : Directory to unzip to
+\end{quote}
+\end{quote}
+
+\textbf{Optional}
+\begin{quote}
+
+\emph{ext}      : `all' or a specific ext as required
+\end{quote}
 
 \end{fulllineitems}
 
@@ -2252,19 +2767,20 @@ to just extract a leader file L or xml for example.
 \phantomsection\label{code:Util.wkt2shp}\pysiglinewithargsret{\code{Util.}\bfcode{wkt2shp}}{\emph{shpname}, \emph{vectdir}, \emph{proj}, \emph{projdir}, \emph{wkt}}{}
 Takes a polygon defined by well-known-text and a projection name and outputs
 a shapefile into the current directory
-\begin{description}
-\item[{\textbf{Parameters}}] \leavevmode
-\emph{shpname}   :
 
-\emph{vectdir}   :
+\textbf{Parameters}
+\begin{quote}
 
-\emph{proj}      :
+\emph{shpname} :
 
-\emph{projdir}   :
+\emph{vectdir} :
 
-\emph{wkt}       :
+\emph{proj}    :
 
-\end{description}
+\emph{projdir} :
+
+\emph{wkt}     :
+\end{quote}
 
 \end{fulllineitems}
 
@@ -2285,42 +2801,35 @@ slightly different from ullr or llur (elsewhere in this project) which are
 derived from bounding boxes of projected coordinates
 
 \textbf{Parameters}
-\emph{wkt} : a well-known text string for a polygon
+\begin{quote}
+
+\emph{wkt}         : a well-known text string for a polygon
+\end{quote}
 
 \textbf{Returns}
+\begin{quote}
+
 \emph{ul,ur,lr,ll} : a list of the four corners
+\end{quote}
 
 \end{fulllineitems}
 
 \index{writeIssueFile() (in module Util)}
 
 \begin{fulllineitems}
-\phantomsection\label{code:Util.writeIssueFile}\pysiglinewithargsret{\code{Util.}\bfcode{writeIssueFile}}{\emph{fname}, \emph{delimiter}}{}
+\phantomsection\label{code:Util.writeIssueFile}\pysiglinewithargsret{\code{Util.}\bfcode{writeIssueFile}}{\emph{fname}, \emph{delimiter}, \emph{loghandler=None}}{}
 Generates a clean list of zipfiles, when given an Issue File written by scripts.
-\begin{description}
-\item[{\textbf{Parameters}}] \leavevmode
+
+\textbf{Parameters}
+\begin{quote}
+
 \emph{fname}     :   name of the text file with extension to be cleaned(i.e. textfile.txt)
 
 \emph{delimiter} :   separator used to split zipfile from unwanted errors (i.e. use most common '' / '' before zipfile)
-
-\end{description}
+\end{quote}
 
 \end{fulllineitems}
 
-
-
-\chapter{Indices and tables}
-\label{index:indices-and-tables}\begin{itemize}
-\item {} 
-\DUspan{xref,std,std-ref}{genindex}
-
-\item {} 
-\DUspan{xref,std,std-ref}{modindex}
-
-\item {} 
-\DUspan{xref,std,std-ref}{search}
-
-\end{itemize}
 
 
 \renewcommand{\indexname}{Python Module Index}
