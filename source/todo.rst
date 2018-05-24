@@ -5,10 +5,6 @@ TODO
 -  add proper logging to replace print statements AND standardize error
    trapping and handling
 
-   #. Add both the zipfile and dimgname to the log
-   #. Need a marker at the start and end of each file logger.info...
-   #. Must work across all modules -eg
-      https://fangpenlin.com/posts/2012/08/26/good-logging-practice-in-python/
    #. capture stdout and stderr from spawned processes
    #. Make sure there is process/output testing and error trapping at
       every major step.

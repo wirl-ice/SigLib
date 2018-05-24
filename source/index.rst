@@ -9,7 +9,7 @@ Welcome to SigLib's documentation!
 Contents:
 
 .. toctree::
-   :maxdepth: 2
+   :maxdepth: 0
 
    intro
    project
@@ -19,11 +19,4 @@ Contents:
 
 
 
-
-Indices and tables
-==================
-
-* :ref:`genindex`
-* :ref:`modindex`
-* :ref:`search`
 

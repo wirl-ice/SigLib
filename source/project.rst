@@ -4,7 +4,6 @@ Project Summary
 .. figure::  UML.png
    :align:   center
 
-
 Modules
 -------
 
