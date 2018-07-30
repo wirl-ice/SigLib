@@ -19,6 +19,13 @@ import glob
 import math
 import logging
 import shlex
+import sys
+
+#import snappy
+#from snappy import ProductIO
+#from snappy import GPF
+        
+import gc
 
 from osgeo import gdal
 from osgeo.gdalconst import *
@@ -47,7 +54,7 @@ class Image(object):
             *zipname*   : name of the image's zipfile
     """
 
-    def __init__(self, fname, path, meta, imgType, imgFormat, zipname, loghandler = None):
+    def __init__(self, fname, path, meta, imgType, imgFormat, zipname, imgDir, loghandler = None):
 
 #TODO - consider a secondary function to create the image so the class can be initialized without CPU time... 
 
@@ -56,13 +63,18 @@ class Image(object):
 
         self.status = "ok"  ### For testing
         self.tifname = ""   ### For testing
+        self.fname_nosubest = ""
         
         if loghandler != None:
-            self.loghandler = loghandler               #Logging setup if loghandler sent, otherwise, all errors are printed
+            self.loghandler = loghandler               #Logging setup if loghandler sent, otherwise, set up a console only logging system
             self.logger = logging.getLogger(__name__)
             self.logger.addHandler(loghandler)
-            
+            self.logger.propagate = False
             self.logger.setLevel(logging.DEBUG)
+        else:
+            self.logger = logging.getLogger(__name__)                        
+            self.logger.setLevel(logging.DEBUG)
+            self.logger.addHandler(logging.StreamHandler())
 
         self.fname = fname # the filename to open
         self.path = path
@@ -71,13 +83,18 @@ class Image(object):
         self.imgFormat = imgFormat
         self.FileNames = [os.path.splitext(zipname)[0]] # list of all generated files
         self.proj = 'nil' # initialize to nil (then change as appropriate)
+        
+        #GPF.getDefaultInstance().getOperatorSpiRegistry().loadOperatorSpis()
+        #self.HashMap = snappy.jpy.get_type('java.util.HashMap')
 
         # if values might change make a local copy
         self.polarization = self.meta.polarization
         self.sattype = self.meta.sattype
         self.bitsPerSample = self.meta.bitsPerSample
-
-        ###print "self.sattype: ", self.sattype	#testASF
+        
+        self.imgDir = imgDir
+        
+        self.polar = []
 
         if self.imgType == 'noise' or self.imgType == 'theta':
             self.bandNames = self.imgType
@@ -89,10 +106,13 @@ class Image(object):
         if imgFormat.lower() == 'hfa':
             self.imgExt = '.img'
             
+        #self.snapImageProcess()
+            
         #TODO: Consider decoupling the class initialization from creating an image. This will 
             #provide access to the object without large amts of CPU time (or need to have open zipfile on hand)
             #1) make an Image; 2) read/open; 3) write
-            
+        
+        
         self.openDataset(self.fname, self.path)
 
         #write out a tif of this imgType
@@ -102,7 +122,9 @@ class Image(object):
             self.status = self.imgWrite(format ='GTiff')
       
         self.closeDataset()
-
+        
+         
+        
     def openDataset(self, fname, path=''):
         """
         Opens a dataset with gdal
@@ -112,7 +134,6 @@ class Image(object):
             *fname* : filename
         """
         
-        #print 'Opening file: ' + fname
         gdal.AllRegister() # for all purposes
         self.inds = gdal.Open(os.path.join(path, fname), GA_ReadOnly) # open file
         self.n_cols = self.inds.RasterXSize
@@ -143,12 +164,8 @@ class Image(object):
 
         #Use ASF Tools for ASF_CEOS data
         if self.sattype == 'ASF_CEOS':
-
-            #Todo:
-            try:
-                self.logger.error("Cannot write ASF_CEOS")
-            except:
-                print("Cannot write ASF_CEOS")
+            self.logger.error("Cannot write ASF_CEOS")
+            
             return "error"
             '''
             self.ASFimgWrite()
@@ -168,12 +185,11 @@ class Image(object):
         elif format.lower() == 'hfa':
             ext = '.img'
             driver = gdal.GetDriverByName('HFA')
+            
         elif format.lower() == 'vrt':
-            try:
-                self.logger.error('Cannot write a vrt as an original image')
-            except:
-                print('Cannot write a vrt as an original image')
+            self.logger.error('Cannot write a vrt as an original image')
             return
+        
         elif format.lower() == 'imgformat':
             ext = self.imgExt
             driver = gdal.GetDriverByName(self.imgFormat)
@@ -184,10 +200,7 @@ class Image(object):
             else:
                 options = ['']
         else:
-            try:
-                self.logger.error('That image type is not supported')
-            except:
-                print('That image type is not supported')
+            self.logger.error('That image type is not supported')
             return "error"
 
         n_bands, dataType, outname = self.fnameGenerate()
@@ -198,13 +211,12 @@ class Image(object):
 
         outds = driver.Create(outname+ext, self.n_cols, self.n_rows, n_bands,
                               dataType, options) # not working with options?? , options)
+        
+        print outds
 
         ############################################## READ RAW DATA
         for band in range(1,n_bands+1):
-            try:
-                self.logger.info('Processing band ' + str(band))
-            except:
-                print('Processing band ' + str(band))
+            self.logger.info('Processing band ' + str(band))
 
                 #+ ' of ' + str(self.n_bands) + ' bands'
             bandobj = self.inds.GetRasterBand(band)
@@ -232,10 +244,7 @@ class Image(object):
                 ### ERROR 5 handler
                 ##/FutureWarning: comparison to `None` will result in an elementwise object comparison in the future.
                 if datachunk is None:
-                    try:
-                        self.logger.error("Error datachunk =  None")
-                    except:
-                        print("Error datachunk =  None")
+                    self.logger.error("Error datachunk =  None")
 
                     self.tifname = outname+ext          ###
                     return "error"
@@ -290,22 +299,20 @@ class Image(object):
             ## end band loop
 
         # finish the geotiff file
+        
         if self.proj == 'nil':
             outds.SetGCPs(self.meta.geopts, self.meta.geoptsGCS)
         else:
             # copy the proj info from before...
             outds.SetGeoTransform(self.inds.GetGeoTransform())
             outds.SetProjection(self.inds.GetProjection())
-
+        
         if stretchVals is None:
             self.FileNames.append(outname)
-            try:
-                self.logger.debug('Image written ' + outname+ext)
-            except:
-                print('Image written ' + outname+ext)
+            self.logger.debug('Image written ' + outname+ext)
 
             self.tifname = outname+ext          ###
-
+        
         outds = None         # release the dataset so it can be closed
 
 
@@ -344,17 +351,11 @@ class Image(object):
         if ok == 0:
             os.remove(inname+ext)
             os.rename(tempname+ext, inname+ext)
-            try:
-                self.logger.debug('img reduced in size')
-            except:
-                print('img reduced in size')
+            self.logger.debug('img reduced in size')
 
             #self.FileNames.append(outname)
         else:
-            try:
-                self.logger.error('Could not reduce image')
-            except:
-                print('Could not reduce image')
+            self.logger.error('Could not reduce image')
         return ok
 
     def projectImg(self, projout, projdir, format=None, resample='bilinear', clobber=True):
@@ -375,7 +376,6 @@ class Image(object):
 
         NOTE THE PIXEL SIZE IS NOT PROSCRIBED! (it will be the smallest possible)
         """
-
         if format == None:
             imgFormat = 'VRT'
             ext = '.vrt'
@@ -389,81 +389,39 @@ class Image(object):
 
         #Use ASF Tools for ASF_CEOS data
         if self.sattype == 'ASF_CEOS':
-
-            #todo
-            try:
-                self.logger.error("cannot project afs_ceos")
-            except:
-                print("cannot project afs_ceos")
+        
+            self.logger.error("cannot project afs_ceos")
             return
 
             '''
             self.ASFprojectImg(self.imgType, projin, projout, projdir)
             return
             '''
-
+        os.chdir(self.imgDir)
         inname = self.FileNames[-1] #last file
+        print inname
         outname = self.fnameGenerate(projout=projout)[2]
         command = 'gdalwarp -of ' + imgFormat +  ' -t_srs ' +\
                 os.path.join(projdir, projout+'.wkt') + \
                     ' -order 3 -dstnodata 0 -r '+ resample +' '+clobber+ \
                     inname+'.tif' + ' ' + outname+ext
-
-        #cmd = shlex.split(command)  #TODO this may be a problem for windows
-        #ok = subprocess.Popen(cmd).wait()
-        ok = subprocess.Popen(command).wait()  # run the other way on linux
+        try:
+            ok = subprocess.Popen(command).wait()  # run the other way on linux
+        except:
+            cmd = shlex.split(command)  #TODO this may be a problem for windows
+            ok = subprocess.Popen(cmd).wait()
 
 
         #os.remove(inname+'.tif') #would remove the original file
         if ok == 0:
             self.proj = projout
             self.projdir = projdir
-            try:
-                self.logger.info('Completed image projection')
-            except:
-                print('Completed image projection')
-
+            self.logger.info('Completed image projection')
+            
             self.FileNames.append(outname)
         else:
-            try:
-                self.logger.error('Image projection failed')
-            except:
-                print('Image projection failed')
+            self.logger.error('Image projection failed')
         return ok
-
-#    def ASFprojectImg(self, self.imgType, projin, projout, projdir):
-#        '''
-#        looks for a file (already created) and projects it
-#        proj is the projection base name
-#        projdir is the path to proj
-#        Takes the ASF internal format *.img *.meta and a *.asf file too
-#        '''
-#        if projin != 'nil':
-#            print 'Can only project from ASF unprojected ground range to a new proj'
-#            return
-#
-#        inname = self.fnameGenerate(self.imgType, projin)[2]
-#        tempname = 'tmp'
-#        outname = self.fnameGenerate(self.imgType, projout)[2]
-#
-#        cmd1 = 'asf_geocode -read-proj-file ' + os.path.join(projdir, projout+'.asf') + \
-#        ' -resample-method bilinear -force -background 0 -quiet ' + inname +\
-#                        ' ' + tempname
-#        cmd2 = 'asf_export -format geotiff -quiet ' + tempname + ' ' + tempname
-#
-#        # should add a gdal_translate to compress the tif and add nodata value
-#        cmd3 = 'gdal_translate -a_nodata 0 -co \"COMPRESS=LZW\"' + tempname +\
-#                '.tif ' + outname + '.tif'
-#
-#        subprocess.Popen(cmd1).wait()
-#        subprocess.Popen(cmd2).wait()
-#        subprocess.Popen(cmd2).wait()
-#
-#        #clean-up
-#        os.remove(tempname+'.img')
-#        os.remove(tempname+'.meta')
-#        os.remove(tempname+'.tif')
-#        print 'Completed image projection'
 
 
     def fnameGenerate(self, projout=None, subset=None, band=None):
@@ -578,16 +536,10 @@ class Image(object):
         ok = subprocess.Popen(command).wait()
         if ok == 0:
             os.rename(tempname+ext, outname+ext)
-            try:
-                self.logger.debug('img cropped -method warp')
-            except:
-                print('img cropped -method warp')    
+            self.logger.debug('img cropped -method warp') 
             self.FileNames.append(outname)
         else:
-            try:
-                self.logger.error('Could not crop image in cropBig')
-            except:
-                print('Could not crop image in cropBig')
+            self.logger.error('Could not crop image in cropBig')
         return ok
 
     def cropSmall(self, urll, subscene):
@@ -605,6 +557,7 @@ class Image(object):
         imgFormat = 'vrt'
         ext = '.vrt'
         inname = self.FileNames[-1] # this is potentially an issue here
+        self.fname_nosubest = inname
         outname = inname+'_'+subscene
         tempname = 'tmp_'+outname
        
@@ -618,16 +571,10 @@ class Image(object):
         ok = subprocess.Popen(command).wait()
         if ok == 0:
             os.rename(tempname+ext, outname+ext)
-            try:
-                self.logger.debug('img cropped -method crop_Small')
-            except:
-                print('img cropped -method crop_Small')
+            self.logger.debug('img cropped -method crop_Small')
             self.FileNames.append(outname)
         else:
-            try:
-                self.logger.error('Could not crop image in crop_Small')
-            except:
-                print('Could not crop image in crop_Small')
+            self.logger.error('Could not crop image in crop_Small')
         return ok
 
     def maskImg(self, mask, vectdir, side, imgType):
@@ -640,13 +587,13 @@ class Image(object):
 
         **Parameters**
             
-            *mask*    :
+            *mask*    : a shapefile used to mask the image(s) in question
 
-            *vectdir* :
+            *vectdir* : directory where the mask shapefile is
 
-            *side*    :
+            *side*    : 'inside' or 'outside' depending on desired mask result
 
-            *imgType* :
+            *imgType* : the image type
         """
 
         inname = self.FileNames[-1] # this is potentially an issue here
@@ -656,10 +603,7 @@ class Image(object):
         elif side.lower() == 'outside':
             sidecode = '-i'
         else:
-            try:
-                self.logger.error('Mask inside or outside your polygons')
-            except:
-                print('Mask inside or outside your polygons')
+            self.logger.error('Mask inside or outside your polygons')
             return
 
         bandFlag = ' -b '
@@ -669,26 +613,23 @@ class Image(object):
         if imgType == 'sigma' or imgType == 'amp':
             for band in range(1,self.n_bands+1):
                 bstr = bstr + bandFlag + str(band)
+                
 
         cmd = 'gdal_rasterize ' + sidecode + bstr +\
             ' -burn 0' + ' -l ' +\
             mask + ' ' + os.path.join(vectdir, mask  + '.shp') +\
             ' ' + inname+self.imgExt
 
-        command = shlex.split(cmd)
+        #command = shlex.split(cmd)
 
-        ok = subprocess.Popen(command).wait()
+        #ok = subprocess.Popen(command).wait()
+
+        ok = os.system(cmd)
 
         if ok == 0:
-            try:
-                self.logger.info('Completed image mask')
-            except:
-                print('Completed image mask')
+            self.logger.info('Completed image mask')
         else:
-            try:
-                self.logger.error('Image masking failed')
-            except:
-                print('Image masking failed') 
+            self.logger.error('Image masking failed')
 
     def makePyramids(self):
         """
@@ -705,16 +646,10 @@ class Image(object):
 
         ok = subprocess.Popen(command).wait()
         if ok == 0:
-            try:
-                self.logger.info('Completed image pyramids')
-            except:
-                print('Completed image pyramids')
+            self.logger.info('Completed image pyramids')
 
         else:
-            try:
-                self.logger.error('Image pyramid scheme collapsed')
-            except:
-                print('Image pyramid scheme collapsed')
+            self.logger.error('Image pyramid scheme collapsed')
 
     def vrt2RealImg(self, subset=None):
         """
@@ -731,23 +666,14 @@ class Image(object):
         try:
 		ok = subprocess.Popen(command).wait()
         except:
-            try:
-                self.logger.error("vrt2RealImg failed")
-            except:
-                print("vrt2RealImg failed") 
+            self.logger.error("vrt2RealImg failed")
 		
         if ok == 0:
-            outname = self.fnameGenerate()[2]       ###
+            outname = self.fnameGenerate(subset=subset)[2]       ###  Why the name change here? Could be crutial?
             self.FileNames.append(outname)          ###
-            try:
-                self.logger.debug('Completed export to tiff ' + outname+'.tif')
-            except:
-                print('Completed export to tiff ' + outname+'.tif')
+            self.logger.debug('Completed export to tiff ' + outname+'.tif')
         else:
-            try:
-                self.logger.error('Image export failed')
-            except:
-                print('Image export failed')
+            self.logger.error('Image export failed')
 
     def getImgStats(self):
         """
@@ -763,10 +689,8 @@ class Image(object):
         ext=self.imgExt
         inname = self.FileNames[-1]
         imgfile = inname+ext  
-        try:
-            self.logger.info("Getting image stats for " + imgfile)
-        except:
-            print("Getting image stats for " + imgfile)
+
+        self.logger.info("Getting image stats for " + imgfile)
 
         self.openDataset(imgfile)
 
@@ -785,7 +709,7 @@ class Image(object):
             nodata = bandobj.GetNoDataValue()
             band_stats[:0] = [band, dynRange, band_dtype, nodata]
             stats[band-1,:] = band_stats
-            #print 'Band Type=',gdal.GetDataTypeName(bandobj.DataType)
+
             ###self.inds.band.GetHistogram(min, max, n_buckets) # works!
 
         bandobj = None
@@ -819,17 +743,11 @@ class Image(object):
         if procedure.lower() == 'std':
             assert sd > 0 and (type(sd) == type(1) or type(sd) == type(1.0))
         if stats[0, 2] not in [1,2,6]:
-            try:
-                self.logger.error('Image scaling from this image\'s data type are not supported')
-            except:
-                print('Image scaling from this image\'s data type are not supported')
+            self.logger.error('Image scaling from this image\'s data type are not supported')
             return
         
         if stats[0, 2] == 1 and bitDepth == 16:
-            try:
-                self.logger.error('No sense scaling an 8 bit image to 16 bits... not going to do it')
-            except:
-                print('No sense scaling an 8 bit image to 16 bits... not going to do it')
+            self.logger.error('No sense scaling an 8 bit image to 16 bits... not going to do it')
                 
             bitDepth = 8
         scaleRange = (2**bitDepth)-2  #save 1 position for nodata and one for 0...
@@ -871,10 +789,7 @@ class Image(object):
                     dynRange = maxVal-minVal
 
             else:
-                try:
-                    self.logger.error('Stretch procedure ' + procedure + ' not supported')
-                except:
-                    print('Stretch procedure ' + procedure + ' not supported')
+                self.logger.error('Stretch procedure ' + procedure + ' not supported')
                 return 'error'
 
             stretchVals[index,:] = [band, scaleRange, dynRange, minVal, maxVal]
@@ -891,10 +806,7 @@ class Image(object):
             maxs = stretchVals[:,4]-stretchVals[index,4] #+ve is more extreme
             greatestShift = numpy.append(mins, maxs).max()
             if greatestShift != 0:
-                try:
-                    self.logger.debug('Using shift technique to avoid stretch bias')
-                except:
-                    print('Using shift technique to avoid stretch bias')
+                self.logger.debug('Using shift technique to avoid stretch bias')
                     
                 # is met, debug to make sure the following works
                 middles = stretchVals[:,3]+(stretchVals[:, 2]/2)
@@ -916,28 +828,31 @@ class Image(object):
             stretchVals[:,4] = 0
 
         else:
-            try:
-                self.logger.error('Error: Do you want bands stretched separately or together?')
-            except:
-                print('Error: Do you want bands stretched separately or together?')
+            self.logger.error('Error: Do you want bands stretched separately or together?')
             return
 
         filename = self.FileNames[-1]
+        #filename = self.fnameGenerate(subset=subset)[2]
         ext = self.imgExt
         self.openDataset(filename+ext)
-        #print stretchVals
+
         #write out a tif of this imgType
         self.imgWrite(stretchVals=stretchVals)
         self.closeDataset()
 
         # delete original file and rename tmp
-        os.remove(filename+ext)
-        os.rename(filename+'_temp_stretch'+ext, filename+ext)
-        #os.rename('temp_stretch'+ext, 'temp_stretch'+'_'+procedure+str(sd)+sep+ext)
+        if self.fname_nosubest != 0:
+            filename = self.fname_nosubest
         try:
-            self.logger.info('Image stretched... ')
+            os.rename(filename+'_temp_stretch'+ext, filename+ext)
+            os.remove(filename+ext)
+            #os.rename('temp_stretch'+ext, 'temp_stretch'+'_'+procedure+str(sd)+sep+ext)
         except:
-            print('Image stretched... ') 
+            #os.remove(filename+ext)
+            #os.rename(filename+'_temp_stretch'+ext, filename+ext)
+            #os.rename('temp_stretch'+ext, 'temp_stretch'+'_'+procedure+str(sd)+sep+ext)
+            pass
+        self.logger.info('Image stretched... ')
             
     def stretchLinear(self, datachunk, scaleRange, dynRange, minVal, offset=0):
         """
@@ -1038,10 +953,7 @@ class Image(object):
                 try:
                     os.remove( filename )
                 except:
-                    try:
-                        self.logger.error('File not deleted: ' + filename)
-                    except:
-                        print('File not deleted: ' + filename)
+                    self.logger.error('File not deleted: ' + filename)
 
     def getSigma(self, datachunk, n_lines):
         """
@@ -1125,10 +1037,7 @@ class Image(object):
 
         #Quick check to see if image supported
         if self.sattype != 'RSAT2' and 'Q' not in self.meta.beam:
-            try:
-                self.logger.error('Image cannot be decomposed')
-            except:
-                print('Image cannot be decomposed')
+            self.logger.error('Image cannot be decomposed')
             return  "error"
 
         chunkSize = 300 # seems to work ok, go lower if RAM is wimpy...
@@ -1143,10 +1052,7 @@ class Image(object):
             ext = '.img'
             driver = gdal.GetDriverByName('HFA')
         elif format.lower() == 'vrt':
-            try:
-                self.logger.error('Cannot write a vrt as an original image')
-            except:
-                print('Cannot write a vrt as an original image')
+            self.logger.error('Cannot write a vrt as an original image')
             return  "error"
         elif format.lower() == 'imgformat':
             ext = self.imgExt
@@ -1156,10 +1062,7 @@ class Image(object):
             else:
                 options = ['']
         else:
-            try:
-                self.logger.error('That image type is not supported')
-            except:
-                print('That image type is not supported')
+            self.logger.error('That image type is not supported')
             return "error"
 
         outname = self.fnameGenerate()[2]
@@ -1181,7 +1084,6 @@ class Image(object):
         n_lines = chunkSize
 
         for chunk in range( n_chunks ):
-            #print "chunk, n_chunks", chunk, n_chunks
 
             first_line = chunkSize*chunk
             if chunk == n_chunks - 1:
@@ -1196,9 +1098,6 @@ class Image(object):
                                                    self.n_cols, n_lines )
             datachunk_vh = gdal_array.BandReadAsArray(vh, 0, first_line,
                                                    self.n_cols, n_lines )
-
-            #print "datachunk raw ", band, chunk, numpy.max(datachunk), numpy.min(datachunk)
-
 
             # The following is for Pauli decomp - Add more when you can...
 
@@ -1241,13 +1140,90 @@ class Image(object):
             outds.SetProjection(self.inds.GetProjection())
 
         self.FileNames.append(outname)
-        try:
-            self.logger.debug('Image written ' + outname+ext)
-        except:
-            print('Image written ' + outname+ext)
+        self.logger.debug('Image written ' + outname+ext)
 
         outds = None         # release the dataset so it can be close
         
     def removeHandler(self):
         self.logger.handlers = []
+    
+    def cleanFileNames(self):
+        temp = [0,0]
+        temp[0] = self.FileNames[0]
+        temp[1] = self.FileNames[1]
+        self.FileNames = temp
+        
+    def combineTif(self, imgdir, zipname, mergedir):
+        """
+        Takes a set of tif images made in scientific mode and combines
+        them into a single tif image
+        
+         **Parameters**
             
+            *imgdir*   : directory containing images to combine
+            
+            *zipname   : name of zipfile (no path)
+            
+            *mergedir* : directory containing gdal_merge.py
+        """
+        os.chdir(mergedir)
+        
+        import gdal_merge as gm
+        
+        os.chdir(imgdir)
+        
+        outname = zipname+"_scenes.tif"
+        
+        imgs = ['-o', outname, '-of', 'GTiff']        
+        
+        for files in os.listdir(imgdir):
+            if files.endswith(".tif") and self.meta.dimgname in files:
+                if "nil" in files:
+                    continue
+                else:
+                    imgs.append(files)
+                
+        sys.argv[1:] = imgs
+        gm.main()
+    '''    
+    def snapImageProcess(self):
+        sys.path.append('C:\Users\cfitzpatrick\.snap\snap-python')
+        
+        GPF.getDefaultInstance().getOperatorSpiRegistry().loadOperatorSpis()
+        HashMap = snappy.jpy.get_type('java.util.HashMap')
+        
+        self.openDataset(self.fname, self.path)
+        
+        gc.enable()
+        input = os.path.join(self.path, self.fname)
+        print input
+        
+        rsat = ProductIO.readProduct(input)
+        print rsat
+        
+        bands, dataType, outname = self.fnameGenerate()         
+        
+        i = 0
+        while i < len(self.polarization.split()):
+            self.polar.append(self.polarization.split(' ')[i])
+            i+= 1
+                
+        for p in self.polar:
+            print p
+            
+            output = os.path.join(self.imgDir, outname)
+            
+            parameters = HashMap()
+            parameters.put('Source Bands','Intensity_' + p) 
+            parameters.put('Map Projection', 'WGS84(DD')
+            parameters.put('selectedPolarisations', p)
+            
+            target = GPF.createProduct("Calibration", parameters, rsat)
+            
+            ProductIO.writeProduct(target, output, 'GeoTIFF')
+            
+            
+        self.closeDataset()
+        
+        self.FileNames.append(outname)
+        '''

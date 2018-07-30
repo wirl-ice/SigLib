@@ -1,0 +1,37 @@
+# -*- coding: utf-8 -*-
+"""
+**renameZip.py**
+
+Created on Thu Feb 16 17:56:26 2017
+
+@author: dmueller
+
+This script will walk through a directory and rename zip files for the 'zipname' or 
+the name of the main subfolder.  
+
+Run this when CIS provides files named after Cat ID. 
+
+
+"""
+
+
+from glob import glob
+import os
+import Util
+
+wrkdir = '/tank/SCRATCH/dmueller/2013'
+
+os.chdir(wrkdir)
+
+ziplist = glob('*.zip')
+ziplist.reverse() # reverse order for most recent 1st
+
+####### Setup a for loop to go to a directory and unzip files
+for z in ziplist:
+    zdir, zname, nest = Util.getZipRoot(os.path.join(wrkdir,z),wrkdir)
+    print('Original file: %s' % z)
+    print('ZDir: %s, ZName: %s, Nest: %i' % (zdir, zname, nest)) 
+    if os.path.splitext(z)[0] != zname:
+        os.rename(z, zname+'.zip')
+        print('Rename!!!')
+        
