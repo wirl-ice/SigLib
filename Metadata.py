@@ -9,7 +9,9 @@ later use, output to file, upload to database, etc.
 
         *This source code to extract metadata from CEOS-format RADARSAT-1 
         data was developed by Defence Research and Development Canada
-        [Used with permission]*       
+        [Used with permission]* 
+        
+**Modified on** Wed May  23 11:37:40 2018 **@reason:** Sent instance of Metadata to data2img instead of calling Metadata again **@author:** Cameron Fitzpatrick
 """
 
 import os
@@ -222,14 +224,18 @@ class Metadata(object):
         **Returns**
             
             An instance of Meta
-        """
+        """        
         
         if loghandler != None:
-            self.loghandler = loghandler             #Logging setup if loghandler sent, otherwise, all errors are printed
+            self.loghandler = loghandler             #Logging setup if loghandler sent, otherwise, set up a console only logging system
             self.logger = logging.getLogger(__name__)
             self.logger.addHandler(loghandler)
-            
+            self.logger.propagate = False
             self.logger.setLevel(logging.DEBUG)
+        else:
+            self.logger = logging.getLogger(__name__)                        
+            self.logger.setLevel(logging.DEBUG)
+            self.logger.addHandler(logging.StreamHandler())
         
         self.path = path
         self.granule = granule  #filename and extension of the file containing
@@ -309,25 +315,17 @@ class Metadata(object):
         #TODO, more info here
 
         if(ds == None):
-            try:
-                self.logger.error("Error with gdal.open")
-                self.status = "gdalerror"
-                return "gdalerror"
-            except:
-                print("Error with gdal.open")
-                self.status = "gdalerror"
-                return "gdalerror"
+            self.logger.error("Error with gdal.open")
+            self.status = "gdalerror"
+            return "gdalerror"
 
         ### getting image dimensions
         self.n_rows = ds.RasterYSize
         self.n_cols = ds.RasterXSize
         self.n_bands = ds.RasterCount
-        try:
-            self.logger.info('Img has: ' + str(self.n_cols) + ' columns, ' + \
-            str(self.n_rows) + ' rows & ' + str(self.n_bands) + ' band(s)')
-        except:
-            print('Img has: ' + str(self.n_cols) + ' columns, ' + \
-            str(self.n_rows) + ' rows & ' + str(self.n_bands) + ' band(s)')
+
+        self.logger.info('Img has: ' + str(self.n_cols) + ' columns, ' + \
+        str(self.n_rows) + ' rows & ' + str(self.n_bands) + ' band(s)')
 
 
         #If the n_rows is not zero extract the GCPs through the dataset
@@ -337,10 +335,7 @@ class Metadata(object):
 
         #Otherwise extract them manually through the .img file
         else:
-            try:
-                self.logger.debug("No GCPs in gdal dataset, manually extracting from the image.")
-            except:
-                print("No GCPs in gdal dataset, manually extracting from the image.")
+            self.logger.debug("No GCPs in gdal dataset, manually extracting from the image.")
 
             self.getCEOSmetafile()
             ### Take every nth line (specify nth) and save GCPs
@@ -355,25 +350,17 @@ class Metadata(object):
         proj = ds.GetProjectionRef()
 
         if proj == '':
-            try:
-                self.logger.info('Img has:      ' + str(self.n_geopts) + ' GCPs')
-            except:
-                print('Img has:      ' + str(self.n_geopts) + ' GCPs')
+            self.logger.info('Img has:      ' + str(self.n_geopts) + ' GCPs')
         else:
-            try:
-                self.logger.info('Projection is:    ' + proj)
-            except:
-                print('Projection is:    ' + proj)
+            self.logger.info('Projection is:    ' + proj)
             
 
         # All gdal_meta
         gdal_meta = ds.GetMetadata_List()
-        #print gdal_meta
-
+        
         ds = None
 
         return gdal_meta
-
 
     def getCornerPoints(self):
         """
@@ -404,13 +391,8 @@ class Metadata(object):
 
         #Todo -- Check for no GCPs
         if(len(row) == 0):
-            try:
-                self.logger.error("No rows found in ")
-                return "gdalerror"
-            except:
-                print("No rows found in ")
-                return "gdalerror"
-            #sys.exit(0)
+            self.logger.error("No rows found in ")
+            return "gdalerror"
 
         # check to see if the gcps cover the corners
         if self.sattype == 'RS2': # these ones are not in the middle of the pixel
@@ -484,10 +466,7 @@ class Metadata(object):
             if abs(self.ellip_maj - 6378.137) < 1 and abs(self.ellip_min - 6356.7523142) < 1:
                 self.geoptsSRID = 4326
             else:
-                try:
-                    self.logger.error('ERROR: The image GCPs were in an unexpected GCS')
-                except:
-                    print('ERROR: The image GCPs were in an unexpected GCS')
+                self.logger.error('ERROR: The image GCPs were in an unexpected GCS')
                 return 'gcperror'
         elif not wgs84_srs.IsSame(gcp_srs):
             # ok that's not cool, but maybe the projections are the same anyhow...
@@ -502,10 +481,7 @@ class Metadata(object):
             if counter == 3:  #then tranformation is *1 (no transform)
                 self.geoptsSRID = 4326 # the SRID for WGS84
             else:
-                try:
-                    self.logger.error('ERROR: The image GCPs were in an unexpected GCS')
-                except:
-                    print('ERROR: The image GCPs were in an unexpected GCS')
+                self.logger.error('ERROR: The image GCPs were in an unexpected GCS')
                 return 'gcperror'
                 # at this stage, you could transform the corner coords to wgs84
                 # and then continue... (note that this was done -below)
@@ -559,11 +535,9 @@ class Metadata(object):
                 # header one long int, four unsigned bytes, one long int
             seq, sub1, type, sub2, sub3, record_length = struct.unpack('>lBBBBl', header_data)
 
-            #print 'rec_seq ' + str(seq)
             record_key = str(sub1) +'-'+ str(type) +'-'+ str(sub2) +'-'+ str(sub3)
 
             if record_key == '50-11-18-20':
-                #print 'line_number ' + str(struct.unpack('>l', fp.read(4))[0])
 
                 fp.seek(record_offset+132,0) # go to start of coord data
                 coords_bin = fp.read(24)
@@ -597,7 +571,7 @@ class Metadata(object):
                     coord = mid[line]
                 elif pixel == self.n_cols -0.5:
                     coord = last[line]
-                ##print img, coord, str(i)+'_'+str(j)
+
                 # put into a GCP
                 gcp = gdal.GCP()
                 gcp.Id = str(i)+'_'+str(j)
@@ -724,9 +698,7 @@ class Metadata(object):
 
         # Extract from files
         result = {}
-        for file_name in file_names:
-            ###print
-            #print 'Looking in:   ',file_name,"..."   ###
+        for file_name in file_names:#
 
             fp = open(file_name)
 
@@ -742,7 +714,6 @@ class Metadata(object):
 
                 fp.seek(record_offset,0)
                 header_data = fp.read(12)
-                #print 'rec_seq ' + str(byte2int(header_data[0:4]))
 
                 #after reading 12 bytes, get the record identifier
                 record_key = str(byte2int(header_data[4])) + '-' + \
@@ -757,23 +728,12 @@ class Metadata(object):
                 else:
                     record_name = "Unknown Record"
 
-
-                #print "Record Header: " + record_key + ", Record Name: " \
-                #    + record_name + " Sequence "+  str(byte2int(header_data[0:4]))+\
-                #    ", Length: " + str(record_length) + " bytes"
-
-
                 # if we are looking for this record, then get data in record
                 if record_index.has_key(record_key):
-
-                    #print "looking at record key: ", record_key
 
                     # read in the data in native format
                     record_data = get_data_block(fp, record_offset, record_length)
                     #
-
-
-                    #print "record data is ", record_data
 
                     # iterate through fields that are found in this record
                     for field in record_index[record_key]:
@@ -799,8 +759,6 @@ class Metadata(object):
 
                 record_offset = record_offset + record_length
 
-        #print "the returned result is: ", result
-
         return result
 
     def extractGCPs(self, interval):
@@ -817,7 +775,7 @@ class Metadata(object):
         """
 
         file_name = self.image
-        #print 'Looking in:   ',file_name,"..."       ###
+
         fp = open(file_name)
 
 
@@ -846,11 +804,9 @@ class Metadata(object):
                 # header one long int, four unsigned bytes, one long int
             seq, sub1, type, sub2, sub3, record_length = struct.unpack('>lBBBBl', header_data)
 
-            #print 'rec_seq ' + str(seq)         ###
             record_key = str(sub1) +'-'+ str(type) +'-'+ str(sub2) +'-'+ str(sub3)
 
             if record_key == '50-11-18-20':
-                #print 'line_number ' + str(struct.unpack('>l', fp.read(4))[0])     ###
 
                 fp.seek(record_offset+132,0) # go to start of coord data
                 coords_bin = fp.read(24)
@@ -870,7 +826,6 @@ class Metadata(object):
         if line_num - 1 not in lines:
             lines.append(line_num - 1)
 
-        #print "lines ", lines           ###
 
         pixels = [0.5, self.n_cols/2, self.n_cols - 0.5]
 
@@ -886,7 +841,6 @@ class Metadata(object):
                 elif pixel == self.n_cols -0.5:
                     coord = last[line]
 
-                #print img, coord, str(i)+'_'+str(j)
 
                 # Put into a GCP
                 gcp = gdal.GCP()
@@ -920,7 +874,6 @@ class Metadata(object):
         file = os.path.join(self.path, "product.xml")
 
         xmldoc = minidom.parse(os.path.join(self.path, file))
-        #print xmldoc.toxml()
 
         # get all the 1:1 data first
 
@@ -980,10 +933,7 @@ class Metadata(object):
         elif self.order_Az.lower() == 'increasing':
             duration = readdate(stop,self.sattype)-readdate(start,self.sattype)
         else:
-            try:
-                self.logger.error('No line order found')
-            except:
-                print('No line order found')
+            self.logger.error('No line order found')
             return
 
         if duration.seconds > 120:
@@ -1038,10 +988,7 @@ class Metadata(object):
         # read in LUT
             xmldoc = minidom.parse(os.path.join(self.path, file))
         else:
-            try:
-                self.logger.error("lutSigma.xml cannot be found")
-            except:
-                print("lutSigma.xml cannot be found")
+            self.logger.error("lutSigma.xml cannot be found")
             #error handler
 
         self.caloffset = float(xmldoc.getElementsByTagName('offset')[0].firstChild.data)
@@ -1052,8 +999,6 @@ class Metadata(object):
             calgain[i] = float(gains[i])
         self.calgain = calgain
 
-
-        #print xmldoc.toxml()
 
         if self.order_Rg.lower() == 'decreasing':
                 self.calgain = self.calgain[::-1].copy() # REVERSE!!
@@ -1077,10 +1022,7 @@ class Metadata(object):
         elif result.has_key('state_time'):
             self.acDateTime = readdate(result['state_time'], self.sattype)
         else:
-            try:
-                self.logger.error('No date field retrieved in metadata')
-            except:
-                print('No date field retrieved in metadata')
+            self.logger.error('No date field retrieved in metadata')
             #error handler
 
         self.satellite = result['sensor_id'][0:6]
@@ -1247,10 +1189,8 @@ class Metadata(object):
 
         #If Rsat 1 and Decending flip the corner points
         if self.passDirection == "Descending" and self.sattype != 'RS2':
-            try:
-                self.logger.debug("Pass direction is descending flipping corners and GCPs")
-            except:
-                print("Pass direction is descending flipping corners and GCPs")
+            self.logger.debug("Pass direction is descending flipping corners and GCPs")
+            
             """FLIP GCP AROUND THE Y-AXIS"""
             ulX = ul[:ul.find(' ',0,len(ul))]
             urX = ur[:ur.find(' ',0,len(ur))]
@@ -1307,10 +1247,7 @@ class Metadata(object):
         if result.has_key('inp_sctim'):
             self.acDateTime = readdate(result['inp_sctim'], self.sattype)
         else:
-            try:
-                self.logger.error('No date field retrieved in metadata')
-            except:
-                print('No date field retrieved in metadata')
+            self.logger.error('No date field retrieved in metadata')
             #error handler
 
         #Add the satellite type
@@ -1529,10 +1466,7 @@ def doy2date(year, doy):
         year = int(year)
     if type(year) == type(2.0):
         year = int(year)
-        try:
-            logger.error('Result might be invalid : year coerced to integer')
-        except:
-            print('Result might be invalid : year coerced to integer')
+        logger.error('Result might be invalid : year coerced to integer')
     return datetime.datetime(year, 1, 1) + datetime.timedelta(doy - 1)
 
 def datetime2iso(datetimeobj):

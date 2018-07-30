@@ -21,7 +21,7 @@ import logging
 from osgeo import osr
 from osgeo import ogr
 import shlex
-import numpy       
+import numpy      
     
 def getFilename(zipname, unzipdir, loghandler=None):
     """
@@ -44,11 +44,15 @@ def getFilename(zipname, unzipdir, loghandler=None):
     """
     
     if loghandler != None:
-        loghandler = loghandler             #Logging setup if loghandler sent, otherwise, all errors are printed
+        loghandler = loghandler             #Logging setup if loghandler sent, otherwise, set up a console only logging system
         logger = logging.getLogger(__name__)
         logger.addHandler(loghandler)
-            
+        logger.propagate = False    
         logger.setLevel(logging.DEBUG)
+    else:
+        logger = logging.getLogger(__name__)                        
+        logger.setLevel(logging.DEBUG)
+        logger.addHandler(logging.StreamHandler())
     
     dirlist = os.listdir(unzipdir)      # List of all the files in zip_file to be used as the loop iterative element
     countdown = len(dirlist)            # Number of files in zip_file to be used as a counter inside the loop
@@ -74,20 +78,14 @@ def getFilename(zipname, unzipdir, loghandler=None):
                 os.rename(os.path.join(unzipdir,imgname+".sarl"), os.path.join(unzipdir,imgname+".led"))
 
             else:
-                try:
-                    logger.error("No file named *.sarl found")
-                except:
-                    print("No file named *.sarl found")
+                logger.error("No file named *.sarl found")
                 return "error", "error", "error"
 
             if os.path.isfile(os.path.join(unzipdir,imgname+".sart")):
                 os.rename(os.path.join(unzipdir,imgname+".sart"), os.path.join(unzipdir,imgname+".trl"))
 
             else:
-                try:
-                    logger.error("could not find a trailer file")
-                except:
-                    print("could not find a trailer file")
+                logger.error("could not find a trailer file")
                 return "error", "error", "error"
 
             if os.path.isfile(os.path.join(unzipdir,imgname+".sard")):
@@ -98,10 +96,7 @@ def getFilename(zipname, unzipdir, loghandler=None):
                 os.rename(os.path.join(unzipdir,imgname+"01f.sard"), os.path.join(unzipdir,imgname+".img"))
 
             else:
-                try:
-                    logger.error("could not find a CIS CEOS data file named *.sard")
-                except:
-                    print("could not find a CIS CEOS data file named *.sard")
+                logger.error("could not find a CIS CEOS data file named *.sard")
                 return "error", "error", "error"
 
             break
@@ -117,10 +112,7 @@ def getFilename(zipname, unzipdir, loghandler=None):
             countdown-1
 
     if countdown == 0:
-        try:
-            logger.error("This zipfile contents are not recognised")
-        except:
-            print("This zipfile contents are not recognised")
+        logger.error("This zipfile contents are not recognised")
         return "error", "error", "error"
 
     else:
@@ -200,7 +192,7 @@ def getZipRoot(zip_file, tmpDir):
 
     for f in dirlist:
         fsplit = f.split("/")       # Seperate the directories if any
-        #print "fsplit: ", fsplit
+
         if len(fsplit) > 1 and fsplit[0] == zipname:        # Files are in a directory
             unzipdir = tmpDir       # Unzipdir will be their own subdirectory
 
@@ -556,23 +548,23 @@ def writeIssueFile(fname, delimiter, loghandler = None):
     """
     
     if loghandler != None:
-        loghandler = loghandler             #Logging setup if loghandler sent, otherwise, all errors are printed
+        loghandler = loghandler             #Logging setup if loghandler sent, otherwise, set up a console only logging system
         logger = logging.getLogger(__name__)
         logger.addHandler(loghandler)
-            
+        logger.propagate = False    
         logger.setLevel(logging.DEBUG)
+    else:
+        logger = logging.getLogger(__name__)                        
+        logger.setLevel(logging.DEBUG)
+        logger.addHandler(logging.StreamHandler())
                         
     fr = open(fname, "r+")
     name, ext = os.path.splitext(fname)
     fw = open(name+"_cleaned.txt", "w+")
     
-    try:
-        logger.info("File read: ", fr.name)
-        logger.info("File writen: ", fw.name)
-        logger.handlers = []
-    except:
-        print("File read: ", fr.name)
-        print("File writen: ", fw.name)
+    logger.info("File read: ", fr.name)
+    logger.info("File writen: ", fw.name)
+    logger.handlers = []
 
     # Read lines 1 by 1
     for line in fr.readlines():
@@ -603,11 +595,15 @@ def compareIssueFiles(file1, file2, loghandler = None):
     """
     
     if loghandler != None:
-        loghandler = loghandler             #Logging setup if loghandler sent, otherwise, all errors are printed
+        loghandler = loghandler             #Logging setup if loghandler sent, otherwise, set up a console only logging system
         logger = logging.getLogger(__name__)
         logger.addHandler(loghandler)
-            
+        logger.propagate = False   
         logger.setLevel(logging.DEBUG)
+    else:
+        logger = logging.getLogger(__name__)                        
+        logger.setLevel(logging.DEBUG)
+        logger.addHandler(logging.StreamHandler())
         
     # File pointers
     f1r = open(file1, "r+")
@@ -615,13 +611,8 @@ def compareIssueFiles(file1, file2, loghandler = None):
     fxw = open("matchedFiles.txt", "w+")
     fyw = open("unmatchedFiles.txt", "w+")
     
-    try:
-        logger.info("First filename: ", f1r.name)
-        logger.info("Second filename: ", f2r.name)
-    except:
-        print("First filename: ", f1r.name)
-        print("Second filename: ", f2r.name)
-        print "\n"
+    logger.info("First filename: ", f1r.name)
+    logger.info("Second filename: ", f2r.name)
 
     f1_lines = f1r.readlines()  # List of lines
     f2_lines = f2r.readlines()
@@ -647,17 +638,13 @@ def compareIssueFiles(file1, file2, loghandler = None):
         countY = countY + 1
         fyw.write(f3_line)
         
-    try:
-        logger.info("The first list has ", len(f1_lines) ," files, and the second list has ", len(f2_lines) ,"files.")
-        logger.info("There's ", countX ," matched files, and they have stored in ", fxw.name)
-        logger.info("Please refer to ", fyw.name ," for the list of the ", countY ," files that have not been matched.")
-        logger.handlers = []
-    except:
-        print("The first list has ", len(f1_lines) ," files, and the second list has ", len(f2_lines) ,"files.")
-        print("There's ", countX ," matched files, and they have stored in ", fxw.name)
-        print("Please refer to ", fyw.name ," for the list of the ", countY ," files that have not been matched.")
+    logger.info("The first list has ", len(f1_lines) ," files, and the second list has ", len(f2_lines) ,"files.")
+    logger.info("There's ", countX ," matched files, and they have stored in ", fxw.name)
+    logger.info("Please refer to ", fyw.name ," for the list of the ", countY ," files that have not been matched.")
+    logger.handlers = []
     
     f1r.close()
     f2r.close()
     fxw.close()
     fyw.close()
+    
