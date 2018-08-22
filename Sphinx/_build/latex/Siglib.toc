@@ -20,14 +20,14 @@
 \contentsline {section}{\numberline {4.1}Basic Siglib Setup}{10}{section.4.1}
 \contentsline {section}{\numberline {4.2}Example \#1: Basic Radarsat2 Image Processing using Siglib}{10}{section.4.2}
 \contentsline {section}{\numberline {4.3}Example \#2: Discover Radarsat metadata and upload to a geodatabase}{11}{section.4.3}
-\contentsline {section}{\numberline {4.4}Example \#3: Discovery Mode via qryDatabase.py}{11}{section.4.4}
-\contentsline {section}{\numberline {4.5}Example \#4: Scientific Mode!}{12}{section.4.5}
-\contentsline {section}{\numberline {4.6}Conclusion}{12}{section.4.6}
-\contentsline {chapter}{\numberline {5}SigLib API}{13}{chapter.5}
-\contentsline {section}{\numberline {5.1}SigLib}{13}{section.5.1}
-\contentsline {section}{\numberline {5.2}Metadata}{14}{section.5.2}
-\contentsline {section}{\numberline {5.3}Image Processing}{17}{section.5.3}
-\contentsline {section}{\numberline {5.4}Database}{21}{section.5.4}
-\contentsline {section}{\numberline {5.5}Utilities}{28}{section.5.5}
-\contentsline {chapter}{Python Module Index}{32}{section*.111}
-\contentsline {chapter}{Index}{33}{section*.112}
+\contentsline {section}{\numberline {4.4}Example \#3: Discovery Mode via qryDatabase.py}{12}{section.4.4}
+\contentsline {section}{\numberline {4.5}Example \#4: Scientific Mode!}{13}{section.4.5}
+\contentsline {section}{\numberline {4.6}Conclusion}{13}{section.4.6}
+\contentsline {chapter}{\numberline {5}SigLib API}{14}{chapter.5}
+\contentsline {section}{\numberline {5.1}SigLib}{14}{section.5.1}
+\contentsline {section}{\numberline {5.2}Metadata}{15}{section.5.2}
+\contentsline {section}{\numberline {5.3}Image}{18}{section.5.3}
+\contentsline {section}{\numberline {5.4}Database}{22}{section.5.4}
+\contentsline {section}{\numberline {5.5}Utilities}{29}{section.5.5}
+\contentsline {chapter}{Python Module Index}{33}{section*.111}
+\contentsline {chapter}{Index}{34}{section*.112}
