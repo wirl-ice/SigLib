@@ -9,6 +9,7 @@ SigLib
 .. autoclass:: SigLib
    :members: 
 
+
 Metadata
 --------
 .. autoclass:: Metadata
@@ -17,11 +18,9 @@ Metadata
 .. automodule:: Metadata
    :members:
 
-Image Processing
-----------------
-.. autoclass:: Image
-   :members: __init__
 
+Image
+-----
 .. automodule:: Image
    :members:
 
@@ -32,6 +31,7 @@ Database
 
 .. automodule:: Database
    :members:
+
 
 Utilities
 ---------

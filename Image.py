@@ -20,10 +20,13 @@ import math
 import logging
 import shlex
 import sys
-
-#import snappy
-#from snappy import ProductIO
-#from snappy import GPF
+import shutil
+try:
+    import snappy
+    from snappy import ProductIO
+    from snappy import GPF
+except:
+    pass
         
 import gc
 
@@ -54,7 +57,7 @@ class Image(object):
             *zipname*   : name of the image's zipfile
     """
 
-    def __init__(self, fname, path, meta, imgType, imgFormat, zipname, imgDir, loghandler = None):
+    def __init__(self, fname, path, meta, imgType, imgFormat, zipname, imgDir, tmpDir, loghandler = None):
 
 #TODO - consider a secondary function to create the image so the class can be initialized without CPU time... 
 
@@ -84,8 +87,8 @@ class Image(object):
         self.FileNames = [os.path.splitext(zipname)[0]] # list of all generated files
         self.proj = 'nil' # initialize to nil (then change as appropriate)
         
-        #GPF.getDefaultInstance().getOperatorSpiRegistry().loadOperatorSpis()
-        #self.HashMap = snappy.jpy.get_type('java.util.HashMap')
+        GPF.getDefaultInstance().getOperatorSpiRegistry().loadOperatorSpis()
+        self.HashMap = snappy.jpy.get_type('java.util.HashMap')
 
         # if values might change make a local copy
         self.polarization = self.meta.polarization
@@ -93,6 +96,7 @@ class Image(object):
         self.bitsPerSample = self.meta.bitsPerSample
         
         self.imgDir = imgDir
+        self.tmpDir = tmpDir
         
         self.polar = []
 
@@ -111,8 +115,8 @@ class Image(object):
         #TODO: Consider decoupling the class initialization from creating an image. This will 
             #provide access to the object without large amts of CPU time (or need to have open zipfile on hand)
             #1) make an Image; 2) read/open; 3) write
-        
-        
+            
+               
         self.openDataset(self.fname, self.path)
 
         #write out a tif of this imgType
@@ -122,8 +126,7 @@ class Image(object):
             self.status = self.imgWrite(format ='GTiff')
       
         self.closeDataset()
-        
-         
+                 
         
     def openDataset(self, fname, path=''):
         """
@@ -1166,6 +1169,7 @@ class Image(object):
             
             *mergedir* : directory containing gdal_merge.py
         """
+        
         os.chdir(mergedir)
         
         import gdal_merge as gm
@@ -1185,8 +1189,19 @@ class Image(object):
                 
         sys.argv[1:] = imgs
         gm.main()
-    '''    
+       
     def snapImageProcess(self):
+        """
+        This fuction does the basic image processing for radarsat scenes using
+        the Snappy library. Each band is subject to a calibration step, a
+        speckle filter step, then finally a terrain correction step. All the
+        processed bands are then merged together to create the final product.
+        
+        NOTE: Only works on Windows, Linux is a work in progress!!!!
+        """
+        
+        os.chdir(self.tmpDir)
+        
         sys.path.append('C:\Users\cfitzpatrick\.snap\snap-python')
         
         GPF.getDefaultInstance().getOperatorSpiRegistry().loadOperatorSpis()
@@ -1195,11 +1210,6 @@ class Image(object):
         self.openDataset(self.fname, self.path)
         
         gc.enable()
-        input = os.path.join(self.path, self.fname)
-        print input
-        
-        rsat = ProductIO.readProduct(input)
-        print rsat
         
         bands, dataType, outname = self.fnameGenerate()         
         
@@ -1209,21 +1219,78 @@ class Image(object):
             i+= 1
                 
         for p in self.polar:
-            print p
+            #Part 1: Calibration
+            input = os.path.join(self.path, self.fname)
+
+            rsat = ProductIO.readProduct(input)
             
-            output = os.path.join(self.imgDir, outname)
+            output = os.path.join(self.tmpDir, outname  + p + '_cal')
             
             parameters = HashMap()
-            parameters.put('Source Bands','Intensity_' + p) 
-            parameters.put('Map Projection', 'WGS84(DD')
+            parameters.put('sourceBands', 'Intensity_' + p) 
             parameters.put('selectedPolarisations', p)
             
             target = GPF.createProduct("Calibration", parameters, rsat)
             
-            ProductIO.writeProduct(target, output, 'GeoTIFF')
+            ProductIO.writeProduct(target, output, 'BEAM-DIMAP')
             
+            #Part 2: Speckle Filter
+            input = output + '.dim'
             
-        self.closeDataset()
+            print input
+            
+            output = os.path.join(self.tmpDir, outname + '_spec')
+            
+            rsat2 = ProductIO.readProduct(input)
+            
+            parameters = HashMap()
+            
+            parameters.put('sourceBands', 'Sigma0_' + p)
+            parameters.put('filter', 'Refined Lee')
+            #parameters.put('filterSizeX', 5)
+            #parameters.put('filterSizeY', 5)
+            
+            target = GPF.createProduct("Speckle-Filter", parameters, rsat2)
+            
+            ProductIO.writeProduct(target, output, 'BEAM-DIMAP')
+            
+            #Part 3: Terrain Correction
+            input = output + '.dim'
+            
+            output = os.path.join(self.tmpDir, 'final_' + p)
+            
+            rsat3 = ProductIO.readProduct(input)
+            
+            parameters = HashMap()
+            
+            parameters.put('sourceBands', 'Sigma0_' + p)
+            parameters.put('demName', 'GETASSE30')
+            
+            target = GPF.createProduct("Terrain-Correction", parameters, rsat3)
+            
+            ProductIO.writeProduct(target, output, 'BEAM-DIMAP')
+                        
+        self.closeDataset()        
+ 
+        #Part 4: Merge Bands        
+        product_set = []
         
-        self.FileNames.append(outname)
-        '''
+        for p in self.polar:            
+            input = os.path.join(self.tmpDir, 'final_' + p + '.dim')
+            
+            product_set.append(ProductIO.readProduct(input))
+                
+        parameters = self.HashMap()
+        
+        parameters.put('resamplingType', None)
+
+        
+        target = GPF.createProduct('CreateStack', parameters, product_set)
+        
+        output = os.path.join(self.imgDir, outname + '_final')
+        
+        ProductIO.writeProduct(target, output, 'GeoTIFF')
+        
+        self.FileNames.append(output)
+
+       

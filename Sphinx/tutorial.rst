@@ -60,6 +60,12 @@ and the stats produced into a new Tiff file, the old one being deleted, all this
 The temp directory will then be cleaned and Siglib will move onto the next zipfile,
 if more than one are being processed.
 
+.. figure:: basicCFG.png
+	:scale: 50%
+
+	A basic config file for this task
+
+
 Example #2: Discover Radarsat metadata and upload to a geodatabase
 ------------------------------------------------------------------
 
@@ -78,7 +84,13 @@ must be **File** not **Path**, so that setting must be switched in the config
 under *Input*. A review of the settings needed for this particular example can be 
 seen in the image below.
 
-	To start the parallel job:
+.. figure:: uploadMeta.png
+	:scale: 50%
+
+	Config file settings for discovering and uploading metadata
+
+
+To start the parallel job:
 
 1. Open a terminal
 

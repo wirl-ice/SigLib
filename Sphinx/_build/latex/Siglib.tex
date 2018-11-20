@@ -22,7 +22,7 @@
 
 
 \title{Siglib Documentation}
-\date{July 27, 2018}
+\date{August 22, 2018}
 \release{2.8}
 \author{D. Mueller, C. Lopes, S. Bouh-Ali, C. Fitzpatrick}
 \newcommand{\sphinxlogo}{\includegraphics{wirl_logo.jpg}\par}
@@ -912,6 +912,12 @@ directory, via Metadata.py. An initial Tiff image will then be created via GDAL
 and the stats produced into a new Tiff file, the old one being deleted, all this via Image.py.
 The temp directory will then be cleaned and Siglib will move onto the next zipfile,
 if more than one are being processed.
+\begin{figure}[htbp]
+\centering
+\capstart
+
+\scalebox{0.500000}{\includegraphics{{basicCFG}.png}}
+\caption{A basic config file for this task}\end{figure}
 
 
 \section{Example \#2: Discover Radarsat metadata and upload to a geodatabase}
@@ -930,10 +936,14 @@ config under \emph{Process}, so change that setting to 1, and any other setting 
 must be \textbf{File} not \textbf{Path}, so that setting must be switched in the config
 under \emph{Input}. A review of the settings needed for this particular example can be
 seen in the image below.
-\begin{quote}
+\begin{figure}[htbp]
+\centering
+\capstart
+
+\scalebox{0.500000}{\includegraphics{{uploadMeta}.png}}
+\caption{Config file settings for discovering and uploading metadata}\end{figure}
 
 To start the parallel job:
-\end{quote}
 \begin{enumerate}
 \item {} 
 Open a terminal
@@ -1612,8 +1622,8 @@ and converts it to python datetime
 
 
 
-\section{Image Processing}
-\label{code:image-processing}\phantomsection\label{code:module-Image}\index{Image (module)}
+\section{Image}
+\label{code:module-Image}\label{code:image}\index{Image (module)}
 \textbf{imgProcess.py}
 
 \textbf{Created on} ??? Jul  ? ??:??:?? 2009 \textbf{@author:} Derek Mueller
@@ -1628,7 +1638,7 @@ cropped, masked, stretched, etc.
 \index{Image (class in Image)}
 
 \begin{fulllineitems}
-\phantomsection\label{code:Image.Image}\pysiglinewithargsret{\strong{class }\code{Image.}\bfcode{Image}}{\emph{fname}, \emph{path}, \emph{meta}, \emph{imgType}, \emph{imgFormat}, \emph{zipname}, \emph{imgDir}, \emph{loghandler=None}}{}
+\phantomsection\label{code:Image.Image}\pysiglinewithargsret{\strong{class }\code{Image.}\bfcode{Image}}{\emph{fname}, \emph{path}, \emph{meta}, \emph{imgType}, \emph{imgFormat}, \emph{zipname}, \emph{imgDir}, \emph{tmpDir}, \emph{loghandler=None}}{}
 This is the Img class for each image.  RSAT2, RSAT1 (ASF and CDPF)
 
 Opens the file specified by fname, passes reference to the meta class and declares the imgType of interest.
@@ -1984,6 +1994,19 @@ smaller or half the \# of pixels) and saves as a temporary file and then overwri
 
 \emph{yfactor} : float
 \end{quote}
+
+\end{fulllineitems}
+
+\index{snapImageProcess() (Image.Image method)}
+
+\begin{fulllineitems}
+\phantomsection\label{code:Image.Image.snapImageProcess}\pysiglinewithargsret{\bfcode{snapImageProcess}}{}{}
+This fuction does the basic image processing for radarsat scenes using
+the Snappy library. Each band is subject to a calibration step, a
+speckle filter step, then finally a terrain correction step. All the
+processed bands are then merged together to create the final product.
+
+NOTE: Only works on Windows, Linux is a work in progress!!!!
 
 \end{fulllineitems}
 

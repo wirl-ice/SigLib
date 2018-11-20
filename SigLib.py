@@ -382,7 +382,7 @@ class SigLib:
         os.chdir(self.imgDir)
         
         # Process the image
-        sar_img = Image(fname, unzipdir, sar_meta, self.imgType, self.imgFormat, zipname, self.imgDir, self.loghandler)
+        sar_img = Image(fname, unzipdir, sar_meta, self.imgType, self.imgFormat, zipname, self.imgDir, self.tmpDir, self.loghandler)
         
         if sar_img.status == "error":
             self.logger.error("Image could not be opened or manipulated, moving to next image")
@@ -450,7 +450,7 @@ class SigLib:
                 
         '''
         
-        selectFrom = 'tblMetadata_r1_r2'       #Main database table with reference to all available images
+        selectFrom = 'tblmetadata_r1_r2'       #Main database table with reference to all available images
         db = Database(self.dbName, self.loghandler, host=self.dbHost)  # Connect to the database 
         
         instances = db.qryGetInstances(granule, self.roi, self.roiProj, selectFrom)   
