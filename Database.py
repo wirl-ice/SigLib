@@ -23,7 +23,6 @@ import psycopg2
 import psycopg2.extras
 from psycopg2.extensions import AsIs
 import os
-#import sys
 #from datetime import datetime
 import datetime
 import shutil
