@@ -7,8 +7,6 @@
 This module creates an instance of class Database and connects to a database to
 create, update and query tables.
 
-Tables of note include:
-
 **tblmetadata** - a table that contains metadata that is gleaned by a directory scan
 **roi_tbl** - a table with a region of interest (could be named something else)
 **trel_roiinst_con** or _int - a relational table that results from a spatial query
