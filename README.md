@@ -11,7 +11,7 @@ uses open source libraries and can be run on Windows or Linux.
 
 There are 4 main *modes* that it can run in (or combinations of these)
 
-#. A data **Discovery Mode** where remote sensing scenes are discovered
+1. A data **Discovery Mode** where remote sensing scenes are discovered
    by ingesting a copy of the Canadian Ice Service archive (or other
    geodatabase containing metadata, with tweaks), or by crawling through
    a hard drive and extracting metadata from zipped SAR scenes, or by
@@ -20,21 +20,24 @@ There are 4 main *modes* that it can run in (or combinations of these)
    a specific format as input to delineate the
    spatial and temporal search boundaries. The required attribute fields
    and formats for the ROI are elaborated upon in a section below.
-#. An **Exploratory Mode** where remote sensing scenes are made ready
+  
+2. An **Exploratory Mode** where remote sensing scenes are made ready
    for viewing. This includes opening zip files, converting imagery
    (including Single Look Complex), geographical projection, cropping,
    masking, image stretching, renaming, and pyramid generation. The user
    must supply the name of a single zip file that contains the SAR
    imagery, a directory where a batch of zip files to be prepared
    resides, or a query that selects a list of zip files to be processed.
-#. A **Scientific Mode** where remote sensing scenes can be converted to
+   
+3. A **Scientific Mode** where remote sensing scenes can be converted to
    sigma, beta, or gamma nought. Image data (from each band) is then subsampled 
    by way of an **ROIshapefile** that references every image and specific polygon to be 
    analyzed. These polygons represent sampling regions that are known 
    (a priori) or are hand digitized from Exploratory mode
    images. Data can be stored in a table in a geodatabase for further
    processing.
-#. A **Polarimetric Mode** where quad-pol scenes are converted to sigma0, 
+   
+4. A **Polarimetric Mode** where quad-pol scenes are converted to sigma0, 
    cropped to tracking beacon instances, have polarimetric matricies generated,
    polarimetric filtering, and polarimetric decompositions generated.
 
