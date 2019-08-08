@@ -11,7 +11,7 @@ uses open source libraries and can be run on Windows or Linux.
 
 There are 4 main *modes* that it can run in (or combinations of these)
 
-#. A data **Discovery Mode** where remote sensing scenes are discovered
+1. A data **Discovery Mode** where remote sensing scenes are discovered
    by ingesting a copy of the Canadian Ice Service archive (or other
    geodatabase containing metadata, with tweaks), or by crawling through
    a hard drive and extracting metadata from zipped SAR scenes, or by
@@ -20,7 +20,8 @@ There are 4 main *modes* that it can run in (or combinations of these)
    a specific format as input. The region of interest delineates the
    spatial and temporal search boundaries. The required attribute fields
    and formats for the ROI are elaborated upon in a section below.
-#. An **Exploratory Mode** where remote sensing scenes are made ready
+   
+2. An **Exploratory Mode** where remote sensing scenes are made ready
    for viewing. This includes opening zip files, converting imagery
    (including Single Look Complex), geographical projection, cropping,
    masking, image stretching, renaming, and pyramid generation. The user
@@ -28,7 +29,8 @@ There are 4 main *modes* that it can run in (or combinations of these)
    imagery, a directory where a batch of zip files to be prepared
    resides, or a query that selects a list of zip files to be processed
    (functionality to come).
-#. A **Scientific Mode** where remote sensing scenes can be converted to
+   
+3. A **Scientific Mode** where remote sensing scenes can be converted to
    either calibrated (sigma0), noise level, or incidence angle images.
    Image data (from each band) can be subsampled by way of an **ROI
    shapefile** that references every image and specific polygon you want
@@ -36,7 +38,8 @@ There are 4 main *modes* that it can run in (or combinations of these)
    about (a priori) or they are hand digitized from Exploratory mode
    images. Data can be stored in a table in a geodatabase for further
    processing.
-#. An **Analysis Mode** where data that was stored in the geodatabase is
+   
+4. An **Analysis Mode** where data that was stored in the geodatabase is
    retrieved and plotted [Note, this is essentially depreciated since it
    hasn't been used for over 5 years]
 
