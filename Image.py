@@ -1,15 +1,30 @@
 """
 **imgProcess.py**
 
-**Created on** ??? Jul  ? ??:??:?? 2009 **@author:** Derek Mueller
+**Created on** 14 Jul  9:22:16 2009 **@author:** Derek Mueller
 
-This module creates an instance of class Img and opens a file to return a
-gdal dataset to be processed into an amplitude, calibrated, noise or theta
+This module creates an instance of class Image. It creates an image to 
+contain Remote Sensing Data as an amplitude, sigma naught, noise or theta
 (incidence angle) image, etc. This image can be subsequently projected,
 cropped, masked, stretched, etc.
 
-**Modified on** ??? Feb  ? ??:??:?? 2012 **@reason:** Repackaged for r2convert **@author:** Derek Mueller
+**Modified on** 3 Feb  1:52:10 2012 **@reason:** Repackaged for r2convert **@author:** Derek Mueller
 **Modified on** 23 May 14:43:40 2018 **@reason:** Added logging functionality **@author:** Cameron Fitzpatrick
+**Modified on** 9 Aug  11:53:42 2019 **@reason:** Added in/replaced functions in this module with snapPy equivilants **@author:** Cameron Fitzpatrick
+
+**Common Parameters of this Module:**
+
+*zipfile* : a valid zipfile name with full path and extension
+
+*zipname* : zipfile name without path or extension
+
+*fname* : image filename with extention but no path
+
+*imgname* : image filename without extention
+
+*granule* : unique name of an image in string format
+
+*path* : path to the image in string format
 """
 
 import os
@@ -25,6 +40,8 @@ try:
     import snappy
     from snappy import ProductIO
     from snappy import GPF
+    from snappy import WKTReader
+    from snappy import GeoPos
 except:
     pass
         
@@ -33,40 +50,41 @@ import gc
 from osgeo import gdal
 from osgeo.gdalconst import *
 from osgeo import gdal_array
+from osgeo import osr
 
 import Util
 
 class Image(object):
     """
-    This is the Img class for each image.  RSAT2, RSAT1 (ASF and CDPF)
+    This is the Img class for each image.  RSAT2, RSAT1 (CDPF)
     
-    Opens the file specified by fname, passes reference to the meta class and declares the imgType of interest.
+    Opens the file specified by fname, passes reference to the metadata class and declares the imgType of interest.
 
         **Parameters**
             
-            *fname*     : filename
+            *fname*     
 
-            *path*      : full directory path of the filename
+            *path*   
 
             *meta*      : reference to the meta class
 
-            *imgType*   : amp, sigma, noise, theta...
+            *imgType*   : amp, sigma, beta or gamma
 
             *imgFormat* : gdal format code gtiff, vrt
 
-            *zipname*   : name of the image's zipfile
+            *zipname*  
     """
 
-    def __init__(self, fname, path, meta, imgType, imgFormat, zipname, imgDir, tmpDir, loghandler = None):
+    def __init__(self, fname, path, meta, imgType, imgFormat, zipname, imgDir, tmpDir, loghandler = None, pol = False):
 
 #TODO - consider a secondary function to create the image so the class can be initialized without CPU time... 
 
-        assert imgType in ['amp','sigma','noise','theta']
+        #assert imgType in ['amp','sigma','noise','theta']
         assert imgFormat.lower() in ['gtiff','hfa','envi','vrt']
 
         self.status = "ok"  ### For testing
         self.tifname = ""   ### For testing
-        self.fname_nosubest = ""
+        self.fname_nosubest = None
         
         if loghandler != None:
             self.loghandler = loghandler               #Logging setup if loghandler sent, otherwise, set up a console only logging system
@@ -87,8 +105,15 @@ class Image(object):
         self.FileNames = [os.path.splitext(zipname)[0]] # list of all generated files
         self.proj = 'nil' # initialize to nil (then change as appropriate)
         
-        GPF.getDefaultInstance().getOperatorSpiRegistry().loadOperatorSpis()
-        self.HashMap = snappy.jpy.get_type('java.util.HashMap')
+        try:
+            GPF.getDefaultInstance().getOperatorSpiRegistry().loadOperatorSpis()
+            self.HashMap = snappy.jpy.get_type('java.util.HashMap')
+            self.SubsetOp = snappy.jpy.get_type('org.esa.snap.core.gpf.common.SubsetOp')
+            self.ReprojectOp = snappy.jpy.get_type('org.esa.snap.core.gpf.common.reproject.ReprojectionOp')
+            self.BandMathsOp = snappy.jpy.get_type('org.esa.snap.core.gpf.common.BandMathsOp$BandDescriptor')
+            gc.enable()
+        except:
+            pass
 
         # if values might change make a local copy
         self.polarization = self.meta.polarization
@@ -97,8 +122,8 @@ class Image(object):
         
         self.imgDir = imgDir
         self.tmpDir = tmpDir
+        self.zipname = zipname
         
-        self.polar = []
 
         if self.imgType == 'noise' or self.imgType == 'theta':
             self.bandNames = self.imgType
@@ -109,24 +134,45 @@ class Image(object):
             self.imgExt = '.tif'
         if imgFormat.lower() == 'hfa':
             self.imgExt = '.img'
+        
+        if pol: 
+            self.snapCalibration(saveInComplex=True)
+        else:                          
+            self.openDataset(self.fname, self.path)
+            '''
+            #write out a tif of this imgType
+            try:
+                if self.imgType == 'amp' and 'Q' in self.meta.beam:  # this would be a quad pol scene...
+                    #self.decomp(format ='GTiff') # recommend using GTiff for this first one
+                    self.decomposition_generation('Pauli Decomposition', amp = True)
+                        
+                elif self.imgType == 'sigma':
+                    self.snapCalibration()
+                    
+                elif self.imgType == 'beta':
+                    self.snapCalibration(outDataType='beta')
+                    
+                elif self.imgType == 'gamma':
+                    self.snapCalibration(outDataType='gamma')
+                
+                elif self.imgType == 'amp' and self.meta.productType == 'SLC':
+                    self.makeAmp()
+                    
+                elif self.imgType == 'amp':
+                    pass
+                
+                else:
+                    self.logger.error("No legal image processing mode chosen, returning unprocessed!")
+                    self.status = 'error'
+            except:
+                self.status='error'
+            '''
+            if self.imgType == 'amp' and 'Q' in self.meta.beam:  # this would be a quad pol scene...
+                self.decomp(format='GTiff')
+            else:
+                self.status = self.imgWrite(format='GTiff')
             
-        #self.snapImageProcess()
-            
-        #TODO: Consider decoupling the class initialization from creating an image. This will 
-            #provide access to the object without large amts of CPU time (or need to have open zipfile on hand)
-            #1) make an Image; 2) read/open; 3) write
-            
-               
-        self.openDataset(self.fname, self.path)
-
-        #write out a tif of this imgType
-        if imgType == 'amp' and 'Q' in self.meta.beam:  # this would be a quad pol scene...
-            self.decomp(format ='GTiff') # recommend using GTiff for this first one
-        else:
-            self.status = self.imgWrite(format ='GTiff')
-      
-        self.closeDataset()
-                 
+            self.inds = None                 
         
     def openDataset(self, fname, path=''):
         """
@@ -141,19 +187,18 @@ class Image(object):
         self.inds = gdal.Open(os.path.join(path, fname), GA_ReadOnly) # open file
         self.n_cols = self.inds.RasterXSize
         self.n_rows = self.inds.RasterYSize
+        self.n_bands = self.inds.RasterCount
 
         #If no rows are found take from metadata
         if(self.n_rows == 0):
             self.n_rows = self.meta.n_rows
+            self.n_cols = self.meta.n_cols
+            self.n_bands = self.meta.n_bands
 
-        self.n_bands = self.inds.RasterCount
-
-    def closeDataset(self):
-        self.inds = None
 
     def imgWrite(self, format='imgFormat', stretchVals=None):
         """
-        Takes an input ds and writes an image.
+        Takes an input dataset and writes an image.
 
         self.imgType could be 1) amp, 2) sigma, 3) noise, 4) theta
 
@@ -170,10 +215,6 @@ class Image(object):
             self.logger.error("Cannot write ASF_CEOS")
             
             return "error"
-            '''
-            self.ASFimgWrite()
-            return
-            '''
 
         chunkSize = 300 # 300 seems to work ok, go lower if RAM is wimpy...
 
@@ -215,8 +256,7 @@ class Image(object):
         outds = driver.Create(outname+ext, self.n_cols, self.n_rows, n_bands,
                               dataType, options) # not working with options?? , options)
         
-        print outds
-
+        
         ############################################## READ RAW DATA
         for band in range(1,n_bands+1):
             self.logger.info('Processing band ' + str(band))
@@ -234,33 +274,21 @@ class Image(object):
             n_chunks = self.n_rows / chunkSize + 1
             n_lines = chunkSize
 
-            for chunk in range( n_chunks ):
+            for chunk in range(n_chunks):
 
                 first_line = chunkSize*chunk
                 if chunk == n_chunks - 1:
                     n_lines = self.n_rows - first_line
 
-
                 # read in a chunk of data
-                datachunk = gdal_array.BandReadAsArray( bandobj, 0, first_line,
-                                                       self.n_cols, n_lines )
-                ### ERROR 5 handler
-                ##/FutureWarning: comparison to `None` will result in an elementwise object comparison in the future.
+                datachunk = gdal_array.BandReadAsArray(bandobj, 0, first_line,            
+                                                       self.n_cols, n_lines)
+
                 if datachunk is None:
                     self.logger.error("Error datachunk =  None")
 
                     self.tifname = outname+ext          ###
                     return "error"
-
-                '''
-                ###Flip the image around the y axis here if it is RS1
-                ###if self.meta.passDirection == "Ascending" and self.meta.sattype != 'RS2':
-                if self.meta.passDirection == "Descending" and self.meta.sattype != 'RS2':
-                    #print "Ascending RSAT1, flipping image"
-                    print "Descending RSAT1, flipping image"
-                    datachunk = numpy.fliplr(datachunk)
-                    #datachunk = datachunk[:,::-1]
-                '''
 
                 if stretchVals is not None:
                     outdata = self.stretchLinear(datachunk, scaleRange,
@@ -321,8 +349,8 @@ class Image(object):
 
     def reduceImg(self, xfactor, yfactor):
         """
-        Uses gdal to reduce the image by a given factor (i.e, factor 2 is 50%
-        smaller or half the # of pixels) and saves as a temporary file and then overwrites.
+        Uses gdal to reduce the image by a given factor in x and y(i.e, factor 2 is 50%
+        smaller or half the # of pixels). It overwrites the original.
 
         **Parameters**
             
@@ -330,8 +358,6 @@ class Image(object):
 
             *yfactor* : float
         """
-
-        #assert here for x and y factor
 
         #convert to percent
         xfactor = str(100.0/xfactor)
@@ -356,7 +382,6 @@ class Image(object):
             os.rename(tempname+ext, inname+ext)
             self.logger.debug('img reduced in size')
 
-            #self.FileNames.append(outname)
         else:
             self.logger.error('Could not reduce image')
         return ok
@@ -377,7 +402,7 @@ class Image(object):
 
             *clobber*  : True/False should old output be overwritten?
 
-        NOTE THE PIXEL SIZE IS NOT PROSCRIBED! (it will be the smallest possible)
+        **Note** The pixel IS NOT prescribed (it will be the smallest possible)
         """
         if format == None:
             imgFormat = 'VRT'
@@ -391,22 +416,18 @@ class Image(object):
             clobber= None
 
         #Use ASF Tools for ASF_CEOS data
-        if self.sattype == 'ASF_CEOS':
-        
+        if self.sattype == 'ASF_CEOS':        
             self.logger.error("cannot project afs_ceos")
             return
 
-            '''
-            self.ASFprojectImg(self.imgType, projin, projout, projdir)
-            return
-            '''
         os.chdir(self.imgDir)
         inname = self.FileNames[-1] #last file
-        print inname
+        
         outname = self.fnameGenerate(projout=projout)[2]
+
         command = 'gdalwarp -of ' + imgFormat +  ' -t_srs ' +\
                 os.path.join(projdir, projout+'.wkt') + \
-                    ' -order 3 -dstnodata 0 -r '+ resample +' '+clobber+ \
+                    ' -order 3 -dstnodata 0 -r ' + resample +' '+clobber+ \
                     inname+'.tif' + ' ' + outname+ext
         try:
             ok = subprocess.Popen(command).wait()  # run the other way on linux
@@ -414,8 +435,6 @@ class Image(object):
             cmd = shlex.split(command)  #TODO this may be a problem for windows
             ok = subprocess.Popen(cmd).wait()
 
-
-        #os.remove(inname+'.tif') #would remove the original file
         if ok == 0:
             self.proj = projout
             self.projdir = projdir
@@ -427,17 +446,17 @@ class Image(object):
         return ok
 
 
-    def fnameGenerate(self, projout=None, subset=None, band=None):
+    def fnameGenerate(self, projout=None, subset=None, band=None, cal=False, TC=False, DC=False):
         """
-        Decide on some parameters based on self.imgType we want...
+        Generate a specific filename for this product.
         
         **Returns**
             
             *bands*    : Integer
 
-            *dataType* : GDal data type
+            *dataType* : Gdal data type
 
-            *outname*  : String
+            *outname*  : New filename
         """
 
         if self.imgType == "amp":
@@ -447,21 +466,17 @@ class Image(object):
             else:
                 dataType = GDT_UInt16
             self.bandNames = None
-        if self.imgType == "phase":
-            bands = self.n_bands
-            dataType = GDT_Float32
-            self.bandNames = None
         if self.imgType == "sigma":
             bands = self.n_bands
             dataType = GDT_Float32
             self.bandNames = None
-        if self.imgType == "noise":
-            bands = 1
+        if self.imgType == "beta":
+            bands = self.n_bands
             dataType = GDT_Float32
-            self.bandNames = ['noise']
-        if self.imgType == "theta":
-            bands = 1
-            self.bandNames = ['theta']
+            self.bandNames = None
+        if self.imgType == "gamma":
+            bands = self.n_bands           
+            self.bandNames = None
             dataType = GDT_Float32
 
         if self.bandNames == None:
@@ -471,26 +486,33 @@ class Image(object):
                 self.bandNames.append(self.imgType[0].lower()+name)
 
         sep = '_'
+        cal = ''
+        tc= ''
+        dc=''
         if projout==None:
             proj = self.proj
         else:
             proj = projout
+            #self.proj = proj
         if subset != None:
             subset = sep+subset
         else:
             subset = ''
+        if cal:
+            cal = sep+'cal'
+        if TC:
+            tc = sep+'tc'  
+        if DC:
+            dc = sep+'dc'
 
-        outname = str(self.meta.dimgname+sep+self.imgType[0:1].lower()+\
-                sep+proj+subset)
-
+        outname = str(self.meta.dimgname+sep+self.imgType[0:1].lower()+cal+tc+dc+sep+proj+subset)
         return bands, dataType, outname
 
 
     def cropImg(self, ullr, subscene):
         """
-        Given the cropping coordinates, this function tries to crop in a straight-forward way.
-        If this cannot be accomplished (likely because the corner coordinates of an image are not known to a sufficient precision)
-        then gdalwarp (cropBig) will do the job.
+        Given the cropping coordinates, this function tries to crop in a straight-forward way using cropSmall.
+        If this cannot be accomplished then cropBig will do the job.
 
         **Parameters**
             
@@ -508,12 +530,10 @@ class Image(object):
 
         return ok
 
-
     def cropBig(self, llur, subscene):
         """
-        Here we have a way to crop that will expand the area of an image.
-        However, this uses gdalwarp - and resampling/offsetting could skew result - by a fraction of a pixel obviously, but still..
-
+        If cropping cannot be done in a straight-forward way (cropSmall), gdalwarp is used instead
+        
         **Parameters**
             
             *llur*     : list/tuple of tuples in projected units
@@ -547,7 +567,7 @@ class Image(object):
 
     def cropSmall(self, urll, subscene):
         """
-        This is a better way to crop b/c no potential for warping...
+        This is a better way to crop because there is no potential for warping.
         However, this will only work if the region falls completely within the image.
 
         **Parameters**
@@ -623,10 +643,6 @@ class Image(object):
             mask + ' ' + os.path.join(vectdir, mask  + '.shp') +\
             ' ' + inname+self.imgExt
 
-        #command = shlex.split(cmd)
-
-        #ok = subprocess.Popen(command).wait()
-
         ok = os.system(cmd)
 
         if ok == 0:
@@ -636,7 +652,7 @@ class Image(object):
 
     def makePyramids(self):
         """
-        Uses gdaladdo to make pyramids aux style
+        Make image pyramids for fast viewing at different scales (used in GIS)
         """
 
         inname = self.FileNames[-1]
@@ -656,15 +672,16 @@ class Image(object):
 
     def vrt2RealImg(self, subset=None):
         """
-        When it is time to convert a vrt to a tiff (or even img, etc) use this
+        Used to convert a vrt to a tiff (or another image format)
         """
-
+        
         inname = self.FileNames[-1]
         outname = self.fnameGenerate(subset=subset)[2]
+        print inname
 
         cmd = 'gdal_translate -of '+ self.imgFormat +' -co \"COMPRESS=LZW\" -a_nodata 0 ' +\
-            inname+'.vrt' +' '+ outname+self.imgExt
-
+            inname+'.vrt' +' '+ outname+self.imgExt            
+            
         command = shlex.split(cmd)
         try:
 		ok = subprocess.Popen(command).wait()
@@ -713,34 +730,44 @@ class Image(object):
             band_stats[:0] = [band, dynRange, band_dtype, nodata]
             stats[band-1,:] = band_stats
 
-            ###self.inds.band.GetHistogram(min, max, n_buckets) # works!
-
         bandobj = None
-        self.closeDataset()
+        self.inds = None
         return stats
 
-    def applyStretch(self, stats, procedure='std', sd=3, bitDepth=8, sep='tog'):
+    def applyStretch(self, stats, procedure='std', sd=3, bitDepth=8, sep=False):
         """
-        Given stats... will stretch a multiband image to the dataType based on
-        procedure (either sd for standard deviation, with +ve int in keyword sd,
+        Given an array of stats per band, will stretch a multiband image to the dataType based on
+        procedure (either std for standard deviation, with +ve int in keyword sd,
         or min-max, also a linear stretch).
 
-        !!A nodata value of 0 is used in all cases!!
+        *A nodata value of 0 is used in all cases*
 
-        !!For now, dataType is byte and that's it!!
+        *For now, dataType is byte and that's it*
 
         **Note:** gdal_translate -scale does not honour nodata values
         See: http://trac.osgeo.org/gdal/ticket/3085
 
-        Have to run this one under the imgWrite code. The raster bands must be integer, float? or byte
+        Have to run this one under the imgWrite code. The raster bands must be integer, float or byte
         and int data assumed to be only positive. Won't work very well for dB scaled data (obviously)
         it is important that noData is set to 0 and is meaningful.
 
-        sep = separate: applies individual stretches to each band (=better visualization/contrast)
+        sep =  separate: applies individual stretches to each band (=better visualization/contrast)
 
-        tog = together: applies the same stretch to all bands (looks for the band with the greatest dynamic range) (=more 'correct')
+        !sep = together: applies the same stretch to all bands (looks for the band with the greatest dynamic range) (=more 'correct')
 
         For further ideas see: http://en.wikipedia.org/wiki/Histogram_equalization
+        
+        **Parameters**
+        
+            *stats* : Array of stats for a band, in arrary: band, range, dtype, nodata, min,max,mean,std
+            
+            *procedure* : std or min-max
+            
+            *sd* : # of standard deviations
+            
+            *bitDepth* : # of bits per pixel
+            
+            *sep* : False for same stretch to all bands, True for individual stretches
         """
 
         if procedure.lower() == 'std':
@@ -797,7 +824,7 @@ class Image(object):
 
             stretchVals[index,:] = [band, scaleRange, dynRange, minVal, maxVal]
 
-        if sep.lower()[0:3] == 'tog' and stretchVals.shape[1] > 1:
+        if sep == False and stretchVals.shape[1] > 1:
             #get the greatest dynamic range (as assigned above)
             index = numpy.argmax(stretchVals[:,2]) #takes the 1st band if tied
 
@@ -826,35 +853,24 @@ class Image(object):
             stretchVals[:,1:4] = stretchVals[index,1:4]
             stretchVals[:,4] = offsets
 
-        elif sep.lower()[0:3] == 'sep':
+        else:
             # rebuild stretchVals with offset
             stretchVals[:,4] = 0
 
-        else:
-            self.logger.error('Error: Do you want bands stretched separately or together?')
-            return
-
         filename = self.FileNames[-1]
-        #filename = self.fnameGenerate(subset=subset)[2]
         ext = self.imgExt
         self.openDataset(filename+ext)
 
         #write out a tif of this imgType
         self.imgWrite(stretchVals=stretchVals)
-        self.closeDataset()
+        self.inds = None
 
         # delete original file and rename tmp
-        if self.fname_nosubest != 0:
+        if self.fname_nosubest != None:
             filename = self.fname_nosubest
-        try:
-            os.rename(filename+'_temp_stretch'+ext, filename+ext)
-            os.remove(filename+ext)
-            #os.rename('temp_stretch'+ext, 'temp_stretch'+'_'+procedure+str(sd)+sep+ext)
-        except:
-            #os.remove(filename+ext)
-            #os.rename(filename+'_temp_stretch'+ext, filename+ext)
-            #os.rename('temp_stretch'+ext, 'temp_stretch'+'_'+procedure+str(sd)+sep+ext)
-            pass
+        
+        os.remove(filename+'_temp_stretch'+ext)
+
         self.logger.info('Image stretched... ')
             
     def stretchLinear(self, datachunk, scaleRange, dynRange, minVal, offset=0):
@@ -902,13 +918,17 @@ class Image(object):
         opens an img file and reads in data from a given band
         assume that the dataset is small enough to fit into memory all at once
         
+        **Parameters**
+        
+            *Band* : Array of data for a specific band
+        
         **Returns**
             
             *imgData*  : data from the given band
 
-            *xSpacing* :
+            *xSpacing* : size of pixel in x direction (decimal degrees)
 
-            *ySpacing* :
+            *ySpacing* : size of pixel in y direction (decimal degrees)
         """
 
         gdal.AllRegister() # for all purposes
@@ -931,9 +951,9 @@ class Image(object):
 
     def cleanFiles(self, levels=['crop']):
         """
-        Removes files that have been written.
+        Removes intermediate files that have been written within the workflow.
 
-        Input a list of items to delete: raw, nil, proj,crop
+        Input a list of items to delete: raw, nil, proj, crop
         
         **Parameters**
             
@@ -961,6 +981,16 @@ class Image(object):
     def getSigma(self, datachunk, n_lines):
         """
         Calibrate data to Sigma Nought values (linear scale)
+        
+        **Parameters**
+        
+            *datachunk* : chunk of data being processed
+            
+            *n_lines* : size of the chunk
+            
+        **Returns**
+            
+            *caldata* : calibrated chunk
         """
 
         # create an array the size of datachunk that we'll fill with calibrated data
@@ -1015,6 +1045,15 @@ class Image(object):
         """
         return the amplitude, given the amplitude... but make room for
         the nodata value by clipping the highest value...
+        
+        **Parameters**
+        
+            *datachunk* : Chunk of data being processed
+            
+        **Returns**
+        
+            *outdata* : chunk data in amplitude format
+        
         """
         
         clipMax = (2**self.bitsPerSample)-2
@@ -1024,18 +1063,15 @@ class Image(object):
     def getPhase(self, datachunk):
         """
         Return the phase (in radians) of the data (must be complex/SLC)
-        """
-        
+        """        
         return numpy.angle(datachunk)
 
     def decomp(self, format='imgFormat'):
         """
         Takes an input ds of a fully polarimetric image and writes an image of
-        the data using a decomposition - could be 1) pauli
-        
-        TODO: 2) freeman 3) cloude
+        the data using a pauli decomposition. 
 
-        Differs from imgWrite b/c it ingests all bands at once...
+        Differs from imgWrite because it ingests all bands at once...
         """
 
         #Quick check to see if image supported
@@ -1154,143 +1190,413 @@ class Image(object):
         temp = [0,0]
         temp[0] = self.FileNames[0]
         temp[1] = self.FileNames[1]
-        self.FileNames = temp
-        
-    def combineTif(self, imgdir, zipname, mergedir):
-        """
-        Takes a set of tif images made in scientific mode and combines
-        them into a single tif image
-        
-         **Parameters**
-            
-            *imgdir*   : directory containing images to combine
-            
-            *zipname   : name of zipfile (no path)
-            
-            *mergedir* : directory containing gdal_merge.py
-        """
-        
-        os.chdir(mergedir)
-        
-        import gdal_merge as gm
-        
-        os.chdir(imgdir)
-        
-        outname = zipname+"_scenes.tif"
-        
-        imgs = ['-o', outname, '-of', 'GTiff']        
-        
-        for files in os.listdir(imgdir):
-            if files.endswith(".tif") and self.meta.dimgname in files:
-                if "nil" in files:
-                    continue
-                else:
-                    imgs.append(files)
-                
-        sys.argv[1:] = imgs
-        gm.main()
-       
-    def snapImageProcess(self):
-        """
-        This fuction does the basic image processing for radarsat scenes using
-        the Snappy library. Each band is subject to a calibration step, a
-        speckle filter step, then finally a terrain correction step. All the
-        processed bands are then merged together to create the final product.
-        
-        NOTE: Only works on Windows, Linux is a work in progress!!!!
-        """
-        
-        os.chdir(self.tmpDir)
-        
-        sys.path.append('C:\Users\cfitzpatrick\.snap\snap-python')
-        
-        GPF.getDefaultInstance().getOperatorSpiRegistry().loadOperatorSpis()
-        HashMap = snappy.jpy.get_type('java.util.HashMap')
-        
-        self.openDataset(self.fname, self.path)
-        
-        gc.enable()
-        
-        bands, dataType, outname = self.fnameGenerate()         
-        
-        i = 0
-        while i < len(self.polarization.split()):
-            self.polar.append(self.polarization.split(' ')[i])
-            i+= 1
-                
-        for p in self.polar:
-            #Part 1: Calibration
-            input = os.path.join(self.path, self.fname)
+        self.FileNames = temp        
 
-            rsat = ProductIO.readProduct(input)
-            
-            output = os.path.join(self.tmpDir, outname  + p + '_cal')
-            
-            parameters = HashMap()
-            parameters.put('sourceBands', 'Intensity_' + p) 
-            parameters.put('selectedPolarisations', p)
-            
-            target = GPF.createProduct("Calibration", parameters, rsat)
-            
-            ProductIO.writeProduct(target, output, 'BEAM-DIMAP')
-            
-            #Part 2: Speckle Filter
-            input = output + '.dim'
-            
-            print input
-            
-            output = os.path.join(self.tmpDir, outname + '_spec')
-            
-            rsat2 = ProductIO.readProduct(input)
-            
-            parameters = HashMap()
-            
-            parameters.put('sourceBands', 'Sigma0_' + p)
-            parameters.put('filter', 'Refined Lee')
-            #parameters.put('filterSizeX', 5)
-            #parameters.put('filterSizeY', 5)
-            
-            target = GPF.createProduct("Speckle-Filter", parameters, rsat2)
-            
-            ProductIO.writeProduct(target, output, 'BEAM-DIMAP')
-            
-            #Part 3: Terrain Correction
-            input = output + '.dim'
-            
-            output = os.path.join(self.tmpDir, 'final_' + p)
-            
-            rsat3 = ProductIO.readProduct(input)
-            
-            parameters = HashMap()
-            
-            parameters.put('sourceBands', 'Sigma0_' + p)
-            parameters.put('demName', 'GETASSE30')
-            
-            target = GPF.createProduct("Terrain-Correction", parameters, rsat3)
-            
-            ProductIO.writeProduct(target, output, 'BEAM-DIMAP')
-                        
-        self.closeDataset()        
- 
-        #Part 4: Merge Bands        
-        product_set = []
+    def snapCalibration(self, outDataType='sigma', saveInComplex=False):
+        '''
+        This fuction calibrates radarsat images into sigma, beta, or gamma
         
-        for p in self.polar:            
-            input = os.path.join(self.tmpDir, 'final_' + p + '.dim')
+        **Parameters**
+        
+            *outDataType* : Type of calibration to perform (sigma, beta, or gamma), default is sigma
+        
+            *saveInComplex* : Output complex sigma data (for polarimetric mode)
+        '''
+        
+        os.chdir(self.tmpDir)       
+        self.openDataset(self.fname, self.path)       
+        outname = self.fnameGenerate(cal=True)[2]         
+        
+        #Sigma calibration
+        input = os.path.join(self.path, self.fname)
+        rsat = ProductIO.readProduct(input)
+
+        output = os.path.join(self.tmpDir, outname)
+        
+        parameters = self.HashMap()
+        if saveInComplex:
+            parameters.put('outputImageInComplex', 'true')
+        else:
+            parameters.put('outputImageInComplex', 'false')
+        
+            if outDataType == 'sigma':
+                parameters.put('outputSigmaBand', True)
+            elif outDataType == 'beta':
+                parameters.put('createBetaBand', True)
+                parameters.put('outputBetaBand', True)
+                parameters.put('outputSigmaBand', False)
+            elif outDataType == 'gamma':
+                parameters.put('outputSigmaBand', False)
+                parameters.put('createGammaBand', True)
+                parameters.put('outputGammaBand', True)
+            else:
+                self.logger.error('Valid out data type not specified!')
+                return Exception
+        
+        target = GPF.createProduct("Calibration", parameters, rsat)
+        ProductIO.writeProduct(target, output, 'BEAM-DIMAP')         
+        self.FileNames.append(outname)
+
+    def snapSubset(self, idNum, lat, longt, ullr=None):
+        '''
+        Using lat long provided, create bounding box 200x200 pixels around it, and subset this
+        (This requires id, lat, and longt)
+        OR
+        Using ul and lr coordinates of bounding box, subset
+        (This requires id and ullr)
+        
+        **parameters**
+        
+            *idNum* : id # of subset region (for filenames, each subset region should have unique id)
             
-            product_set.append(ProductIO.readProduct(input))
-                
+            *lat* : latitiude of beacon at centre of subset (Optional)
+            
+            *longt* : longitude of beacon at centre of subset (Optional)
+            
+            *ullr* : Coordinates of ul and lr corners of bounding box to subset to (Optional)
+            
+        '''       
+        
+        input = os.path.join(self.tmpDir, self.FileNames[-1] + '.dim')
+        output = os.path.join(self.tmpDir, self.FileNames[-1] + '__' + str(idNum) + '_subset')
+        
+        rsat = ProductIO.readProduct(input)
+        info = rsat.getSceneGeoCoding()
+        
+        geoPosOP = snappy.jpy.get_type('org.esa.snap.core.datamodel.PixelPos')
+        
+        if ullr == None:   #We are in polarimetry mode, make 200x200 BB around lat long
+            pixel_pos = info.getPixelPos(GeoPos(lat, longt), geoPosOP())
+            
+            x = int(round(pixel_pos.x))
+            y = int(round(pixel_pos.y))
+        
+            topL_x = x - 100
+            if topL_x <= 0:
+                topL_x = 0
+            topL_y = y - 100
+            if topL_y <= 0:
+                topL_y = 0
+            width = 200
+            height = 200
+            
+        else:    #We are in Scientific mode/a normal crop, bounding box provided
+            pixel_posUL = info.getPixelPos(GeoPos(ullr[0][1], ullr[0][0]), geoPosOP())
+            pixel_posLR = info.getPixelPos(GeoPos(ullr[1][1], ullr[1][0]), geoPosOP())
+            
+            topL_x = int(round(pixel_posUL.x))
+            topL_y = int(round(pixel_posUL.y))
+            x_LR = int(round(pixel_posLR.x))
+            y_LR = int(round(pixel_posLR.y))
+
+            width = x_LR - topL_x
+            height = y_LR - topL_y
+        
+        parameters = self.HashMap()  
+        try:
+            parameters.put('region', "%s,%s,%s,%s" % (topL_x, topL_y, width, height))       
+            target = GPF.createProduct('Subset', parameters, rsat) 
+            if ullr == None:
+                ProductIO.writeProduct(target, output, 'BEAM-DIMAP')
+        except:
+            self.logger.error('Subset region invalid!')
+            return -1
+        
+        self.logger.debug("Subset complete on " + self.zipname + " for id " + str(idNum))
+        self.FileNames.append(output)
+        
+        
+    def matrix_generation(self, matrix, input):
+        '''
+        Generate chosen matrix for calibrated quad-pol product
+        
+        **Parameters**
+        
+            *matrix* : matrix to be generated. options include: C3, C4, T3, or T4
+            
+            *input* : filename with path of snap raster (.dim) to have matrix generated upon (must be calibrated)
+            
+        **Returns**
+        
+            *output* : filename of new product        
+        '''
+         
+        output = self.FileNames[-1] +  '_' + matrix
+        input = self.FileNames[-1] + '.dim'
+        
+        rsat = ProductIO.readProduct(input)
         parameters = self.HashMap()
         
-        parameters.put('resamplingType', None)
+        parameters.put('matrix', matrix)
+        
+        target = GPF.createProduct('Polarimetric-Matrices', parameters, rsat)
+        ProductIO.writeProduct(target, output, 'BEAM-DIMAP')
+        
+        self.logger.debug(matrix + ' generated sucessfully')        
+        return output        
+        
+    def polarFilter(self, input):
+        '''
+        Apply a speckle filter on a fully polarimetric product
+        
+        **Parameters**
+            
+            *input* : filename with path of snap raster (.dim) to filter
+            
+        **Returns**
+        
+            *output* : filename of new product
+        '''
+        
+        output = input +  '_filter'
+        input = input + '.dim'
+        
+        rsat = ProductIO.readProduct(input)
+        parameters = self.HashMap()
+        
+        parameters.put('filter', 'Refined Lee Filter')
+        parameters.put('windowSize', '5x5')
+        
+        target = GPF.createProduct('Polarimetric-Speckle-Filter', parameters, rsat)
+        ProductIO.writeProduct(target, output, 'BEAM-DIMAP')
+        
+        self.logger.debug('Filtering successful')        
+        return output                  
+        
+    def decomposition_generation(self, decomposition, matrix=None, input=None, dir=None, beaconid=None, outputType=0, amp = False):
+        '''
+        Generate chosen decomposition on a fully polarimetric product, if looking to create an amplitude image with quad-pol data, set amp to True
+        and send either a Pauli Decomposition or Sinclair Decomposition
+        
+        **Parameters**
+        
+            *decomposition* : decomposition to be generated. options include: Sinclair Decomposition, Pauli Decomposition, Freeman-Durden Decomposition, Yamagushi Decomposition, van Zyl Decomposition, H-A-Alpha Quad Pol Decomposition, Cloude Decomposition, or Touzi Decomposition
+        
+            *input* : filename with path of snap raster (.dim) to have decomposition generated upon (must be calibrated and have a matrix generated)    
+        
+            *matrix* : The matrix (string) that was generated on this product
+            
+            *dir* : directory that finished tifs will be stored in
+            
+            *outputType* : option to select which set of output parameters that will be used for the Touzi or HAAlpha (1-8, leave 0 for none)
+            
+            *amp* : True if looking to generate Pauli or Sinclair decomposition to create quad-pol amp image
+            
+        **Returns**
+        
+            *output* : filename of new product
+        '''
+        
+        if amp:
+            os.chdir(self.tmpDir)
+                        
+            input = os.path.join(self.path, self.fname)
+            outname = self.fnameGenerate()[2]
+            output = os.path.join(self.tmpDir, outname)
+            
+            rsat = ProductIO.readProduct(input)
+            parameters = self.HashMap()
+            
+            parameters.put('decomposition', decomposition)
+            target = GPF.createProduct('Polarimetric-Decomposition', parameters, rsat)
+            ProductIO.writeProduct(target, output, 'BEAM-DIMAP')
+        
+            self.logger.debug(decomposition + ' generated sucessfully')
+            self.FileNames.append(outname)
+            return
+            
+        else:
+            output = os.path.join(dir, self.zipname + '__' + str(beaconid) + '_' + matrix + '_' + decomposition)
+            input = input + '.dim'
+            
+            rsat = ProductIO.readProduct(input)
+            parameters = self.HashMap()
+            
+            parameters.put('decomposition', decomposition)
+            if outputType == 1:
+                parameters.put('outputAlpha123', True)
+                output = output + "_1"
+            elif outputType == 2:
+                parameters.put('outputBetaDeltaGammaLambda', True)
+                output = output + "_2"
+            elif outputType == 3:
+                parameters.put('outputHAAlpha', True)
+                output = output + "_3"
+            elif outputType == 4:
+                parameters.put('outputLambda123', True)
+                output = output + "_4"
+            elif outputType == 5:
+                parameters.put('outputTouziParamSet0', True)
+                output = output + "_1"
+            elif outputType == 6:
+                parameters.put('outputTouziParamSet1', True)
+                output = output + "_2"
+            elif outputType == 7:
+                parameters.put('outputTouziParamSet2', True)
+                output = output + "_3"
+            elif outputType == 8:
+                parameters.put('outputTouziParamSet3', True)
+                output = output + "_4"
+            
+            try:
+                parameters.put('windowSize', 5)
+            except:
+                pass
+            
+            target = GPF.createProduct('Polarimetric-Decomposition', parameters, rsat)
+            ProductIO.writeProduct(target, output, 'GeoTiff')
+            
+            self.logger.debug(decomposition + ' generated sucessfully')
+            
+        return output   
+    
+    def snapTC(self, proj, projDir, existingInput=True, smooth = True, outFormat = 'BEAM-DIMAP'):
+        '''
+        Perform an Ellipsoid-Correction using snap. This function also projects the product
+        
+        **Parameters**
+        
+            *proj* : name of wkt projection file (minus file extension)
+            
+            *projDir* : directory containing projection file
+        
+            *existingInput* : If a snap-product has already been created before this function (default is True)
+            
+            *smooth* : If quanitative data, do not smooth (Smooth using Bilinear resampling for quality)
+            
+            *outFormat* : Format of product this function returns, default is BEAM-DIMAP
 
+        '''
         
-        target = GPF.createProduct('CreateStack', parameters, product_set)
+        os.chdir(self.tmpDir)     
+        outname = self.fnameGenerate(projout=proj, TC=True)[2]         
+        if existingInput == False:
+            input = os.path.join(self.path, self.fname)
+        else:
+            input = self.FileNames[-1]+ '.dim'
+            
+        if outFormat == 'BEAM-DIMAP':
+            output = os.path.join(self.tmpDir, outname)
+        else:
+            output = os.path.join(self.imgDir, outname)
+                
+        parameters = self.HashMap()
+        product = ProductIO.readProduct(input)
         
-        output = os.path.join(self.imgDir, outname + '_final')
+        #Parameters section##################################
+        if not smooth:
+            parameters.put('imgResamplingMethod', 'NEAREST_NEIGHBOUR')
+            
+        if self.imgType == 'beta':
+            dt = 'Beta0_'
+        elif self.imgType == 'gamma':
+            dt = 'Gamma0_'
+        elif self.imgType == 'sigma':
+            dt = 'Sigma0_'
+        elif self.imgType == 'amp':
+            if 'Q' in self.meta.beam:
+                pass
+            else:
+                dt = 'Amplitude_'
+        else:
+            self.logger.error('Invalid out data type!')
+            return Exception
         
-        ProductIO.writeProduct(target, output, 'GeoTIFF')
+        #Create string containing all output bands
+        if 'Q' not in self.meta.beam:
+            count = 0
+            bands = ''
+            while count < self.meta.n_bands:
+                band = str(self.bandNames[count][1:])
+                if count == 0:
+                    bands = bands + dt + band
+                else:
+                    bands = bands + ',' + dt + band
+                count +=1
+                
+            parameters.put('sourceBands', bands)  
+         
+        readProj = open(os.path.join(projDir, proj + '.wkt'), 'r').read()           
+        parameters.put('mapProjection', readProj)
+        ######################################################	   
+        target = GPF.createProduct("Ellipsoid-Correction-GG", parameters, product) 
+           
+        ProductIO.writeProduct(target, output, outFormat)
+        self.logger.debug('Terrain-Correction successful!') 
         
+        self.FileNames.append(outname)          
+        
+    def snapDataTypeConv(self, outFormat='GeoTiff-BigTiff'):
+        '''
+        Convert image data to byte format using gdal
+        
+        **Parameters**
+            
+            *outFormat* : Format of product this function returns, default is GeoTiff-BigTiff
+        '''
+        
+        outname = self.fnameGenerate(DC=True)[2] 
+        output = os.path.join(self.imgDir, outname)  #output, post gdal formatting
+        input = self.FileNames[-1] + '.dim'
+        
+        parameters = self.HashMap()
+        product = ProductIO.readProduct(input)
+        
+        parameters.put('targetDataType', "float32")
+        
+        target = GPF.createProduct("Convert-Datatype", parameters, product)            
+        ProductIO.writeProduct(target, output, outFormat)      
+        
+        self.FileNames.append(outname)
+        self.logger.debug("Img converted to byte successfully")
+    
+    def compress(self):
+        '''
+        Use gdal to LZW compress an image
+        '''
+        
+        inname = self.FileNames[-1]        
+              
+        command = "gdal_translate -of GTiff -co COMPRESS=LZW -a_nodata 0 " + inname + '.tif ' + inname + '_tmp.tif' 
+        os.system(command)
+        
+        os.remove(inname+'.tif')
+        os.rename(inname+'_tmp.tif', inname+'.tif')
+        
+    def makeAmp(self):
+        '''
+        Use snap bandMaths to create amplitude band for SLC products
+        '''
+        
+        count = 0
+            
+        while count < self.meta.n_bands:
+            if self.meta.n_bands == 1:
+                band = str(self.bandNames)
+            else:
+                band = str(self.bandNames[count])
+            if count == 0:
+                outname = self.fnameGenerate()[2] 
+                input = os.path.join(self.path, self.fname)
+                output = os.path.join(self.tmpDir, outname)
+            else:
+                input = output + '.dim'
+                output = output + '_bm'
+        
+            parameters = self.HashMap()
+            product = ProductIO.readProduct(input)
+            
+            target = self.BandMathsOp()
+            target.name = 'Amplitude_' + band
+            target.type = 'uint16'
+            target.expression = 'sqrt(Intensity_' + band + ')'
+            bands = snappy.jpy.array('org.esa.snap.core.gpf.common.BandMathsOp$BandDescriptor', 1)
+            bands[0] = target
+            
+            parameters.put('targetBands', bands)
+            t = GPF.createProduct('BandMaths', parameters, product)
+            ProductIO.writeProduct(t, output, 'BEAM-DIMAP')
+            count += 1
+            
         self.FileNames.append(output)
-
-       
+            

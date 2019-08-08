@@ -1,64 +1,55 @@
 Using SigLib
 ============
 
-Welcome to the tutorial sections of the Siglib documentation! This section 
-will be used to give a brief overview of how to use the Metadata, 
-Util, Database, and Image functions via Siglib and its config,
-or in a custom way via qryDatabase. Examples will be given on how to do:
-basic radarsat image processing via Siglib and config, extracting and uploading
-metadata via Siglib, config, and the Linux parallel library, a customizable
-Discovery mode via qryDatabase, and Scientific mode via Siglib and config.  
+Welcome to the tutorial sections of the SigLib documentation! This section 
+gives a brief overview of how to use the Metadata, 
+Util, Database, and Image functions via SigLib and its config file,
+or in a custom way via qryDatabase.  
 
-Basic Siglib Setup
+Basic SigLib Setup
 ------------------
 
-Before Siglib and its dependencies can be used for the first time, some 
-basic setup must first be completed. In the downloaded Siglib file, there 
-should be five Python files, a config file, and an extras folder 
+Before SigLib and its dependencies can be used for the first time, some 
+basic setup must first be completed. In the downloaded SigLib file, there 
+are five Python files (*.py), a config file (*.cfg), and an extras folder 
 containing some odds and ends (including this very document you are reading!). 
-
-Inside the main Siglib folder alongside the five main Python files and the config, 
-a number of directory folders must be created and associated with the 
+ 
+A number of folders must be created and refered to the 
 config file. Please see the config section of the documentation above for 
 the required folders. These directories are used to keep the various input, 
 temporary, and output files organized. Once created, the full path to each file 
 must be added to the config file alongside the directory it is set to represent. 
-The config file contains example path listings for example purposes.
+The config file contains example path listings.
  
-Now, for Siglib.py to recognise and use the config file properly, your
+For SigLib.py to recognise and use the config file properly, your
 Python IDE must be set up for running via the command line. The following
-instructions on how to set this up will be given for the Spyder Python IDE
-by Anaconda, the setup for other IDE's may vary. 
+instructions are given for the Spyder Python IDE; the setup for other IDEs may vary. 
 
-1. Go to Run -> Configuration per file... (Ctrl + f6) 
+1.Go to Run -> Configuration per file... (Ctrl + F6) 
+2.Under General Settings, check the box labeled *Command Line Options:*
+3.In the box to the right, put the full path to the config
+file, including the config file itself and its extension.
+4.Press the OK button to save the setting and close the
+window
 
-2. Under General Settings, check the box labeled 
-	*Command Line Options:*
-
-3. In the box to the right, put the full path to the config
-	file, including the config file itself and its extension.
-
-4. Press the OK button to save the setting and close the
-	window
 	
-Example #1: Basic Radarsat2 Image Processing using Siglib
+Example #1: Basic Radarsat2 Image Calibration using SigLib
 ---------------------------------------------------------
 
-Now that the basic setup steps are complete, we can being our first
-example! In this example we will be doing a basic xml - to - Tiff 
-image processing job for a couple of Radarsat2 image files, via Siglib.
+In this example we will be using SigLib to produce Tiff 
+images from Amplitude Radarsat2 image files.
 Before any work beings in Python, the config file must be configured for this
-type of job. (Add picture with desired settings!!!!). Place a few radarsat2 zip files 
-in your testzips directory, then open your IDE configured for command line 
-running, and run Siglib. 
+type of job, see the figure below for the required settings. 
+Place a few Radarsat2 zip files in your scanDir, then open your IDE configured for 
+command line running, and run SigLib. 
 
 What will happen is as follows: The zipfile will be extracted to the temp 
 directory via Util.py. The metadata will then be extracted and saved to the output 
-directory, via Metadata.py. An initial Tiff image will then be created via GDAL 
-(soon to be snappy),  and saved to the output directory. The image will then be reprojected 
-and the stats produced into a new Tiff file, the old one being deleted, all this via Image.py. 
-The temp directory will then be cleaned and Siglib will move onto the next zipfile,
-if more than one are being processed.
+directory, via Metadata.py. Image.py will create an initial Tiff image via GDAL or SNAPPY,  
+and saved to the output directory. The image will then be reprojected 
+and stretched into a byte-scaled Tiff file. 
+All intermediate files will then be cleaned and Siglib will move onto the next zipfile,
+until all the files in the scanDir are converted.
 
 .. figure:: basicCFG.png
 	:scale: 50%
@@ -70,131 +61,104 @@ Example #2: Discover Radarsat metadata and upload to a geodatabase
 ------------------------------------------------------------------
 
 This example will be the first introduction to Database.py and PGAdmin. 
-In this example we will be uploading the metadata of radarsat scenes to a
+In this example we will be uploading the metadata of Radarsat scenes to a
 geodatabase for later reference (and for use in later examples). This process
 will be done using the parallel library on linux. See https://www.gnu.org/software/parallel
 for documentation and downloads for the parallel library. **NOTE:** This example only
 works on *linux* machines, how the results of this example can be replicated
 on other machines will be explained afterwards.
 
-This job will be done via the data2db process of Siglib, as seen in the
-config under *Process*, so change that setting to 1, and any other setting under
-*Process* to 0. Also, in order for parallel running to work properly, the input
-must be **File** not **Path**, so that setting must be switched in the config
-under *Input*. A review of the settings needed for this particular example can be 
-seen in the image below.
+This job will be done via the data2db process of SigLib, as seen in the
+config. Also, since we are running this example in parallel, the input
+must be **File** not **Path**. 
+
+In this case, we need the metadata table in our geodatabase to already exist. If this table has not been created yet, run SigLib with "create_tblmetadata" equal to 1, with all modes under **Process** equal to 0 before continuing with the rest of this example.
+
+A review of the settings needed for this particular example can be 
+seen in the figure below.
 
 .. figure:: uploadMeta.png
 	:scale: 50%
 
-	Config file settings for discovering and uploading metadata
+	Config file settings for discovering and uploading metadata.
 
 
 To start the parallel job:
 
 1. Open a terminal
-
 2. cd into the directory containing all your radarsat images (They can be in multiple
-	directories, just make sure they are below the one you cd into, or they will
-	not be found)
-
+directories, just make sure they are below the one you cd into, or they will
+not be found)
 3. Type in the terminal: 
-	**find . -name '*.zip' -type f | parallel -j 16 --nice 15 --progress python /tank/SCRATCH/cfitzpatrick/SigLib.py /tank/SCRATCH/cfitzpatrick/config_linux.cfg** 
-
-	Where -j is the number of cores to use, and --nice is how nice the process will be to 
-	other processes (I.E. A lower --nice level gives this job a higher priority over
-	other processes). The first directory is the location of your verison of Siglib.py,
-	the second is the location of the associated config file. 
+**find . -name '*.zip' -type f | parallel -j 16 --nice 15 --progress python /path/to/SigLib.py/ /path/to/config.cfg/** 
+Where -j is the number of cores to use, and --nice is how nice the process will be to 
+other processes (I.E. A lower --nice level gives this job a higher priority over
+other processes). The first directory is the location of your verison of SigLib.py,
+the second is the location of the associated config file. 
 
 **NOTE:** ALWAYS test parallel on a small batch before doing a major run, to make
 sure everything is running correctly. 
 
-What happens once you hit *ENTER* is Parallel will step though your selected
-directory looking for .zip files, once one is found, it will pass it to one of the
-16 availible (or however many cores you set) openings of Siglib.py. Siglib will
+Once started, Parallel will begin to step though your selected
+directory looking for .zip files. Once one is found, it will pass it to one of the
+16 availible (or however many cores you set) openings of Siglib.py. SigLib will
 unzip the file via Util.py, grab the metadata via Metadata.py, then connect to your
-desired database, and unpload this retrieved metadata to the relational table
+desired database, and upload this retrieved metadata to the relational table
 *tblmetadata* (which will have to be created by running createTblMetadata() in 
 Database.py before parallelizing) via Database.py. This will repeat until parallel has 
 fully stepped through your selected directory. 
 
-Any Siglib process can be parallelized, as long as the correct config parameters
+Most SigLib process can be parallelized, as long as the correct config parameters
 are set, and the above steps on starting a parallel job are followed.
 
 The same results for this example can be achieved for non-linux machines by
-putting all the zip files containing metadata for upload into your testzips directory,
-and using the config settings as seen in the image below, similar to the first example.
+putting all the zip files containing metadata for upload into your scanDir,
+and using the same settings as in the above figure, except in the *Input* section,
+**File** must be set to 0, and **Path** must be set to 1.
 
-Example #3: Discovery Mode via qryDatabase.py
----------------------------------------------
 
-For this example, we are diverging away from the set rules of Siglib.py and
-config files, and getting our hands dirty so to speak. Siglib.py and its associated
-config file is a neat, organized way to do certain tasks in large batches. However,
-Metadata.py, Util.py, Image.py, and Database.py contain an extrordinary number of 
-customizable functions, some of which are not even covered by Siglib.py! Other times,
-Siglib can just be too complex for small batch runs. This is why the function 
-qryDatabase.py was created: to show off how to to use Siglibs' dependencies in 
-custom ways! 
-
-For this example, qryDatabase.py is configured to search through your relational
-table tblmetadata (made in example #2) based on an uploaded ROI shapefile, and find 
-images that overlap this ROI. The results can then be sent to anothet table, exported to
-a csv, made into real images, or whatever you like! This is the beauty of customization.
-	
-To begin, open qryDatabase.py, Metadata.py, Util.py, and Database.py in your
-desired IDE. Unlike in example #1, your IDE **should not** be configured for running
-via command line! The config file is not used by this script, all the settings are set
-in program. At the top of the script is a parameters selction with the various directories,
-and a few other settings needed. An ROI (Region of Interest) is a shapefile containing 
-polygons of land areas of interest, you can look at **Sample_DiscoveryROI_lcc.shp** in
-the extras folder as an example before making one of your own. 
-	
-	Discovery Mode in its simplest form only takes five lines, these are:
-
-1. db = Database.Database('')
-	where '' is your desired database
-
-2. db.updateROI(roi, roiProj, homedir, True) #loads (overwrites) ROI file into dbase
-
-3. copylist, instimg = db.qrySelectFromAvailable(roi, selectFrom, spatialrel, roiProj) 
-	#Spatial query to find overlapping images
-
-4. db.instimg2db(roi, spatialrel, instimg, mode='create')  
-	#this uploads the instimg to a relational table in the database
- 
-5. db.removeHandler()
-
-These five lines connect you to your database, upload the ROI to the database, 
-runs a query to find what images overlap the roi, uploads the results to another table,
-and cancels the logging system. 
-	
-This is a very basic example, but feel free to modify qryDatabase to suit your
-specific needs! More information on all the availible functions Siglib and its 
-dependencies have to offer can be seen further on in this documentation in the 
-*Siglib API* section of this documentation.
-
-Example #4: Scientific Mode!
+Example #3: Scientific Mode!
 ----------------------------
 
-In this final example, we will dive into the depths of Siglibs' Scientific Mode!
+In this example, we will dive into the depths of SigLibs' Scientific Mode!
 Scientific Mode (as described in an earlier section of this documentation) is a way of 
-taking normal radarsat images and converting them to a new image type (sigma0, 
-noise level, or incidense angle) as well as cutting them up and masking them into small 
-pieces via a scientific ROI of many small polygons of study areas. 
-	
-In Siglib.py, there is a spcific function for this mode, which can be configured
-via the config file. 
+taking normal radarsat images and converting them to a new image type (sigma0, beta0, and gamma0) followed by cropping and masking them into small 
+pieces via a scientific ROI. The ROI should contain a series of polygons representing regions of interest for different scenes. For example, the polygons could be individual farmers fields, or individual icebergs. The ROI created must be uploaded to the geodatabase for querying by SigLib. To upload the ROI specified in the config, set 'uploadROI' equal to 1, as seen below in the example config. **NOTE:** This config setting **MUST** be 0 if running in parallel, or else the ROI will constantly be overwritten. This case also requires a database with SAR image footprints, like the one made in the previous example! 
 
-(Work on the Siglib version of this functionality, and finish documentation once complete)
+.. figure:: scientific.png
+	:scale: 50%
+
+	Config file settings for scientific mode. Note that we are uploading an ROI in this example. The first time scientific is run with a new ROI, this setting will be nessesary, otherwise it can be set equal 		to 0
+
+Once begun, this mode takes a SAR image in the scanDir, and calibrates it to the selected image type. Once completed, database.py is used to query the ROI against the image footprint to find which polygons in the ROI are within the scene being processed. Each of these hits is then processed one at a time, beginning with a bounding-box crop around the instance, followed by a mask using the ROI polygon (both queried via Database.py). At this point, each instance is projected and turned into its own TIFF file for delivery, or the image data for the instances is uploaded to a database table made to store data from this run. 
+
+
+Example #4: Polarimetric Mode!
+------------------------------
+
+In this final example, we will look at using SigLib's Polarimetric mode. Polarimetric mode 
+uses the SNAP python library SnapPy to perform SAR polarimetry for quad-pol scenes containing
+tracking beacon instances. Three different polarimetric operations are conducted in this mode: Matrix Generation, Polarimetric Speckle Filtering (Using Refined Lee Filter), and Polarimetric Decomposition Generation. All the matricies and decompositions available in SnapPy that are designed for quad-pol imagery are stored in lists in *polarimetric* in **SigLib.py**, these can be edited to contain only desired options. No terrain-correction/reprojections are done in this mode. 
+
+This example requires a database table containing tracking beacon instances and one containing quad-pol SAR image footprints. The nessesary columns for the tracking beacons are geom, latitude, longitude, beaconid, and time (in UTC). The geom and time columns will be comparied to similar columns in the SAR footprints table. The sql statement to compare these two tables will need to be edited to match your column names, see *beaconIntersections* in **Image.py** to make appropriate edits. 
+
+
+.. figure:: polarimetry.png
+	:scale: 50%
+
+	Config file settings for polarimetry mode
+
+
+Once started, this mode goes through the images in the scan directory, processing one image at a time. The program checks to make sure the images are quad-pol, and then queries the geodatabase to see if any beacon pings are contained in the image within a 91 minute buffered timeframe of the SAR data being collected. If there are beacons in the image, the ID's, latitudes, and longitudes of the beacons are collected. The scene is then calibrated to sigma0. At this point, image processing begins per beacon instance in this scene. First, both polarimetric matricies, C3 and T3, are applied (two separate files are created, one with each). Each of these files is then speckle-filtered with a Refined-Lee Filter. After, each decomposition type specified is generated upon each matrix type (again, separate file for each). For the Touzi and H-A-Alpha Decompositions, they are generated four times per matrix, each with a different set of bands. Max conditions will generate 28 GeoTiff files per beacon instance, if both matricies and all snap decompositions are utilized. 
+
 
 Conclusion
 ----------
 
-This is the conclusion to the *Using Siglib* section of this documentation. For 
-additional help in using Siglib.py and its dependencies, please refer to the next section
-of this documentation, *Siglib API*. This section gives and overview, the parameters, 
-and the outputs, of each function in the main five scripts.
+This is the conclusion to the *Using SigLib* section of this documentation. For 
+additional help in using SigLib.py and its dependencies, please refer to the next section
+of this documentation, *SigLib API*. This section gives and overview, the parameters, 
+and the outputs, of each function in the main five modules.
 
 	
 	

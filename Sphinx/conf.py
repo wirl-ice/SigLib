@@ -50,7 +50,7 @@ source_suffix = '.rst'
 master_doc = 'index'
 
 # General information about the project.
-project = u'Siglib'
+project = u'SigLib'
 copyright = u'2018, D. Mueller, C. Lopes, S. Bouh-Ali, C. Fitzpatrick'
 author = u'D. Mueller, C. Lopes, S. Bouh-Ali, C. Fitzpatrick'
 
@@ -228,7 +228,7 @@ latex_elements = {
 # (source start file, target name, title,
 #  author, documentclass [howto, manual, or own class]).
 latex_documents = [
-    (master_doc, 'Siglib.tex', u'Siglib Documentation',
+    (master_doc, 'Siglib.tex', u'SigLib Documentation',
      u'D. Mueller, C. Lopes, S. Bouh-Ali, C. Fitzpatrick', 'manual'),
 ]
 

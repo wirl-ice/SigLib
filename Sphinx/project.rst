@@ -4,23 +4,21 @@ Overview of SigLib.py and its Dependencies
 Dependencies
 ------------
 
-You will need a computer running linux or windows
+You will need a computer running Linux or Windows
 
 -  Python 2 (not 3), along with several scientific libraries - numpy,
-   pandas, psycopg2, matplotlib, datetime... Recommend you install the
-   anaconda package as these contain pretty well everything you will
-   need.
--  gdal/ogr libraries
--  PostrgreSQL/PostGIS (could be on another computer)
-
-Nice to haves/future...
-
--  It is highly recommended that you have access to QGIS or ArcGIS to
+   pandas, psycopg2, matplotlib, datetime... It's recommended you install the
+   *Anaconda Python Distribution* as it contains pretty well everything required.
+   www.anaconda.com
+-  gdal/ogr libraries 
+   www.osgeo.org
+-  snap (sentinel-1 toolbox): https://step.esa.int/main/download/snap-download/
+   Make sure when downloading to configure python api for snapPy!
+-  PostrgreSQL/PostGIS (could be on another computer) 
+   www.postgresql.org / postgis.net 
+-  It is highly recommended that you have access to QGIS or ArcGIS Pro to
    manipulate shapefiles
--  Also, if you want to work with ASF CEOS Files, you will need ASF
-   MapReady (some functionality)
--  Eventually, there will be a push to integrate other remote sensing
-   tools - SNAP(replaces NEST,PolSARPro), CP Simulator, MADGIC, etc.
+
 
 Modules
 -------
@@ -28,7 +26,7 @@ Modules
 There are several modules that are organized according to core
 functionality.
 
-#. **Util.py** - a bunch of utilities for manipulating files,
+#. **Util.py** - Several utilities for manipulating files,
    shapefiles, etc
 #. **Metadata.py** - used to discover and extract metadata from image
    files
@@ -41,9 +39,9 @@ functionality.
    analysis (Mainly for use after large runs in parallel)
 
 **SigLib.py** is the front-end of the software. It calls the modules
-listed above and is in turn controlled by a configuration file. To run,
+listed above and is, in turn controlled by a configuration file. To run,
 simply edit the \*.cfg file with the paths and inputs you want and then
-run siglib.py.
+run SigLib.py.
 
 However, you can also code your own script to access the functionality
 of the modules if you wish.
@@ -51,47 +49,49 @@ of the modules if you wish.
 Config File
 -----------
 
-The **\*.cfg** file is how you interface with siglib. It needs to be
+The **\*.cfg** file is how you interface with SigLib. It needs to be
 edited properly so that the job you want done will happen! Leave entry
-blank if you are not sure. There are several categories of parameters
-and these are:
+blank if you are not sure. There are several categories of parameters:
 
 *Directories*
 
--  scanDir = path to where you want siglib to look for SAR image zip
+-  scanDir = path to where you want SigLib to look for SAR image zip
    files to work with
--  tmpDir = a working directory for extracting zip files to (Basically,
-   a folder for temporary files that will only be used during the
-   running of the code, then deleted, in scratch folder)
--  projDir = where projection definition piles are found in well-known
-   text format (/tank/ice/data/proj)
+-  tmpDir = a working directory to extract zip files to 
+   (A folder for temporary files that will only be used during the
+   running of the code, then deleted)
+-  projDir = where projection definition files are found in well-known
+   text format (wkt)
 -  vectDir = where vector layers are found (ROI shapefiles or masking
    layers)
--  dataDir = /tank/path2folder
 -  imgDir = a working directory for storing image processing
-   intermediate files and final output files, in scratch folder
--  logDir = where logs are placed
+   intermediate files and final output files
+-  logDir = where logs are created
 -  archDir = where CIS archive data are found
-   (/tank/ice/data/vector/CIS\_Archive)
--  errorDir = Where logConcat will send .log files with errors (For
+-  errorDir = where logConcat will send .log files with errors (for
    proper review of bad zips at end of run)
 
 *Database*
 
 -  db = the name of the database you want to connect to
--  create\_tblmetadata = 0 for append, 1 for overwrite/create
+-  host = database hostname
+-  create_tblmetadata = 0 for append, = 1 for overwrite/create
+   a metadata table.
+-  uploadROI = if the ROI file needs to be uploaded to the database. 0 if no, 1 if yes
+-  table = name of table in database that Database.py will query
+   against to find imagery
 
 *Input*
 
-***Note that these are mutually exclusive options - sum of 'Input'
-options must = 1***
+**Note that path, query, and file are mutually exclusive options - sum of 'Input'
+options must = 1**
 
--  path = 1 for scan a certain path and operate on all files within; 0
+-  path = 1 to scan a certain path and operate on all files within; 0
    otherwise
--  query = 1 for scan over the results of a query and operate on all
+-  query = 1 to scan over the results of a query and operate on all
    files returned; 0 otherwise
--  file = 1 for run process on a certain file, which is passed as a
-   command line argument (note this enables parallelized code); 0
+-  file = 1 to run process on a certain file, which is passed as a
+   command line argument (*note* this must be enabled to parallelize SigLib); 0
    otherwise
 -  scanFor = a file pattern to search for (eg. \*.zip) - use when path=1
 -  sql = define a custom query here for selecting data to process - use
@@ -103,24 +103,24 @@ options must = 1***
 -  data2db = 1 when you want to upload metadata to the metadata table in
    the database
 -  data2img = 1 when you want to manipulate images (as per specs below)
+-  scientific = 1 when image manipulation requires Database.py
+-  polarimetric = 1 when you want to do SAR polarimetry
 
-*IMGMode*
+*MISC*
 
--  proj = basename of wkt projection file (eg. lcc)
+-  proj = basename of wkt projection file (eg. lcc) in the projDir
 -  imgtypes = types of images to process (Amplitude Image - amp, Sigma
-   Nought Image - sigma, Incidence Angle image - theta, Noise Floor
-   Image - nes2?)
--  crop = nothing for no cropping, or four space-delimited numbers,
+   Nought Image - sigma, Gamma Nought Image - gamma, Beta Nought
+   Image - beta)
+-  imgformat = file format for output imagery (gdal convention)
+-  roi = ROI Shapefile for Discovery or Scientific modes, stored in vectDir
+-  roiproj = projection of the roi
+-  crop = leave blank for no cropping, or four space-delimited numbers,
    upper-left and lower-right corners (in proj above) that denote a crop
-   area: ul\_x ul\_y lr\_x lr\_y
--  maskshp = a polygon shapefile (one feature) to mask image data with
-   (eg. /tank/ice/data/vector/CIS\_Vectors/coast\_poly.shp)
--  roiproj = Projection of roi
--  imgformat = File format for output imagery (gdal convention)
--  roi = ROI Shapefile for Discovery or Scientific modes, stored in same
-   directory as python files
--  spatialrel = ST\_Contains (Search for images that fully contain the
-   roi polygon) or ST\_Intersects (Search for images that merely
+   area: ul_x ul_y lr_x lr_y
+-  maskshp = a polygon shapefile (with only one feature) to mask image data with
+-  spatialrel = ST_Contains (Search for images that fully contain the
+   roi polygon) or ST_Intersects (Search for images that merely
    intersect with the roi)
 
 Using a Config in an IDE
@@ -130,7 +130,7 @@ You can run SigLib inside an integrated development environment (Spyder,
 IDLE, etc) or at the command line. In either case you must specify the
 configuration file you wish to use:
 
-``python /path_to_script/SigLib.py /path_to_file/config_file.cfg``
+``python /path_to_script/SigLib.py/ path_to_file/config_file.cfg``
 
 Dimgname Convention
 -------------------
@@ -138,8 +138,8 @@ Dimgname Convention
 “The nice thing about standards is that there are so many to chose from”
 (A. Tannenbaum), but this gets annoying when you pull data from MDA,
 CSA, CIS, PDC, ASF and they all use different file naming conventions.
-So I made this problem worse with my own `standard image naming
-convention called **dimgname**. All files
+So Derek made this problem worse with his own 'standard image naming
+convention' called **dimgname**. All files
 processed by SigLib get named as follows, which is good for:
 
 -  sorting on date (that is the most important characteristic of an
@@ -163,21 +163,21 @@ Table: **dimgname fields**
 +------------+---------------------------------------------------------------+--------------------------------------------------------+---------+
 | Position   | Meaning                                                       | Example                                                | Chars   |
 +============+===============================================================+========================================================+=========+
-| \| Date    | year month day                                                | 20080630                                               | 8       |
+|    Date    | year month day                                                | 20080630                                               | 8       |
 +------------+---------------------------------------------------------------+--------------------------------------------------------+---------+
-| \| Time    | hour min sec                                                  | 225541                                                 | 6       |
+|    Time    | hour min sec                                                  | 225541                                                 | 6       |
 +------------+---------------------------------------------------------------+--------------------------------------------------------+---------+
-| \| Sat     | satellite/platform/sensor                                     | r1,r2,e1,en                                            | 2       |
+|    Sat     | satellite/platform/sensor                                     | r1,r2,e1,en                                            | 2       |
 +------------+---------------------------------------------------------------+--------------------------------------------------------+---------+
-| \| Beam    | Beam for SAR, band combo for optical                          | st1\_\_,scwa\_,fqw20\_,134\_\_                         | 5       |
+|    Beam    | beam for SAR, band combo for optical                          | st1\_\_,scwa\_,fqw20\_,134\_\_                         | 5       |
 +------------+---------------------------------------------------------------+--------------------------------------------------------+---------+
-| \| Band    | pol for SAR, meaning of beam for optical (tc = true colour)   | hh, hx, vx, vv, hv, qp                                 | 2       |
+|    Band    | pol for SAR, meaning of beam for optical (tc = true colour)   | hh, hx, vx, vv, hv, qp                                 | 2       |
 +------------+---------------------------------------------------------------+--------------------------------------------------------+---------+
-| \| Data    | what is represented (implies a datatype to some extent        | a= amplitude, s=sigma, t=incidence,n=NESZ, o=optical   | 1       |
+|    Data    | what is represented (implies a datatype to some extent)       | a= amplitude, s=sigma, t=incidence,n=NESZ, o=optical   | 1       |
 +------------+---------------------------------------------------------------+--------------------------------------------------------+---------+
-| \| Proj    | projection                                                    | nil, utm, lcc, aea                                     | 3       |
+|    Proj    | projection                                                    | nil, utm, lcc, aea                                     | 3       |
 +------------+---------------------------------------------------------------+--------------------------------------------------------+---------+
-| \| Ext     | file extension                                                | tif, rrd, aux, img                                     | 3       |
+|    Ext     | file extension                                                | tif, rrd, aux, img                                     | 3       |
 +------------+---------------------------------------------------------------+--------------------------------------------------------+---------+
 
 ROI.shp format
@@ -205,6 +205,15 @@ use may be confusing, so here are some further details with examples.
 -  INSTID - A way to track OBJ that is repeatedly observed over time
    (moving ice island, a lake during fall every year for 5 years). [If
    it doesn't repeat just put '0']
+
+
+A Note on Projections:
+----------------------
+
+SigLib uses projections in two ways; either as .wkt files during image processing outside the database, or SRID values when using PostgreSQL/PostGIS. For when Database.py is not being used, projections should be downloaded as .wkt files from spatialreference.org and placed into a projection directory. If using Database.py functionality, make sure the spatial_ref_sys table is defined in your database. This table has a core of over 3000 spatial reference systems ready to use, but custom projections can be added very easily! 
+
+To add a custom spatial reference, download the desired projection in "PostGIS spatial_ref_sys INSERT statement" format from spatialreference.org. This option is an sql executable that can be run within PostgreSQL to add the desired projection into the spatial_ref_sys table. 
+
 
 Example workflow:
 -----------------
@@ -259,21 +268,21 @@ Table: **ROI.shp fields**
 +---------------+------------+-------------------------------------------------------------------------------------------------------+------------------------------------------------+--------------+
 | Field         | Var. Type  | Description                                                                                           | Example                                        | ROI Format   |
 +===============+============+=======================================================================================================+================================================+==============+
-| \| OBJ        | String     | A unique identifier for each polygon object you are interested in                                     | 00001, 00002                                   | Both         |
+|    OBJ        | String     | A unique identifier for each polygon object you are interested in                                     | 00001, 00002                                   | Both         |
 +---------------+------------+-------------------------------------------------------------------------------------------------------+------------------------------------------------+--------------+
-| \| INSTID     | String     | An iterator for each new row of the same OBJ                                                          | 0,1,2,3,4                                      | Both         |
+|    INSTID     | String     | An iterator for each new row of the same OBJ                                                          | 0,1,2,3,4                                      | Both         |
 +---------------+------------+-------------------------------------------------------------------------------------------------------+------------------------------------------------+--------------+
-| \| FROMDATE   | String     | ISO Date-time denoting the start of the time period of interest                                       | 2002-04-15 00:00:00                            | Discovery    |
+|    FROMDATE   | String     | ISO Date-time denoting the start of the time period of interest                                       | 2002-04-15 00:00:00                            | Discovery    |
 +---------------+------------+-------------------------------------------------------------------------------------------------------+------------------------------------------------+--------------+
-| \| TODATE     | String     | ISO Date-time denoting the end of the time period of interest                                         | 2002-09-15 23:59:59                            | Discovery    |
+|    TODATE     | String     | ISO Date-time denoting the end of the time period of interest                                         | 2002-09-15 23:59:59                            | Discovery    |
 +---------------+------------+-------------------------------------------------------------------------------------------------------+------------------------------------------------+--------------+
-| \| IMGREF     | String     | dimgname of a specific image known to contain the OBJ polygon (Spaces are underscores)                | 20020715 135903 r1 scwa  hh s lcc.tif          | Scientific   |
+|    IMGREF     | String     | dimgname of a specific image known to contain the OBJ polygon (Spaces are underscores)                | 20020715 135903 r1 scwa  hh s lcc.tif          | Scientific   |
 +---------------+------------+-------------------------------------------------------------------------------------------------------+------------------------------------------------+--------------+
-| \| Name       | String     | A name for the OBJ is nice to have                                                                    | Ward Hunt, Milne, Ayles                        | Optional     |
+|    Name       | String     | A name for the OBJ is nice to have                                                                    | Ward Hunt, Milne, Ayles                        | Optional     |
 +---------------+------------+-------------------------------------------------------------------------------------------------------+------------------------------------------------+--------------+
-| \| Area       | Float      | You can calculate the Area of each polygon and put it here (choose whatever units you want)           | 23.42452                                       | Optional     |
+|    Area       | Float      | You can calculate the Area of each polygon and put it here (choose whatever units you want)           | 23.42452                                       | Optional     |
 +---------------+------------+-------------------------------------------------------------------------------------------------------+------------------------------------------------+--------------+
-| \| Notes      | String     | Comment field to explain the OBJ                                                                      | Georeferencing may be slightly off here?       | Optional     |
+|    Notes      | String     | Comment field to explain the OBJ                                                                      | Georeferencing may be slightly off here?       | Optional     |
 +---------------+------------+-------------------------------------------------------------------------------------------------------+------------------------------------------------+--------------
 
 -  See folder ROISamples for example ROIs - Discovery and Scientific
@@ -282,17 +291,13 @@ Table: **ROI.shp fields**
 TODO
 ====
 
-\*# capture stdout and stderr from spawned processes
-
 \*# Make sure there is process/output testing and error trapping at
 every major step.
 
 \*# Develop a test suite of imagery for the project - R2 and R1 images
 that are in different beam modes, orbit directions, even bad images to
-test siglib. (imagery with no EULA so it can be shared)
+test SigLib. (imagery with no EULA so it can be shared)
 
--  version control (github? bitbucket?) - both software and version
-   identification and tracking changes for users
 -  Continue documentation
 
    #. overarching documentation important too
@@ -306,9 +311,7 @@ test siglib. (imagery with no EULA so it can be shared)
 SigLib.py
 ---------
 
--  add 'modes' to this - so that siglib can do what is described above.
--  add qryDatabase stuff or at least some of it (part of discovery mode)
--  update config.cfg accordingly
+-  Does scientific work?
 
 Metadata.py
 -----------
@@ -318,18 +321,13 @@ Metadata.py
 Image.py
 --------
 
--  test Pauli decomp and write in a switch for this - so users can
-   choose?
 -  test image crop and mask - in both modes
+-  Sigma0 testing (image vs snap vs ZAPro)
+-  compare snap equivilancy to gdal, if so remove unnessesary gdal code (clean!)
 
 Util.py
 -------
 
 -  deltree needs work (or can it be removed?)
 
-Sphinx
-------
 
--  Run this to put wiki info in. Must save info as .wik file: pandoc -s
-   -S -f mediawiki intro.wik -t rst -o intro.rst
--  Using Siglib!
