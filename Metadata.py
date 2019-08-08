@@ -12,6 +12,7 @@ later use, output to file, upload to database, etc.
         [Used with permission]* 
         
 **Modified on** Wed May  23 11:37:40 2018 **@reason:** Sent instance of Metadata to data2img instead of calling Metadata again **@author:** Cameron Fitzpatrick
+
 """
 
 import os
@@ -21,7 +22,6 @@ import datetime
 import math
 import numpy
 from scipy import interpolate
-import pdb
 import logging
 
 import subprocess
@@ -201,21 +201,16 @@ global gur
 class Metadata(object):
     """
     This is the metadata class for each image RSAT2, RSAT1 (ASF and CDPF)
-    """
-
-    def __init__(self, granule, imgname, path, zipfile, sattype, loghandler=None):
-        """
-        This initializes the class based on input
             
         **Parameters**
             
-            *granule*    : unique name of the image (String)
+            *granule* : unique name of an image in string format
 
-            *imgname*    : name of the file to open, representing the image (String)
+            *imgname* : image filename without extention 
 
-            *path*       : path to the image (String)
-
-            *Zipfile*    : A valid zipfile name with full path (String)
+            *path* : path to the image in string format
+            
+            *zipfile* : a valid zipfile name with full path and extension 
 
             *sattype*    : type of data (String)
 
@@ -223,8 +218,11 @@ class Metadata(object):
 
         **Returns**
             
-            An instance of Meta
-        """        
+            An instance of Metadata
+        """ 
+
+
+    def __init__(self, granule, imgname, path, zipfile, sattype, loghandler=None):     
         
         if loghandler != None:
             self.loghandler = loghandler             #Logging setup if loghandler sent, otherwise, set up a console only logging system
@@ -289,9 +287,9 @@ class Metadata(object):
         self.az_llul = Util.az(ll,ul)
         self.az_lrur = Util.az(lr,ur)
 
-    def getgdalmeta(self):
+    def getgdalmeta(self):    #give better description, summarize fields, don't list all
         """
-        Open file with gdal and get metadata
+        Open file with gdal and get metadata that it can read. Limited!
 
         **Returns**
             
@@ -324,17 +322,13 @@ class Metadata(object):
         self.n_cols = ds.RasterXSize
         self.n_bands = ds.RasterCount
 
-        self.logger.info('Img has: ' + str(self.n_cols) + ' columns, ' + \
-        str(self.n_rows) + ' rows & ' + str(self.n_bands) + ' band(s)')
-
-
         #If the n_rows is not zero extract the GCPs through the dataset
         if(self.n_rows > 0):
             self.geopts = ds.GetGCPs()              ### Getting the 15 GCPs
             self.n_geopts = ds.GetGCPCount()
 
         #Otherwise extract them manually through the .img file
-        else:
+        else:     #gdal can't read n_rows from some r1's, diverting 
             self.logger.debug("No GCPs in gdal dataset, manually extracting from the image.")
 
             self.getCEOSmetafile()
@@ -353,6 +347,9 @@ class Metadata(object):
             self.logger.info('Img has:      ' + str(self.n_geopts) + ' GCPs')
         else:
             self.logger.info('Projection is:    ' + proj)
+
+        self.logger.info('Img has: ' + str(self.n_cols) + ' columns, ' + \
+        str(self.n_rows) + ' rows & ' + str(self.n_bands) + ' band(s)')
             
 
         # All gdal_meta
@@ -500,7 +497,7 @@ class Metadata(object):
 
         The GCPs will not necessarily be on the 'bottom corners' since the gcps
         will be spaced evenly to get n_gcps (or more if not divisible by 3)
-        If you want corners the only way to guarentee this is to set n_gcps = 6
+        If you want corners the only way to guarantee this is to set n_gcps = 6
         
         **Parameters**
             
@@ -508,7 +505,7 @@ class Metadata(object):
                 
         **Returns**
             
-            *tuple(gcps)* : # of GCP's specified returned in tuple format
+            *gcps (tuple)* : GCP's specified returned in tuple format
         """
 
         assert self.sattype == 'CDPF', 'You can only use this function with CDPF R1 data'
@@ -607,7 +604,7 @@ class Metadata(object):
 
     def saveMetaFile(self, dir=''):
         """
-        Makes a text file with the metadata
+        Makes a text file with the image metadata
         """
         
         #TODO: MAKE THIS AN XML FILE
@@ -625,9 +622,7 @@ class Metadata(object):
     def createMetaDict(self):   
         """
         Creates a dictionary of all the metadata fields for an image
-        this can be written to file or sent to database
-
-        Note that the long boring metadata fields are not included
+        which can be written to file or sent to database
         
         **Returns**
             
@@ -661,7 +656,7 @@ class Metadata(object):
         
         **Parameters**
            
-           **file_names* : List of strings 
+           *file_names* : List of strings 
                
         **Returns**
             
@@ -763,15 +758,15 @@ class Metadata(object):
 
     def extractGCPs(self, interval):
         """
-        Description needed!
+        Extracts the lat/long and pixel col/row of ground control points in the image
         
         **Parameters**
             
-            *interval*    : 
+            *interval* : line spacing between extractions
                 
         **Returns**
             
-            *tuple(gcps)* : GCP's returned in tuple format
+            *gcps (tuple)* : GCP's returned in tuple format
         """
 
         file_name = self.image
@@ -857,8 +852,6 @@ class Metadata(object):
 
                 #gdal.GDAL_GCP_GCPX_get(gcp) # find out what made it into the gcp
 
-
-
         self.geopts = tuple(gcps)
         self.n_geopts = n_gcps
         self.n_rows = line_num
@@ -866,9 +859,9 @@ class Metadata(object):
         return tuple(gcps)
 
 
-    def getRS2metadata(self):
+    def getRS2metadata(self):         #Get a better description for this function, summarize fields, don't list all
         """
-        Open a Radarsat2 file and get all the required metadata
+        Open a Radarsat2 product.xml file and get all the required metadata
         """
 
         file = os.path.join(self.path, "product.xml")
@@ -1129,11 +1122,12 @@ class Metadata(object):
         
         **Parameters**
             
-            *ASFName* : ?            
+            *ASFName* : Name with extention, of the ASF meta file          
         """
         
         cmd = "metadata " + "-dssr " + ASFName
         command = shlex.split(cmd)
+        command[2] = ASFName
 
         ok = subprocess.Popen(command, stdout = subprocess.PIPE)
 
@@ -1148,11 +1142,12 @@ class Metadata(object):
         
         **Parameters**
             
-            *ASFName* : ?            
+            *ASFName* : Name with extention, of the ASF meta file             
         """
 
         cmd = "metadata " + "-asf_facdr " + ASFName
         command = shlex.split(cmd)
+        command[2] = ASFName
 
         ok = subprocess.Popen(command, stdout = subprocess.PIPE)
 
@@ -1295,26 +1290,14 @@ class Metadata(object):
         else:
             self.antennaPointing = None
 
-
-        #Get Noise vector
-
-        noise = result['lookup_tab']
-
-        #ASF Noise floor is value in lookup table * the noise_fact
-
-        #To calibrate ASF data - need Linear_conversion_factor * DN^2
-
-
-        #for i in range(len(noise)):
-        #Cannot determine Ground-to-Slant Range here, therefore...
-        #Cannot determine incidence angle.
-
         self.getDimgname()
 
     def getDimgname(self):
         """
-        Create a filename that conforms to my own standard naming convention:
+        Create a filename that conforms to the dimgname standard naming convention:
             yyyymmdd_HHmmss_sat_beam_pol...
+            
+            See *Dimgname Convention* in SigLib Documentation for more information
             
         **Returns**
             
@@ -1359,14 +1342,23 @@ class Metadata(object):
 
 def byte2int(byte):
     """
-    Reads a byte and converts to integer
+    Reads a byte and converts to an integer
     """
     
     return int(binascii.b2a_hex(byte),16)
 
 def get_data_block(fp, offset, length):
     """
-    gets a block of data from file
+    Gets a block of data from file
+    
+    **Parameters** 
+    
+        *fp* : Open file to read data block from
+        
+        *offset* : How far down the file to begin the block
+        
+        *length* : Length of the data block
+         
     """
 
     fp.seek(offset,0)  # remember this is absolute pos.
@@ -1374,17 +1366,17 @@ def get_data_block(fp, offset, length):
 
 def get_field_value(data, field_type, length, offset):
     """
-    Description needed!
+    Take a line of data and convert it to the appropriate data type
     
     **Parameters**
        
-        *data*       :
+        *data*       :  Line of data read from the file
 
-        *field_type* :
+        *field_type* :  Datatype line is (ASCII, Integer, Float, Binary)
 
-        *length*     :
+        *length*     :  Length of line
 
-        *offset*     :
+        *offset*     :  How far down the block the line is
             
     **Returns**
         
@@ -1414,8 +1406,19 @@ def get_field_value(data, field_type, length, offset):
 
 def readdate(date, sattype):
     """
-    Takes a rsat2 formated date 2009-05-31T14:43:17.184550Z
-    and converts it to python datetime
+    Takes a Rsat2 formated date 2009-05-31T14:43:17.184550Z
+    and converts it to python datetime. Sattype needed due to
+    differing date convensions between RS2 and CDPF.
+    
+    **Parameters**
+        
+        *date* : Date in Rsat2 format
+        
+        *sattype* : Satellite type (RS2, CDPF)
+        
+    **Returns**
+    
+        Date in python datetime convension
     """
 
     if sattype == 'RS2':
@@ -1439,7 +1442,15 @@ def readdate(date, sattype):
 
 def date2doy(date, string=False, float=False):
     """
-    Give a python datetime and get an integer or string doy fractional doy returned if float=True
+    Provide a python datetime object and get an integer or string (if string=True) doy, fractional DayOfYear(doy) returned if float=True
+    
+    **Parameters**
+        
+        *date* : Date in python datetime convension
+        
+    **Returns**
+    
+        *doy*  : Day of year 
     """
 
     if float:  # get hod - hour of day
@@ -1458,6 +1469,16 @@ def doy2date(year, doy):
     logger = logging.getLogger(__name__)
     """
     Give a float, integer or string and get a datetime
+    
+    **Parameters**
+    
+        *year* : Year
+        
+        *doy*  : Day of year
+        
+    **Returns**
+    
+        Date in python datetime convension
     """
 
     if type(doy) == type(''):
@@ -1489,7 +1510,7 @@ def getEarthRadius( ellip_maj, ellip_min, plat_lat):
 def getSlantRange(gsr, pixelSpacing, n_cols, order_Rg, groundRangeOrigin=0.0):
     """
     gsr = ground to slant range coefficients -a list of 6 floats
-        pixelSpacing - the img. res., n_cols - how many pixels in range
+        pixelSpacing - the image resolution, n_cols - how many pixels in range
         ground range orig - for RSat2 (seems to be zero always)
 
         Valid for SLC as well as SGF
@@ -1528,7 +1549,7 @@ def getGroundRange(slantRange, radius, sat_alt):
 
 def getThetaPixel(RS, r, h):
     """
-    Calc the incidence angle at a given pixel
+    Calc the incidence angle at a given pixel, angle returned in radians
     """
 
     theta = math.acos((h ** 2 - RS ** 2 + 2 * r * h) / (2 * RS * r))
