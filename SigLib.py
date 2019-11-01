@@ -25,7 +25,7 @@ Common Parameters of this Module:
 
 import os
 import sys
-from configparser import ConfigParser
+from configparser import ConfigParser, RawConfigParser
 import logging
 import shutil
 import time
@@ -55,7 +55,8 @@ class SigLib:
     def __init__(self):       
         self.cfg = os.path.expanduser((sys.argv[1]))
 
-        config = ConfigParser.RawConfigParser()
+        #config = ConfigParser.RawConfigParser()
+        config = RawConfigParser() # Needs to be tested for python2 compatibility 
         config.read(self.cfg)
         self.cfg = os.path.basename(self.cfg)[:-4]
         self.tmpDir = os.path.abspath(os.path.expanduser(config.get("Directories","tmpDir")))
