@@ -482,15 +482,15 @@ class Database:
                 rows = curs.fetchall()
                 colnames = [desc[0] for desc in curs.description]
                 
-        except ValueError, e:
+        except ValueError as e:
             self.logger.error('ERROR(value): Confirm that the values sent or retrieved are as expected--> ' +str(e))
             self.connection.rollback() #from Metadata import Metadatalback()
             
-        except psycopg2.ProgrammingError, e:
+        except psycopg2.ProgrammingError as e:
             self.logger.error('ERROR(programming): Confirm the SQL statement is valid--> ' +str(e))
             self.connection.rollback()
             
-        except StandardError, e:
+        except StandardError as e:
             self.logger.error('ERROR(standard): ' +str(e))   
             self.connection.rollback()
             
@@ -1074,15 +1074,14 @@ class Database:
 
         try:
             curs.execute(sql,param)
-        except psycopg2.ProgrammingError, e:
+        except psycopg2.ProgrammingError as e:
             self.logger.error('ERROR(programming): Confirm the SQL statement is valid--> ' +str(e))
-            print str(e)
             return
             
         self.connection.commit()
         
         rows = curs.fetchall()
-        print len(rows)
+
         return rows
             
     def removeHandler(self):

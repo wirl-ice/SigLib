@@ -677,14 +677,13 @@ class Image(object):
         
         inname = self.FileNames[-1]
         outname = self.fnameGenerate(subset=subset)[2]
-        print inname
 
         cmd = 'gdal_translate -of '+ self.imgFormat +' -co \"COMPRESS=LZW\" -a_nodata 0 ' +\
             inname+'.vrt' +' '+ outname+self.imgExt            
             
         command = shlex.split(cmd)
         try:
-		ok = subprocess.Popen(command).wait()
+            ok = subprocess.Popen(command).wait()
         except:
             self.logger.error("vrt2RealImg failed")
 		

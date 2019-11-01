@@ -25,7 +25,7 @@ Common Parameters of this Module:
 
 import os
 import sys
-import ConfigParser
+from configparser import ConfigParser
 import logging
 import shutil
 import time
@@ -161,7 +161,7 @@ class SigLib:
             self.logger.debug('image retrieved')
             # Do clean-up
                             
-        except Exception, e: #Normally Exception, e
+        except Exception as e: #Normally Exception, e
             self.logger.error('Image failed %s, due to: %s', zipfile, e, exc_info=True)
             self.logger.error("Image processing exception, moving to next image")
             self.issueString += "\n\nERROR (exception): " + zipfile
@@ -679,9 +679,9 @@ class SigLib:
         elif self.scanFile == "1":
             self.proc_File(os.path.abspath(os.path.expanduser(str(sys.argv[-1]))))  #assume this is the last arg (after 'jobid')
         elif self.proc_Query == "1":
-            print "\nScan Query not implemented yet.\n"
+            print("\nScan Query not implemented yet.\n")
         else:
-            print "\nPlease specify one method to scan the data in the config file.\n"
+            print("\nPlease specify one method to scan the data in the config file.\n")
 
 if __name__ == "__main__":   
     SigLib().run()
