@@ -86,7 +86,7 @@ class Database:
             self.logger.info("Connecting to " + dbname + " with user " + getpass.getuser())
             connectionSetUp = "dbname=" + dbname + " port=" + port + " host=" + host
         else:
-            self.logger.info("Connecting to ", dbname, " with user ", user)
+            self.logger.info("Connecting to " + dbname + " with user " + user)
             connectionSetUp = "dbname=" + dbname + " user=" + user  + " password="+ password +" port=" + port + " host=" + host   
             
         self.connection = psycopg2.connect(connectionSetUp)

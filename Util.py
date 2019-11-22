@@ -481,8 +481,8 @@ def az(pt1,pt2):
         raise TypeError("Only tuples are supported as arguments")
 
     #convert to radians
-    pt1 = map(math.radians, pt1)
-    pt2 = map(math.radians, pt2)
+    pt1 = list(map(math.radians, pt1))
+    pt2 = list(map(math.radians, pt2))
     
     deltaLon = pt2[0]-pt1[0]
     

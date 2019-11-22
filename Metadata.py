@@ -32,6 +32,8 @@ from osgeo import gdal
 from osgeo import osr
 from osgeo.gdalconst import *
 
+from future.utils import iteritems
+
 import Util
 
 D2R = math.pi / 180.0
@@ -610,8 +612,7 @@ class Metadata(object):
         #TODO: MAKE THIS AN XML FILE
         meta = self.createMetaDict()
         fout = open(os.path.join(dir, self.dimgname+".met"), 'w')
-
-        for field, value in sorted(meta.iteritems()):
+        for field, value in sorted(iteritems(meta)):
                     fout.write(field +'\t'+ str(value))
                     fout.write('\n')
 
@@ -631,7 +632,7 @@ class Metadata(object):
 
         #make a dictionary of all the meta.attributes
         metaDict = {}
-        for attr, value in self.__dict__.iteritems():
+        for attr, value in iteritems(self.__dict__):
             ###tblmetadata is filled with this dict
 
             if attr != 'geopts' and attr != 'noise' and attr != 'calgain' and \

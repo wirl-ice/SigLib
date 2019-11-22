@@ -31,6 +31,7 @@ import shutil
 import time
 from time import localtime, strftime
 from glob import glob
+from builtins import input
 
 from Database import Database
 from Metadata import Metadata
@@ -65,7 +66,6 @@ class SigLib:
         self.scanDir = os.path.abspath(os.path.expanduser(config.get("Directories", "scanDir")))
         self.vectDir = os.path.abspath(os.path.expanduser(config.get("Directories","vectDir")))
         self.logDir = os.path.abspath(os.path.expanduser(config.get("Directories","logDir")))
-        self.archDir = os.path.abspath(os.path.expanduser(config.get("Directories", "archDir")))
         
         self.dbName = config.get("Database", "db")
         self.dbHost = config.get("Database", "host")
@@ -102,7 +102,7 @@ class SigLib:
         shutil.copy(os.path.abspath(os.path.expanduser(sys.argv[1])), os.path.join(self.logDir,self.cfg + "_" +\
             self.starttime +'.cfg')) # make a copy of the cfg file
         self.length_time = 0
-        self.loghandler = 0
+        self.loghandler = None
         self.logger = 0        
     
     def createLog(self,zipfile=None):   
@@ -668,8 +668,8 @@ class SigLib:
 
     def run(self):      
         if self.create_tblmetadata == "1":
-            ans = raw_input("Confirm you want to create/overwrite tblMetadata? Y/N")
-            if ans.lower == 'y':
+            ans = input("Confirm you want to create/overwrite tblMetadata? [Y/N]\t")
+            if ans.lower() == 'y':
                 db = Database(self.table_to_query, self.dbName, self.loghandler, host=self.dbHost)
                 db.createTblMetadata()
         if self.uploadROI == "1":

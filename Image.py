@@ -271,7 +271,7 @@ class Image(object):
                 offset = stretchVals[band-1,4]
 
                 #PROCESS IN CHUNKS
-            n_chunks = self.n_rows / chunkSize + 1
+            n_chunks = int(self.n_rows / chunkSize + 1)
             n_lines = chunkSize
 
             for chunk in range(n_chunks):
@@ -345,6 +345,7 @@ class Image(object):
             self.tifname = outname+ext          ###
         
         outds = None         # release the dataset so it can be closed
+
 
 
     def reduceImg(self, xfactor, yfactor):
