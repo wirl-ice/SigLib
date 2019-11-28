@@ -1,0 +1,7 @@
+pandas
+future
+psycopg2
+GDAL
+numpy
+scipy
+ctypes_snappy
