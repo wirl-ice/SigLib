@@ -93,7 +93,7 @@ sar_img = Image(fname, unzipdir, sar_meta, imgType, imgFormat, zipname, imgdir)
 # Query dbase to see what polygons overlap with this img
 instances = db.qryGetInstances(granule, roi, proj, selectFrom)   
 if instances == -1:
-    print 'This image has no associated polygons, exiting'
+    print('This image has no associated polygons, exiting')
     sys.exit()
          
 for i, inst in enumerate(instances):
@@ -105,17 +105,17 @@ for i, inst in enumerate(instances):
     else:  # no smoothing for quantitative images
         ok = sar_img.projectImg(proj, projdir, resample='near')
     if ok != 0: # trap errors here 
-        print 'ERROR: Issue with projection... will stop processing this img'
+        print('ERROR: Issue with projection... will stop processing this img')
             #sar_img.cleanFiles(['proj'])    
     
-    print 'Processing '+ str(inst) + ' : ' + str(i+1) + ' of ' + str(len(instances)) + ' subsets'
+    print('Processing {} : {} of {} subsets'.format(inst, i+1, len(instances)))
    
     crop = db.qryCropZone(granule, roi, spatialrel, proj, inst, selectFrom)
   
     ok = sar_img.cropImg(crop, str(inst))   #error due to sending last inst?
             
     if ok != 0: # trap errors here 
-        print 'ERROR: Issue with cropping... will stop processing this subset'
+        print('ERROR: Issue with cropping... will stop processing this subset')
         sar_img.cleanFiles(['crop'])
         sys.exit()
     sar_img.vrt2RealImg(str(inst))
@@ -163,6 +163,6 @@ for file in os.listdir(tmpDir):         #Clean tmpDir
         elif os.path.isdir(path):
             shutil.rmtree(path)
     except Exception as e:
-        print e
+        print(e)
         
-print "Temp Directory Clean!"
+print("Temp Directory Clean!")
