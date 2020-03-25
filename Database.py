@@ -814,6 +814,7 @@ class Database:
         sql = '''SELECT ST_AsText(ST_Transform('''+roi+'''.geom, %(srid)s))
         FROM '''+roi+''' WHERE ogc_fid = %(inst)s AND imgref LIKE %(dimgname)s'''
         
+        
         curs.execute(sql, param)
         polytext = curs.fetchall()[0][0]
     
@@ -844,30 +845,29 @@ class Database:
 
             *granule*   : granule name 
         """
-        
         noDataVal = 0
         #polyData = numpy.ma.masked_equal(imgData, noDataVal) #doesn't work all the time
         polyData = imgData[numpy.where( imgData != noDataVal )]
         #make histogram; note: hist is not masked array aware!
         # this histogram is in log scale - dB units
-        bins = numpy.arange(-50, 10, 1) # every 1 dB... 
-        histData, bins =numpy.histogram(Util.getdBScale(polyData), 
-                                           bins, normed=True)
+        #bins = numpy.arange(-50, 10, 1) # every 1 dB... 
+        #histData, bins =numpy.histogram(Util.getdBScale(polyData), 
+        #                                   bins, normed=True)
         
-        sql_array = self.numpy2sql(imgData, 2)
-        sql_histData = self.numpy2sql(histData, 1)
-        sql_binData = self.numpy2sql(bins, 1)
+        #sql_array = self.numpy2sql(imgData, 2)
+        #sql_histData = self.numpy2sql(histData, 1)
+        #sql_binData = self.numpy2sql(bins, 1)
         
         upload = {
             'granule' : granule,
             'bandname' : bandName,
             'inst' : inst,
             'dimgname' : dimgname,
-            'n_cols' : imgData.shape[1],
-            'n_rows' : imgData.shape[0],
+            #'n_cols' : imgData.shape[1],
+            #'n_rows' : imgData.shape[0],
             'mean' : str(polyData.mean()),  # convert real or get can't adapt error
             'var' :  str(polyData.var()),
-            'n_pixels' : len(polyData), #count the pixels within the polygon
+            #'n_pixels' : len(polyData), #count the pixels within the polygon
             'maxdata' : str(polyData.max()), 
             'mindata' : str(polyData.min()),
             'median' : str(numpy.median(polyData)),
@@ -875,39 +875,49 @@ class Database:
             'quart3' : str(stats.scoreatpercentile(polyData, 75)),
             'skew' : str(stats.skew(polyData, None)),
             'kurtosis' : str(stats.kurtosis(polyData, None)),
-            'hist' : sql_histData,
-            'bin' : sql_binData,
+            #'hist' : sql_histData,
+            #'bin' : sql_binData,
             'xSpacing' : str(xSpacing), 
-            'ySpacing' : str(ySpacing),
-            'banddata' : sql_array
+            'ySpacing' : str(ySpacing)
+            #'banddata' : sql_array
             }
         
         #First, look to see if primary key exists, if so, overwrite record
         sqlDel = '''DELETE FROM tblbanddata WHERE bandname = %(bandname)s 
             AND granule = %(granule)s AND inst = %(inst)s'''
+        
+        delVals = {'granule' : granule,
+            'bandname' : bandName,
+            'inst' : inst,}
                 
         sqlIns = '''INSERT INTO tblbanddata 
-            (granule, bandname, inst, dimgname, n_cols, n_rows, mean, var, n_pixels, 
-            maxdata, mindata, median, quart1, quart3, skew, kurtosis, hist, bin, 
-            xSpacing, ySpacing, banddata) 
+            (granule, bandname, inst, dimgname, mean, var, 
+            maxdata, mindata, median, quart1, quart3, skew, kurtosis, 
+            xSpacing, ySpacing) 
             VALUES 
-            (%(granule)s, %(bandname)s, %(inst)s, %(dimgname)s, %(n_cols)s, 
-            %(n_rows)s, %(mean)s, %(var)s, %(n_pixels)s, %(maxdata)s, %(mindata)s, 
-            %(median)s, %(quart1)s, %(quart3)s, %(skew)s, %(kurtosis)s, %(hist)s, 
-            %(bin)s, %(xSpacing)s, %(ySpacing)s, %(banddata)s)'''
+            (%(granule)s, %(bandname)s, %(inst)s, %(dimgname)s, 
+            %(mean)s, %(var)s, %(maxdata)s, %(mindata)s, 
+            %(median)s, %(quart1)s, %(quart3)s, %(skew)s, %(kurtosis)s, 
+            %(xSpacing)s, %(ySpacing)s)'''
              
 
         curs = self.connection.cursor()
+        
         try:
-            curs.execute(sqlDel, upload)
+            curs.execute(sqlDel, delVals)
+            self.connection.commit()
         except:
-            self.logger.error(curs.query())
+            self.connection.rollback()
+            pass
+            #self.logger.error(curs.query())
+        
         try:
             curs.execute(sqlIns, upload)
-        except: 
-            self.logger.error(curs.query())
+        except Exception, e:
+            self.logger.error(e)
+            return
         self.connection.commit()
-        self.logger.info('Image ' + bandName + ' data uploaded to database')
+        self.logger.info('Image ' + granule + ' data uploaded to database')
         
         
     def numpy2sql(self, numpyArray, dims):
@@ -1062,12 +1072,16 @@ class Database:
             *rows* : all beacon pings that meet requirements. Each row has three columns: beacon id, lat, and long
         """
         
-        sql = """SELECT DISTINCT """ + beacontable + """.beacnid, """ + beacontable + """.latitud, """ + beacontable + """.longitd """ +\
+        sql = """SELECT """ + beacontable + """.beacnid, """+ beacontable + """.latitud, """ + beacontable + """.longitd """ +\
         """FROM """ + self.table_to_query +""", """ + beacontable +\
         """ WHERE """ + self.table_to_query + """.granule = %(granule)s """ +\
         """AND """ + beacontable + """.dtd_utc <= """ + self.table_to_query + """.acdatetime + interval '91 minutes' """ +\
-        """AND """ + beacontable + """.trd_utc >= """ + self.table_to_query + """.acdatetime - interval '91 minutes' """ +\
-        """AND ST_Contains (ST_Transform(""" + self.table_to_query + """.geom, 96718), ST_Transform(""" + beacontable + """.geom, 96718))""" 
+        """AND """ + beacontable + """.dtd_utc >= """ + self.table_to_query + """.acdatetime - interval '91 minutes' """ +\
+        """AND ST_Contains(ST_Transform(""" + self.table_to_query + """.geom, 96718), ST_Transform(""" + beacontable + """.geom, 96718)) """ +\
+        """ORDER BY """ + beacontable + """.beacnid, ((DATE_PART('day', """+beacontable+""".dtd_utc - """ + self.table_to_query + """.acdatetime)*24 + """ +\
+        """DATE_PART('hour', """+beacontable+""".dtd_utc - """ + self.table_to_query + """.acdatetime))*60 + """ +\
+        """DATE_PART('minute', """+beacontable+""".dtd_utc - """ + self.table_to_query + """.acdatetime))*60 + """ +\
+        """DATE_PART('second', """+beacontable+""".dtd_utc - """ + self.table_to_query + """.acdatetime) ASC"""
         
         param = {'granule' : granule}
         curs = self.connection.cursor()
@@ -1084,7 +1098,47 @@ class Database:
         rows = curs.fetchall()
         print len(rows)
         return rows
-            
+        
+    def polarimetricDonuts(self, granule, beaconid):
+        curs = self.connection.cursor()        
+        
+        param = {'granule': granule}
+        
+        sql = "SELECT dimgname FROM "+self.table_to_query+" WHERE granule LIKE %(granule)s"
+        curs.execute(sql,param)
+        dimgname = str(curs.fetchone()[0])
+        
+        #line below removes a dash due to lack of in earlier naming convention
+        #dimgname = dimgname[:23] + dimgname[24:]
+        #dimgname = dimgname[:18] + '%'
+        
+        param = {'beacnid': beaconid, 'dimgname': dimgname, 'srid':'4326'}
+        
+        sql2 = """SELECT ST_AsText(ST_Buffer(ii_polygons.geom, -30)) FROM ii_polygons """ +\
+        """WHERE ii_polygons.beaconid = %(beacnid)s AND %(dimgname)s LIKE ii_polygons.imgref"""      
+        
+        results = []
+        #How to execute each command and get buffer polygon back to add to results above
+        try:
+            curs.execute(sql2, param)
+        except Exception as e:
+            print e
+        result = str(curs.fetchone()[0])
+        if result == 'GEOMETRYCOLLECTION EMPTY':
+            return []
+        results.append(result)
+        
+        sql3 =  """SELECT ST_AsText(ST_Multi(ST_Difference(ST_Buffer(ii_polygons.geom, 400), ST_Buffer(ii_polygons.geom, 30)))) """ +\
+        """FROM ii_polygons WHERE ii_polygons.beaconid = %(beacnid)s AND %(dimgname)s LIKE ii_polygons.imgref"""
+        
+        curs.execute(sql3, param)
+        result = str(curs.fetchone()[0])
+        if result == 'GEOMETRYCOLLECTION EMPTY':
+            return []
+        results.append(result)
+        
+        return results
+        
     def removeHandler(self):
         self.logger.handlers = []
         
