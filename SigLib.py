@@ -262,7 +262,7 @@ class SigLib:
         """
         
         # Verify if zipfile has its own subdirectory before unzipping
-        unzipdir, granule, nested = Util.getZipRoot(os.path.join(self.scanDir,zipfile), self.tmpDir)
+        unzipdir, granule, nested = Util.getZipRoot(os.path.join(self.scanDir,zipfile), self.tmpDir)            
         self.logger.debug("Zipfile %s will unzip to %s. Granule is %s and Nested is %s", zipfile, unzipdir, granule, nested)        
         # Unzip the zip file into the unzip directory
         Util.unZip(zipfile, unzipdir)
@@ -326,6 +326,9 @@ class SigLib:
                 db.removeHandler()
                 
             if self.polarimetricProcess == '1':
+                if 'Q' not in sar_meta.beam:
+                    self.logger.debug("This is not a quad-pol scene, skipping")
+                    return Exception
                 db = Database(self.table_to_query, self.dbName, loghandler=self.loghandler, host=self.dbHost)
                 self.polarimetric(db, fname, imgname, zipname, sattype, granule, zipfile, sar_meta, unzipdir)
             
@@ -504,15 +507,19 @@ class SigLib:
         if instances == -1:
             self.logger.error(fname + ' has no associated polygons, exiting')
             return
-        
+            
+        sar_img.tmpFiles = sar_img.FileNames
         for i, inst in enumerate(instances):
+            sar_img.FileNames = sar_img.tmpFiles
+            
+            
             sar_img.cleanFileNames()
             #Crop!
             self.logger.debug('Processing '+ inst + ' : ' + str(i+1) + ' of ' + str(len(instances)) + ' subsets')
    
             crop = db.qryCropZone(granule, self.roi, self.spatialrel, inst, selectFrom) 
-            ok = sar_img.snapSubset(inst, ullr=crop) 
-            #ok = sar_img.cropImg(crop, inst)   #error due to sending last inst?
+            #ok = sar_img.snapSubset(inst, ullr=crop) 
+            ok = sar_img.cropImg(crop, inst)   #error due to sending last inst?
             
             if ok != 0: # trap errors here 
                 self.logger.error('ERROR: Issue with cropping... will stop processing this subset')
@@ -603,68 +610,119 @@ class SigLib:
             return
         
         self.logger.debug("Found " + str(len(beacons)) + " beacons in this image!")
+        
         # Process the image
         sar_img = Image(fname, unzipdir, sar_meta, self.imgType, self.imgFormat, zipname, self.imgDir, newTmp, self.loghandler, pol=True)
         
+        seenBeacons = []
+        filenames = []
+        sar_img.tmpFiles = sar_img.FileNames
         for i in range(len(beacons)):
+            sar_img.FileNames = sar_img.tmpFiles
             beaconid = beacons[i][0]
             latitude = float(beacons[i][1])
             longitude = float(beacons[i][2])
             
+            if beaconid in seenBeacons:
+                self.logger.debug("Seen best beacon for " + str(beaconid) + ", moving on")
+                continue
+            
+            #sar_img.cleanFileNames()           
             self.logger.debug("Found beacon " + str(beaconid) + " in image " + granule + ". Processing...")
+            seenBeacons.append(beaconid)
+            
+            finalsDir = os.path.join(newTmp,'finals')  #directory in tmp for images to be masked  
+            if os.path.isdir(finalsDir):
+                pass
+            else:
+                os.makedirs(finalsDir)
  
-            output = sar_img.snapSubset(beaconid, latitude, longitude) #subset
+            output = sar_img.snapSubset(beaconid, latitude, longitude, finalsDir) #subset
             
             if output == -1:
                 return
             
-            matrices = ['C3', 'T3']
-            matrixFileNames = []            
+            amp = sar_img.makeAmp(newFile = False, pol = True)
             
+            splitPath = amp.split('/')          #Send .tif for Amplitude to output location
+            outname = splitPath[len(splitPath)-1]
+            filenames.append(outname)
+                
+            matrices = ['C3', 'T3']           
+            
+            tmpArr = sar_img.FileNames
             for matrix in matrices:
-                gen_matrix = sar_img.matrix_generation(matrix, output)  #Generate each type of matrix, one at a time
-                gen_filter = sar_img.polarFilter(gen_matrix)
-                matrixFileNames.append([gen_filter, matrix])
+                sar_img.FileNames = tmpArr
+                matrixFN = sar_img.matrix_generation(matrix)  #Generate each type of matrix, one at a time
+                gen_filter = sar_img.polarFilter()
+                
+                splitPath = gen_filter.split('/')          #Send .tif for matrix to output location
+                outname = splitPath[len(splitPath)-1]
+                filenames.append(outname)
+                os.remove(matrixFN)
+                
             
             self.logger.debug("All matrices generated!")
-            
-            decompositions = ['Sinclair Decomposition', 'Pauli Decomposition', 'Freeman-Durden Decomposition', 'Yamaguchi Decomposition', 'van Zyl Decomposition', 'H-A-Alpha Quad Pol Decomposition', 'Cloude Decomposition', 'Touzi Decomposition']
-            decompFileNames = []
+                      
+            decompositions = ['Sinclair Decomposition', 'Pauli Decomposition', 'Freeman-Durden Decomposition', 'Yamaguchi Decomposition', 'van Zyl Decomposition', 'H-A-Alpha Quad Pol Decomposition', 'Cloude Decomposition']
             
             os.chdir(self.imgDir)
-            dir = os.path.join(self.imgDir,zipname + '__' + str(beaconid))
-            if os.path.isdir(dir):
-                pass
-            else:
-                os.makedirs(dir)
             
-            for name in matrixFileNames:                #Generate each decomposition type, for each matrix type, one at a time
-                for decomposition in decompositions:
-                    try:
-                        if decomposition == "H-A-Alpha Quad Pol Decomposition":
-                            i = 1
-                            while i <= 4:
-                                gen_decomp = sar_img.decomposition_generation(decomposition, name[1], name[0], dir, beaconid, outputType=i)
-                                decompFileNames.append([gen_decomp, name[1], decomposition])
-                                i+=1
-                            
-                        elif decomposition == "Touzi Decomposition":
-                            i = 5
-                            while i <= 8:
-                                gen_decomp = sar_img.decomposition_generation(decomposition, name[1], name[0], dir, beaconid, outputType=i)
-                                decompFileNames.append([gen_decomp, name[1], decomposition])
-                                i+=1
+            for decomposition in decompositions:
+                try:
+                    if decomposition == "H-A-Alpha Quad Pol Decomposition":
+                        i = 4
+                        while i <= 4:
+                            gen_decomp = sar_img.decomposition_generation(decomposition, outputType=i)
+                            i+=1
                         
-                        else:
-                            gen_decomp = sar_img.decomposition_generation(decomposition, name[1], name[0], dir, beaconid)
-                            decompFileNames.append([gen_decomp, name[1], decomposition])
-                           
-                    except:
-                        self.logger.error(name[1] + ' matrix and ' + decomposition + ' do not work together at the moment/at all! Moving on')
+                    elif decomposition == "Touzi Decomposition":
+                        i = 5
+                        while i <= 8:
+                            gen_decomp = sar_img.decomposition_generation(decomposition, outputType=i)
+                            i+=1
+                    
+                    else:
+                        gen_decomp = sar_img.decomposition_generation(decomposition)
+                    
+                    splitPath = gen_decomp.split('/')          #Send .tif for decomp to output location
+                    outname = splitPath[len(splitPath)-1]
+                    filenames.append(outname)
+                    
+                except:
+                    self.logger.error("Error with " + decomposition + ", moving on")
                         
             self.logger.debug('All matrix-decomposition combinations generated!')
-                       
+          
+        #for filename in filenames:
+        for dirpath, dirnames, filenames in os.walk(finalsDir):
+            for filename in filenames:
+                if os.path.splitext(filename)[1] == '.dim':                 
+                    os.chdir(dirpath)
+                    name = os.path.splitext(filename)[0]
+                    #ext =  os.path.splitext(filename)[1]
+                    
+                    masks = db.polarimetricDonuts(granule, beaconid)
+                    counter = 0
+                    type = ''
+                    for mask in masks:
+                        if counter == 0: 
+                            type = 'ii'
+                        else: 
+                            type = 'donut'
+                            
+                        convMask = sar_img.slantRangeMask(mask, name)     
+                        
+                        shpname = 'instmask_'+zipname+'_'+str(beaconid)+ '_' + type
+                        Util.wkt2shp(shpname, dir, self.proj, self.projDir, convMask)
 
+                        sar_img.slantRangeMask(shpname + '.shp', shpname, name, finalsDir)                        
+                        
+                        imgData, xSpacing, ySpacing = sar_img.getBandData(1, name)                    
+                        db.imgData2db(imgData, xSpacing, ySpacing, name, str(beaconid), sar_img.meta.dimgname, granule)  
+                        counter+=1
+
+          
     def run(self):      
         if self.create_tblmetadata == "1":
             ans = raw_input("Confirm you want to create/overwrite tblMetadata? Y/N")
