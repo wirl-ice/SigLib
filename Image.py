@@ -11,6 +11,7 @@ cropped, masked, stretched, etc.
 **Modified on** 3 Feb  1:52:10 2012 **@reason:** Repackaged for r2convert **@author:** Derek Mueller
 **Modified on** 23 May 14:43:40 2018 **@reason:** Added logging functionality **@author:** Cameron Fitzpatrick
 **Modified on** 9 Aug  11:53:42 2019 **@reason:** Added in/replaced functions in this module with snapPy equivilants **@author:** Cameron Fitzpatrick
+""Modified on"" 9 May 13:50:00 2020 **@reason:** Added terrain correction for known elevation **@auther:** Allison Plourde
 
 **Common Parameters of this Module:**
 
@@ -75,9 +76,9 @@ class Image(object):
             *zipname*  
     """
 
-    def __init__(self, fname, path, meta, imgType, imgFormat, zipname, imgDir, tmpDir, loghandler = None, pol = False):
+    def __init__(self, fname, path, meta, imgType, imgFormat, zipname, imgDir, tmpDir, loghandler = None, pol = False, eCorr = None):
 
-#TODO - consider a secondary function to create the image so the class can be initialized without CPU time... 
+        #TODO - consider a secondary function to create the image so the class can be initialized without CPU time...  
 
         #assert imgType in ['amp','sigma','noise','theta']
         assert imgFormat.lower() in ['gtiff','hfa','envi','vrt']
@@ -104,6 +105,7 @@ class Image(object):
         self.imgFormat = imgFormat
         self.FileNames = [os.path.splitext(zipname)[0]] # list of all generated files
         self.proj = 'nil' # initialize to nil (then change as appropriate)
+        self.elevationCorrection = eCorr
         
         try:
             GPF.getDefaultInstance().getOperatorSpiRegistry().loadOperatorSpis()
@@ -332,7 +334,12 @@ class Image(object):
         # finish the geotiff file
         
         if self.proj == 'nil':
-            outds.SetGCPs(self.meta.geopts, self.meta.geoptsGCS)
+            if self.elevationCorrection:
+                self.logger.info("Using terrain corrected GCPs with user input elevation = {} m".format(self.elevationCorrection))
+                gcp_list = self.correct_known_elevation()
+                outds.SetGCPs(gcp_list, self.meta.geoptsGCS)
+            else:
+                outds.SetGCPs(self.meta.geopts, self.meta.geoptsGCS)
         else:
             # copy the proj info from before...
             outds.SetGeoTransform(self.inds.GetGeoTransform())
@@ -423,7 +430,7 @@ class Image(object):
 
         os.chdir(self.imgDir)
         inname = self.FileNames[-1] #last file
-        
+
         outname = self.fnameGenerate(projout=projout)[2]
 
         command = 'gdalwarp -of ' + imgFormat +  ' -t_srs ' +\
@@ -545,7 +552,7 @@ class Image(object):
         imgFormat = 'vrt'
         ext = '.vrt'
         inname = self.FileNames[-1] # this is potentially an issue here
-        outname = inname+'_'+subscene
+        outname = str(inname)+'_'+str(subscene)
         tempname = 'tmp_'+outname
         
         sep = ' '
@@ -1152,7 +1159,7 @@ class Image(object):
             pauli1 =  numpy.abs( (datachunk_hh - datachunk_vv) / math.sqrt(2) )
             pauli2 =  numpy.abs( ((datachunk_hv + datachunk_vh)/2.0)* math.sqrt(2) )
             pauli3 =  numpy.abs(  (datachunk_hh + datachunk_vv) / math.sqrt(2) )
-
+q
 
             datachunk_hh, datachunk_vv, datachunk_hv, datachunk_vh = 0, 0, 0, 0 #free memory
 
@@ -1190,7 +1197,7 @@ class Image(object):
         temp = [0,0]
         temp[0] = self.FileNames[0]
         temp[1] = self.FileNames[1]
-        self.FileNames = temp        
+        self.FileNames = temp  
 
     def snapCalibration(self, outDataType='sigma', saveInComplex=False):
         '''
@@ -1600,3 +1607,122 @@ class Image(object):
             
         self.FileNames.append(output)
             
+    def correct_known_elevation(self):
+        '''
+        Transforms image GCPs based on a known elevation for an image (rather than the default average)
+        '''
+
+        height_correction = float(self.elevationCorrection)
+            
+        self.meta.tie_points['longitude'] = numpy.radians(self.meta.tie_points['longitude'])
+        self.meta.tie_points['latitude'] = numpy.radians(self.meta.tie_points['latitude'])
+
+        #Get M by N matrix size and position of tie points
+        tie_point_lines = numpy.unique(self.meta.tie_points['line'])
+        tie_point_pixels = numpy.unique(self.meta.tie_points['pixel'])
+        M = len(tie_point_pixels)
+        N = len(tie_point_lines)
+            
+        def m_by_n_array(arr1, arr2=None):
+            if arr2:
+                x = numpy.empty((M,N), dtype=(float, 2))
+            else:
+                x = numpy.empty((M,N), dtype=float)
+            line = 0
+            for i in range(N):
+                for j in range(M):
+                    if arr2:
+                        x[i][j] = (arr1[(i+j)+line], arr2[(i+j)+line])
+                    else:
+                        x[i][j] = arr1[(i+j)+line]
+                line += M-1
+            return x
+
+        pixels = m_by_n_array(self.meta.tie_points['pixel'])
+        lines = m_by_n_array(self.meta.tie_points['line'])
+        lng_matrix = m_by_n_array(self.meta.tie_points['longitude'])
+        lat_matrix = m_by_n_array(self.meta.tie_points['latitude'])
+
+        #Transform tie-points from geographic to cartesian space
+        xuv, yuv, zuv = Util.geographic_to_cartesian(lat_matrix, lng_matrix, self.meta.ellip_maj, self.meta.ellip_min)
+            
+        #Step 1: determine near range and far range pixels based on time ordering
+        if self.meta.order_Rg == 'Increasing':
+                p_near = 0
+        elif self.meta.order_Rg == 'Decreasing':
+                p_near = self.meta.n_cols - 1
+        p_far = self.meta.n_cols - 1 - p_near
+
+        #Step 2: interpolate near and far range pixel 
+        #(interpolation is uneccesary since coordinates lie on tie points)
+        P_near = int(p_near/(self.meta.n_cols-1)*(M-1))
+        P_far = int(p_far/(self.meta.n_cols-1)*(M-1))
+        x_near, y_near, z_near = xuv[:,P_near], yuv[:,P_near], zuv[:,P_near]
+        x_far, y_far, z_far = xuv[:,P_far], yuv[:,P_far], zuv[:,P_far]
+
+        #Step 3: Calculate slant range at the tie points and near and far range pixels
+        #TODO SLC and ScanSAR products
+        if self.meta.order_Rg == 'Increasing':
+                D = pixels*self.meta.pixelSpacing-self.meta.gr0
+        elif self.meta.order_Rg == 'Decreasing':
+                D = (self.meta.n_cols-1-pixels)*self.meta.pixelSpacing-self.meta.gr0
+        D_far = (self.meta.n_cols-1)*self.meta.pixelSpacing-self.meta.gr0
+
+        R = 0
+        for i in range(len(self.meta.gsr)):
+                R += float(self.meta.gsr[i])*D**i
+        R_far = 0
+        for i in range(len(self.meta.gsr)):
+                R_far += float(self.meta.gsr[i])*D_far**i
+        #R_near = self.meta.near_range
+
+        #Step 4: Calculate the distance of the satellite to center of ellipse, h_sat
+        #This can be performed with the following calculations or by extracting the 
+        #satellite altitude from the metadata
+        #r_near = numpy.sqrt(x_near**2+y_near**2+z_near**2)
+        #r_far = numpy.sqrt(x_far**2+y_far**2+z_far**2)
+        #d = numpy.sqrt((x_far-x_near)**2+(y_far-y_near)**2+(z_far-z_near)**2)
+            
+        #eta = numpy.arccos((d**2+r_far**2-r_near**2)/(2*d*r_far))
+        #gamma = numpy.arccos((d**2+R_far**2-R_near**2)/(2*d*R_far))
+        #h_sat = numpy.sqrt(r_far**2 + R_far**2 - (2*r_far*R_far*numpy.cos(eta+gamma)))
+        
+        #Step 5: Calculate radius of ellipsoid at target
+        r = numpy.sqrt(xuv**2+yuv**2+zuv**2)
+        h_sat = self.meta.sat_alt + r
+
+        #Step 6: calculate the angles subtended at the centre of the ellipsoid 
+        #by the satellite and target with and without the height offset
+        delta_h = height_correction-self.meta.h_proc
+        eta1 = numpy.arccos((h_sat**2+r**2-R**2)/(2*h_sat*r))
+        eta2 = numpy.arccos((h_sat**2+(r+delta_h)**2-R**2)/(2*h_sat*(r+delta_h)))
+            
+        #Step 7: Calculate the range offset
+        #TODO: SLC products
+        delta_D = (eta2-eta1)*r
+
+        #Step 8: Calculate the corrected pixel position
+        #TODO: SLC products
+        if self.meta.order_Rg == 'Increasing':
+                p_corr = pixels + delta_D/self.meta.pixelSpacing
+        elif self.meta.order_Rg == 'Decreasing':
+                p_corr = pixels - delta_D/self.meta.pixelSpacing
+
+        #Step 9: Bilinear interpolate the corrected coordinate
+        #Normalize image coordinates, p,l, to size of tie-point grid
+        P_corr = p_corr/(self.meta.n_cols-1)*(M-1)
+        P = pixels/(self.meta.n_cols-1)*(M-1)
+        L = lines/(self.meta.n_rows-1)*(N-1)
+
+        x_corr, y_corr, z_corr = Util.interpolate_bilinear(P_corr, P, L, xuv, yuv, zuv)
+
+        #Step 10: Convert back to lat lng and reset GCPs
+        lat_corr, lng_corr = Util.cartesian_to_geographic(x_corr, y_corr, z_corr, self.meta.ellip_maj, self.meta.ellip_min)
+
+        gcp_list = []
+        for l in range(len(pixels)):
+            for p in range(len(pixels[l])):
+                if lat_corr[l][p] != 0:
+                    gcp_list.append(gdal.GCP(lng_corr[l][p], lat_corr[l][p], 0, pixels[l][p], lines[l][p]))
+            
+        return gcp_list

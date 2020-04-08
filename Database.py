@@ -737,6 +737,8 @@ class Database:
         
         param = {"srid" : srid, "granule" : granule, "inst" : inst}  
     
+        #TODO: Investigate error:
+        #"could not form projection from 'srid=96718' to 'srid=4326"
         sql1 = "SELECT ST_AsText(ST_Envelope(ST_Intersection((SELECT ST_Transform(" + self.table_to_query + ".geom, %(srid)s) FROM " + self.table_to_query + " WHERE granule = %(granule)s), (SELECT ST_Transform("
         sql2 = ".geom, %(srid)s) FROM "
         sql3 = " WHERE ogc_fid = %(inst)s))))"
@@ -751,7 +753,7 @@ class Database:
         #parse the text to get the pair of tupples
         bbtext = bbtext[0][0]  #slice the piece you need
         
-        if bbtext == 'GEOMETRYCOLLECTION EMPTY' or bbtext == None:
+        if bbtext == 'GEOMETRYCOLLECTION EMPTY' or bbtext == 'POLYGON EMPTY' or bbtext == None:
             ullr = 0
          
         else:#clockwise

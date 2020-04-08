@@ -305,11 +305,11 @@ class Metadata(object):
         if self.sattype == "RS2":
             imgname = 'product.xml'
 
-	### register all drivers at once ... works for reading data but not for creating data sets
+	    ### register all drivers at once ... works for reading data but not for creating data sets
         gdal.AllRegister() # for all purposes
         fname = os.path.join(self.path, imgname)
 
-	### now that the driver has been registered, use the stand-alone Open method to return a Dataset object
+	    ### now that the driver has been registered, use the stand-alone Open method to return a Dataset object
         ds = gdal.Open(fname, GA_ReadOnly)
 
         #TODO, more info here
@@ -326,7 +326,7 @@ class Metadata(object):
 
         #If the n_rows is not zero extract the GCPs through the dataset
         if(self.n_rows > 0):
-            self.geopts = ds.GetGCPs()              ### Getting the 15 GCPs
+            self.geopts = ds.GetGCPs()              ### Getting the GCPs
             self.n_geopts = ds.GetGCPCount()
 
         #Otherwise extract them manually through the .img file
@@ -373,13 +373,13 @@ class Metadata(object):
         row = numpy.zeros((len(self.geopts), 1), dtype=numpy.float64)
         col = numpy.zeros((len(self.geopts), 1), dtype=numpy.float64)
 
-    # won't work with homemade geopt
-#        for i, geopt in enumerate(self.geopts):
-#            x[i] = geopt.GCPX
-#            y[i] = geopt.GCPY
-#            z[i] = geopt.GCPZ
-#            row[i]= geopt.GCPLine
-#            col[i] = geopt.GCPPixel
+        # won't work with homemade geopt
+        #        for i, geopt in enumerate(self.geopts):
+        #            x[i] = geopt.GCPX
+        #            y[i] = geopt.GCPY
+        #            z[i] = geopt.GCPZ
+        #            row[i]= geopt.GCPLine
+        #            col[i] = geopt.GCPPixel
 
         for i, geopt in enumerate(self.geopts):
             x[i] = gdal.GDAL_GCP_GCPX_get(geopt)
@@ -617,8 +617,8 @@ class Metadata(object):
                     fout.write('\n')
 
         fout.close()
-#        doc = xml.dom.minidom.Document()
-#        dimgname = doc.createElementNS(self.dimgname, "dimgname")
+        #doc = xml.dom.minidom.Document()
+        #dimgname = doc.createElementNS(self.dimgname, "dimgname")
     
     def createMetaDict(self):   
         """
@@ -676,13 +676,13 @@ class Metadata(object):
         if len(file_names) == 0:
             file_names = self.metafile
 
-#        file_names.append =''
+        #        file_names.append =''
 
-#        if len(file_names) == 1:
-#                file_names = [file_names[0]
-#        else:
-#                file_names = (file_names,)
-        # Build record index
+        #        if len(file_names) == 1:
+        #                file_names = [file_names[0]
+        #        else:
+        #                file_names = (file_names,)
+                # Build record index
 
         record_index = {}
         for field in rsat_fields:
@@ -816,7 +816,7 @@ class Metadata(object):
 
             record_offset = (record_offset) + record_length
 
-        lines = range(0, line_num, interval)        ### Take every nth line (nth = interval)
+        lines = list(range(0, line_num, interval))        ### Take every nth line (nth = interval)
 
         # Make sure to extract the pixels from the last line
         if line_num - 1 not in lines:
@@ -907,15 +907,32 @@ class Metadata(object):
         self.satellite = 'Radarsat-2'
         self.copyright = xmldoc.getElementsByTagName('product')[0].attributes["copyright"].value
 
+        #values for terrain correction with known height
+        self.h_proc = float(xmldoc.getElementsByTagName('geodeticTerrainHeight')[0].firstChild.data)
+        self.near_range = float(xmldoc.getElementsByTagName('slantRangeNearEdge')[0].firstChild.data)
+        #self.t_first = xmldoc.getElementsByTagName('zeroDopplerTimeFirstLine')[0].firstChild.data
+        #self.t_last = xmldoc.getElementsByTagName('zeroDopplerTimeLastLine')[0].firstChild.data
+        self.tie_points = {
+                        'pixel': [],
+                        'line': [],
+                        'longitude': [],
+                        'latitude': [],
+                        'height': []
+                    }
+        for key,val in self.tie_points.items():
+            for node in xmldoc.getElementsByTagName(key):
+                val.append(float(node.firstChild.data))
+            val = numpy.array(val)
+
         #INCIDENCE ANGLE (THETA)
         # get the ground to slant range inputs (from first set of data only)
         sr2gr = xmldoc.getElementsByTagName('slantRangeToGroundRange')[0]
-        gr0 = float(sr2gr.getElementsByTagName('groundRangeOrigin')[0].firstChild.data)
+        self.gr0 = float(sr2gr.getElementsByTagName('groundRangeOrigin')[0].firstChild.data)
         gsr = sr2gr.getElementsByTagName('groundToSlantRangeCoefficients')[0].firstChild.data
         gsr = gsr.split()
         for i in range(len(gsr)):
                 gsr[i] = float(gsr[i])
-
+        self.gsr = gsr
         self.order_Az = xmldoc.getElementsByTagName('lineTimeOrdering')[0].firstChild.data
         self.order_Rg = xmldoc.getElementsByTagName('pixelTimeOrdering')[0].firstChild.data
 
@@ -934,20 +951,20 @@ class Metadata(object):
             self.notes.append('Warning SRGR coefficient issue, image duration is '+ str(duration.seconds))
 
 
-        slantRange = getSlantRange(gsr, self.pixelSpacing, self.n_cols, self.order_Rg, gr0)
+        slantRange = getSlantRange(gsr, self.pixelSpacing, self.n_cols, self.order_Rg, self.gr0)
 
-        ellip_maj = float(xmldoc.getElementsByTagName('semiMajorAxis')[0].firstChild.data)
-        ellip_min = float(xmldoc.getElementsByTagName('semiMinorAxis')[0].firstChild.data)
-        sat_alt = float(xmldoc.getElementsByTagName('satelliteHeight')[0].firstChild.data)
+        self.ellip_maj = float(xmldoc.getElementsByTagName('semiMajorAxis')[0].firstChild.data)
+        self.ellip_min = float(xmldoc.getElementsByTagName('semiMinorAxis')[0].firstChild.data)
+        self.sat_alt = float(xmldoc.getElementsByTagName('satelliteHeight')[0].firstChild.data)
         plat_lat = float(xmldoc.getElementsByTagName('latitudeOffset')[0].firstChild.data)
 
-        radius = getEarthRadius(ellip_maj, ellip_min, plat_lat)
+        radius = getEarthRadius(self.ellip_maj, self.ellip_min, plat_lat)
 
-        self.theta = getThetaVector(self.n_cols, slantRange, radius, sat_alt)*R2D # now in degrees
+        self.theta = getThetaVector(self.n_cols, slantRange, radius, self.sat_alt)*R2D # now in degrees
 
         self.productType = xmldoc.getElementsByTagName('productType')[0].firstChild.data
         if self.productType == 'SLC': # then you might want groundRange
-            groundRange = getGroundRange(slantRange, radius, sat_alt)
+            groundRange = getGroundRange(slantRange, radius, self.sat_alt)
 
         #NOISE VECTOR
         noise = xmldoc.getElementsByTagName('referenceNoiseLevel')
@@ -1095,7 +1112,7 @@ class Metadata(object):
         #sometimes eph_orb_data is missing...
         if result['eph_orb_data'] == None: #quick check to see
             result['eph_orb_data'] = 7.167055e6 # in metres
-        sat_alt = result['eph_orb_data'] - getEarthRadius(result['ellip_maj'], \
+        self.sat_alt = result['eph_orb_data'] - getEarthRadius(result['ellip_maj'], \
                 result['ellip_min'], result['plat_lat'])
 
         #Save these to check the projections
@@ -1116,7 +1133,7 @@ class Metadata(object):
         self.calgain = ()
         self.getDimgname()
 
-    #Too long at the moment
+        #Too long at the moment
     def getASFProductType(self, ASFName):
         """
         Description needed!

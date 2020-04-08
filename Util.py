@@ -593,3 +593,96 @@ def copyfiles(self, copylist, wrkdir, fname=None, export=False, loghandler=None)
     
         fout.close() 
 
+def interpolate_bilinear_matrix(Q, x, y):
+    """
+    Peforms a bilinear interpolation of matrix Q at the specified x (length M), y (length N) points and
+    returns an M x N array of the interpolated values
+    
+    **Parameters**
+        
+        *Q*        : 2x2 array of known values located at the corners of x and y     
+
+        *x*        : x points at which to interpolate Q-value
+        
+        *y*        : y points at which to interpolate Q-value
+        
+    """
+
+    Q = numpy.matrix(Q)
+
+    normalization_factor = 1/((x[-1]-x[0])*(y[-1]-y[0]))
+
+    Y = numpy.asarray([[y[-1]-y],[y-y[0]]])
+    X = numpy.asarray([x[-1]-x, x-x[0]])
+
+    interp_y = Q*Y
+
+    interp = normalization_factor*(X.transpose()*interp_y)
+    
+    return numpy.asarray(interp)
+
+def interpolate_bilinear(P_corr, Pixels, Lines, x_matrix, y_matrix, z_matrix):
+    x, y, z = numpy.empty(P_corr.shape), numpy.empty(P_corr.shape), numpy.empty(P_corr.shape)
+    for l in range(len(P_corr)):
+        for p in range(len(P_corr[l])):
+            u = Pixels[l][int(P_corr[l][p])]
+            v = Lines[l][p]
+            L = Lines[l][p]
+            if (p+1) < len(P_corr[l]) and (l+1) < len(P_corr):
+                x_square = x_matrix[l:l+2,p:p+2]
+                y_square = y_matrix[l:l+2,p:p+2]
+                z_square = z_matrix[l:l+2,p:p+2]
+                x[l][p] = (u+1-P_corr[l][p])*(v+1-L)*x_square[0][0] + (P_corr[l][p]-u)*(v+1-L)*x_square[0][1] + (u+1-P_corr[l][p])*(L-v)*x_square[1][0] + (P_corr[l][p]-u)*(L-v)*x_square[0][0]
+                y[l][p] = (u+1-P_corr[l][p])*(v+1-L)*y_square[0][0] + (P_corr[l][p]-u)*(v+1-L)*y_square[0][1] + (u+1-P_corr[l][p])*(L-v)*y_square[1][0] + (P_corr[l][p]-u)*(L-v)*y_square[0][0]
+                z[l][p] = (u+1-P_corr[l][p])*(v+1-L)*z_square[0][0] + (P_corr[l][p]-u)*(v+1-L)*z_square[0][1] + (u+1-P_corr[l][p])*(L-v)*z_square[1][0] + (P_corr[l][p]-u)*(L-v)*z_square[0][0]
+            else:
+                x[l][p] = 0
+                y[l][p] = 0
+                z[l][p] = 0
+
+    return x,y,z
+
+def geographic_to_cartesian(lat, lng, a, b):
+    """
+    transforms geographic latitude and longitude to cartesian space.
+    
+    **Parameters**
+        
+        *lat*        : latitude values to be transformed (can be single value, an array, or M x N matrix)
+
+        *lng*        : longitude values to be transformed (can be single value, an array, or M x N matrix)
+        
+        *a*        : semi major axis of reference ellipse (float)
+        
+        *b*        : semi minor axis of reference ellipse (float)
+        
+    """
+
+    normalization_factor = numpy.sqrt((a**2)*(numpy.cos(lat)**2)+ \
+                                   (b**2)*(numpy.sin(lat)**2))
+    x = (a**2)*numpy.cos(lat)*numpy.cos(lng)/normalization_factor
+    y = (a**2)*numpy.cos(lat)*numpy.sin(lng)/normalization_factor
+    z = (b**2)*numpy.sin(lat)/normalization_factor
+
+    return x, y, z
+
+def cartesian_to_geographic(x, y, z, a, b):
+    """
+    transforms cartesian space to geographic latitude and longitude
+    
+    **Parameters**
+        
+        *x*        : x values to be transformed (can be single value, an array, or M x N matrix)
+
+        *y*        : y values to be transformed (can be single value, an array, or M x N matrix)
+
+        *z*        : z values to be transformed (can be single value, an array, or M x N matrix)
+        
+        *a*        : semi major axis of reference ellipse (float)
+        
+        *b*        : semi minor axis of reference ellipse (float)
+        
+    """
+    lat = numpy.arctan((a*z)/(b*numpy.sqrt(b**2-z**2)))
+    lng = numpy.arctan2(y,x)
+    return numpy.degrees(lat), numpy.degrees(lng)

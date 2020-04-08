@@ -95,6 +95,8 @@ class SigLib:
         self.imgType = config.get(self.mode,"imgTypes")
         self.imgFormat = config.get(self.mode,"imgFormat")
 
+        self.elevation_correction = config.get(self.mode, "elevationCorrection")
+
         self.issueString = ""
         self.count_img = 0            # Number of images processed
         self.bad_img = 0             # Number of bad images processed
@@ -341,7 +343,8 @@ class SigLib:
 
             *db*   :   database connection            
         """
-
+        #TODO: implement ROI filtering such that only images within the ROI
+        #are uploaded to tblmetadata
         if meta.status == "ok":
             meta_dict = meta.createMetaDict()  # Create dictionary of all the metadata fields
             db.meta2db(meta_dict)       # Upload metadata to database
@@ -386,7 +389,7 @@ class SigLib:
             os.makedirs(newTmp)
 
         # Process the image
-        sar_img = Image(fname, unzipdir, sar_meta, self.imgType, self.imgFormat, zipname, self.imgDir, newTmp, self.loghandler)
+        sar_img = Image(fname, unzipdir, sar_meta, self.imgType, self.imgFormat, zipname, self.imgDir, newTmp, loghandler = self.loghandler, eCorr = self.elevation_correction)
         
         if sar_img.status == "error":
             self.logger.error("Image could not be opened or manipulated, moving to next image")
@@ -503,7 +506,7 @@ class SigLib:
 
         instances = db.qryGetInstances(granule, self.roi, selectFrom)   
         if instances == -1:
-            self.logger.error(fname + ' has no associated polygons, exiting')
+            self.logger.error('{} has no associated polygons, exiting'.format(fname))
             return
         
         for i, inst in enumerate(instances):
@@ -550,7 +553,7 @@ class SigLib:
             else: # this is a quantitative image, collect image data and put it all in a database table
                 if self.mask == '':
                     maskwkt = db.qryMaskZone(granule, self.roi, self.roiProjSRID, inst, selectFrom)
-                    Util.wkt2shp('instmask'+inst, self.vectDir, self.proj, self.projdir, maskwkt)
+                    Util.wkt2shp('instmask'+inst, self.vectDir, self.proj, self.projDir, maskwkt)
                     sar_img.maskImg('instmask'+inst, self.vectDir, 'outside', self.imgType)
                 else:
                     sar_img.maskImg(self.mask, self.vectDir, 'outside', self.imgType)
@@ -679,7 +682,7 @@ class SigLib:
             self.proc_Dir(self.scanDir, self.scanFor)      # Scan by path pattern
         elif self.scanFile == "1":
             self.proc_File(os.path.abspath(os.path.expanduser(str(sys.argv[-1]))))  #assume this is the last arg (after 'jobid')
-        elif self.proc_Query == "1":
+        elif self.scanQuery == "1":
             print("\nScan Query not implemented yet.\n")
         else:
             print("\nPlease specify one method to scan the data in the config file.\n")
