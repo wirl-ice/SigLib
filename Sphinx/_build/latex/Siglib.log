@@ -1,4 +1,4 @@
-This is pdfTeX, Version 3.14159265-2.6-1.40.16 (TeX Live 2015/Debian) (preloaded format=pdflatex 2018.10.12)  8 AUG 2019 13:20
+This is pdfTeX, Version 3.14159265-2.6-1.40.16 (TeX Live 2015/Debian) (preloaded format=pdflatex 2018.10.12)  24 APR 2020 15:17
 entering extended mode
  restricted \write18 enabled.
  %&-line parsing enabled.
@@ -1006,7 +1006,7 @@ Underfull \hbox (badness 10000) in paragraph at lines 134--134
 
  []
 
-<wirl_logo.jpg, id=133, 192.72pt x 72.27pt>
+<wirl_logo.jpg, id=109, 192.72pt x 72.27pt>
 File: wirl_logo.jpg Graphic file (type jpg)
  <use wirl_logo.jpg>
 Package pdftex.def Info: wirl_logo.jpg used on input line 134.
@@ -1083,113 +1083,191 @@ less on input line 210.
 
 ] [2]
 Chapter 2.
-LaTeX Font Info:    Try loading font information for TS1+ptm on input line 225.
+LaTeX Font Info:    Try loading font information for TS1+ptm on input line 230.
 
 (/usr/share/texlive/texmf-dist/tex/latex/psnfss/ts1ptm.fd
 File: ts1ptm.fd 2001/06/04 font definitions for TS1/ptm.
 )
+LaTeX Font Info:    Try loading font information for T1+pcr on input line 243.
+
+(/usr/share/texlive/texmf-dist/tex/latex/psnfss/t1pcr.fd
+File: t1pcr.fd 2001/06/04 font definitions for T1/pcr.
+)
 
 Package Fancyhdr Warning: \fancyfoot's `E' option without twoside option is use
-less on input line 299.
+less on input line 293.
 
 [3
 
-] [4]
-LaTeX Font Info:    Try loading font information for T1+pcr on input line 435.
- (/usr/share/texlive/texmf-dist/tex/latex/psnfss/t1pcr.fd
-File: t1pcr.fd 2001/06/04 font definitions for T1/pcr.
-)
-Overfull \hbox (5.40591pt too wide) in paragraph at lines 557--557
-[]\T1/phv/m/n/10 Chars|  
- []
-
-[5] [6] [7]
+] [4] [5]
 Chapter 3.
 
 Package Fancyhdr Warning: \fancyfoot's `E' option without twoside option is use
-less on input line 830.
+less on input line 492.
 
-[8
+[6
 
 ]
 Chapter 4.
-<basicCFG.png, id=236, 481.8pt x 513.92pt>
-File: basicCFG.png Graphic file (type png)
- <use basicCFG.png>
-Package pdftex.def Info: basicCFG.png used on input line 884.
-(pdftex.def)             Requested size: 481.79881pt x 513.91873pt.
-File: basicCFG.png Graphic file (type png)
-
-<use basicCFG.png>
-Package pdftex.def Info: basicCFG.png used on input line 884.
-(pdftex.def)             Requested size: 469.755pt x 501.08957pt.
-
 
 Package Fancyhdr Warning: \fancyfoot's `E' option without twoside option is use
-less on input line 897.
+less on input line 590.
+
+[7
+
+]
+Underfull \hbox (badness 10000) in paragraph at lines 629--631
+[]\T1/ptm/m/n/10 mask = a poly-gon shape-file (one fea-ture) to mask im-age dat
+a with (eg.
+ []
+
+[8]
+Chapter 5.
+
+Package Fancyhdr Warning: \fancyfoot's `E' option without twoside option is use
+less on input line 669.
 
 [9
 
-] <uploadMeta.png, id=242, 481.8pt x 513.92pt>
+]
+Chapter 6.
+
+Package Fancyhdr Warning: \fancyfoot's `E' option without twoside option is use
+less on input line 706.
+
+[10
+
+]
+Chapter 7.
+
+Package Fancyhdr Warning: \fancyfoot's `E' option without twoside option is use
+less on input line 790.
+
+[11
+
+]
+Overfull \hbox (19.52496pt too wide) in paragraph at lines 895--895
+[]\T1/phv/m/n/10 Datatype|  
+ []
+
+
+Overfull \hbox (3.95514pt too wide) in paragraph at lines 895--895
+[]\T1/ptm/m/n/10 String|  
+ []
+
+
+Overfull \hbox (3.95514pt too wide) in paragraph at lines 895--895
+[]\T1/ptm/m/n/10 String|  
+ []
+
+
+Overfull \hbox (3.50128pt too wide) in paragraph at lines 895--895
+\T1/ptm/m/n/10 FROM- 
+ []
+
+
+Overfull \hbox (3.95514pt too wide) in paragraph at lines 895--895
+[]\T1/ptm/m/n/10 String|  
+ []
+
+
+Overfull \hbox (3.95514pt too wide) in paragraph at lines 895--895
+[]\T1/ptm/m/n/10 String|  
+ []
+
+
+Overfull \hbox (3.95514pt too wide) in paragraph at lines 895--895
+[]\T1/ptm/m/n/10 String|  
+ []
+
+
+Overfull \hbox (88.6782pt too wide) in paragraph at lines 895--895
+[]\T1/ptm/m/n/10 20020715_135903_r1_scwa__hh_s_lcc.tif|  
+ []
+
+
+Overfull \hbox (3.95514pt too wide) in paragraph at lines 895--895
+[]\T1/ptm/m/n/10 String|  
+ []
+
+
+Overfull \hbox (3.95514pt too wide) in paragraph at lines 895--895
+[]\T1/ptm/m/n/10 String|  
+ []
+
+[12]
+Chapter 8.
+<basicCFG.png, id=220, 361.35pt x 536.75531pt>
+File: basicCFG.png Graphic file (type png)
+ <use basicCFG.png>
+Package pdftex.def Info: basicCFG.png used on input line 961.
+(pdftex.def)             Requested size: 361.34912pt x 536.75398pt.
+File: basicCFG.png Graphic file (type png)
+
+<use basicCFG.png>
+Package pdftex.def Info: basicCFG.png used on input line 961.
+(pdftex.def)             Requested size: 361.34912pt x 536.75398pt.
+
+
+Package Fancyhdr Warning: \fancyfoot's `E' option without twoside option is use
+less on input line 974.
+
+[13
+
+] <uploadMeta.png, id=226, 353.82187pt x 532.99126pt>
 File: uploadMeta.png Graphic file (type png)
  <use uploadMeta.png>
-Package pdftex.def Info: uploadMeta.png used on input line 910.
-(pdftex.def)             Requested size: 481.79881pt x 513.91873pt.
+Package pdftex.def Info: uploadMeta.png used on input line 987.
+(pdftex.def)             Requested size: 353.821pt x 532.98996pt.
 File: uploadMeta.png Graphic file (type png)
 
 <use uploadMeta.png>
-Package pdftex.def Info: uploadMeta.png used on input line 910.
-(pdftex.def)             Requested size: 469.755pt x 501.08957pt.
- [10 <./basicCFG.png>]
-<scientific.png, id=249, 481.8pt x 513.92pt>
+Package pdftex.def Info: uploadMeta.png used on input line 987.
+(pdftex.def)             Requested size: 353.821pt x 532.98996pt.
+ [14 <./basicCFG.png>]
+<scientific.png, id=233, 362.85562pt x 537.50812pt>
 File: scientific.png Graphic file (type png)
  <use scientific.png>
-Package pdftex.def Info: scientific.png used on input line 961.
-(pdftex.def)             Requested size: 481.79881pt x 513.91873pt.
+Package pdftex.def Info: scientific.png used on input line 1038.
+(pdftex.def)             Requested size: 362.85474pt x 537.5068pt.
 File: scientific.png Graphic file (type png)
 
 <use scientific.png>
-Package pdftex.def Info: scientific.png used on input line 961.
-(pdftex.def)             Requested size: 469.755pt x 501.08957pt.
- [11 <./uploadMeta.png>]
-<polarimetry.png, id=256, 481.8pt x 513.92pt>
+Package pdftex.def Info: scientific.png used on input line 1038.
+(pdftex.def)             Requested size: 362.85474pt x 537.5068pt.
+ [15 <./uploadMeta.png>]
+<polarimetry.png, id=239, 359.84438pt x 536.0025pt>
 File: polarimetry.png Graphic file (type png)
  <use polarimetry.png>
-Package pdftex.def Info: polarimetry.png used on input line 978.
-(pdftex.def)             Requested size: 481.79881pt x 513.91873pt.
+Package pdftex.def Info: polarimetry.png used on input line 1055.
+(pdftex.def)             Requested size: 359.84349pt x 536.00119pt.
 File: polarimetry.png Graphic file (type png)
 
 <use polarimetry.png>
-Package pdftex.def Info: polarimetry.png used on input line 978.
-(pdftex.def)             Requested size: 469.755pt x 501.08957pt.
- [12 <./scientific.png>] [13 <./polarimetry.png>]
-Chapter 5.
+Package pdftex.def Info: polarimetry.png used on input line 1055.
+(pdftex.def)             Requested size: 359.84349pt x 536.00119pt.
+ [16 <./scientific.png>] [17 <./polarimetry.png>]
+Chapter 9.
 LaTeX Font Info:    Font shape `T1/pcr/bx/n' in size <10> not available
-(Font)              Font shape `T1/pcr/b/n' tried instead on input line 1018.
+(Font)              Font shape `T1/pcr/b/n' tried instead on input line 1095.
 
 Package Fancyhdr Warning: \fancyfoot's `E' option without twoside option is use
-less on input line 1065.
+less on input line 1142.
 
-[14
+[18
 
-] [15] [16] [17]
-Underfull \hbox (badness 10000) in paragraph at lines 1396--1398
+] [19] [20] [21]
+Underfull \hbox (badness 10000) in paragraph at lines 1465--1467
 []
  []
 
-[18] [19] [20]
-Underfull \hbox (badness 10000) in paragraph at lines 1831--1831
-[]\T1/ptm/m/it/10 decomposition\T1/ptm/m/n/10 , \T1/ptm/m/it/10 ma-trix=None\T1
-/ptm/m/n/10 , \T1/ptm/m/it/10 in-put=None\T1/ptm/m/n/10 , \T1/ptm/m/it/10 dir=N
-one\T1/ptm/m/n/10 , \T1/ptm/m/it/10 bea-
- []
-
-[21] [22] [23] [24] [25] [26] [27] [28] [29] [30] [31] [32] [33] [34]
+[22] [23] [24] [25] [26] [27] [28] [29] [30] [31] [32] [33] [34] [35] [36]
+[37] [38]
 
 Package Fancyhdr Warning: \fancyfoot's `E' option without twoside option is use
-less on input line 3145.
+less on input line 3228.
 
-[35
+[39
 
 
 
@@ -1200,31 +1278,31 @@ Underfull \hbox (badness 10000) in paragraph at lines 11--12
 
 
 Package Fancyhdr Warning: \fancyfoot's `E' option without twoside option is use
-less on input line 100.
+less on input line 96.
 
-[36
+[40
 
 
 
-] [37])
-Package atveryend Info: Empty hook `BeforeClearDocument' on input line 3149.
-Package atveryend Info: Empty hook `AfterLastShipout' on input line 3149.
+] [41])
+Package atveryend Info: Empty hook `BeforeClearDocument' on input line 3232.
+Package atveryend Info: Empty hook `AfterLastShipout' on input line 3232.
  (./Siglib.aux)
-Package atveryend Info: Executing hook `AtVeryEndDocument' on input line 3149.
-Package atveryend Info: Executing hook `AtEndAfterFileList' on input line 3149.
+Package atveryend Info: Executing hook `AtVeryEndDocument' on input line 3232.
+Package atveryend Info: Executing hook `AtEndAfterFileList' on input line 3232.
 
 Package rerunfilecheck Info: File `Siglib.out' has not changed.
-(rerunfilecheck)             Checksum: 543C1DEAD3C3429852949B096F08D7B4;1986.
-Package atveryend Info: Empty hook `AtVeryVeryEnd' on input line 3149.
+(rerunfilecheck)             Checksum: AE5BE85A74317F2CF8ED33FD749E3CB2;1552.
+Package atveryend Info: Empty hook `AtVeryVeryEnd' on input line 3232.
  ) 
 Here is how much of TeX's memory you used:
- 9864 strings out of 494953
- 138655 string characters out of 6180976
- 239028 words of memory out of 5000000
- 12670 multiletter control sequences out of 15000+600000
+ 9836 strings out of 494953
+ 138254 string characters out of 6180976
+ 237670 words of memory out of 5000000
+ 12649 multiletter control sequences out of 15000+600000
  54646 words of font info for 61 fonts, out of 8000000 for 9000
  15 hyphenation exceptions out of 8191
- 36i,12n,45p,1083b,534s stack positions out of 5000i,500n,10000p,200000b,80000s
+ 36i,12n,45p,1083b,532s stack positions out of 5000i,500n,10000p,200000b,80000s
 {/usr/share/texlive/texmf-dist/fonts/enc/dvips/base/8r.enc}</usr/share/texliv
 e/texmf-dist/fonts/type1/urw/courier/ucrb8a.pfb></usr/share/texlive/texmf-dist/
 fonts/type1/urw/courier/ucrr8a.pfb></usr/share/texlive/texmf-dist/fonts/type1/u
@@ -1233,10 +1311,10 @@ uhvbo8a.pfb></usr/share/texlive/texmf-dist/fonts/type1/urw/helvetic/uhvr8a.pfb>
 </usr/share/texlive/texmf-dist/fonts/type1/urw/times/utmb8a.pfb></usr/share/tex
 live/texmf-dist/fonts/type1/urw/times/utmr8a.pfb></usr/share/texlive/texmf-dist
 /fonts/type1/urw/times/utmri8a.pfb>
-Output written on Siglib.pdf (39 pages, 377898 bytes).
+Output written on Siglib.pdf (43 pages, 301936 bytes).
 PDF statistics:
- 669 PDF objects out of 1000 (max. 8388607)
- 603 compressed objects within 7 object streams
- 198 named destinations out of 1000 (max. 500000)
- 302 words of extra memory for PDF output out of 10000 (max. 10000000)
+ 649 PDF objects out of 1000 (max. 8388607)
+ 580 compressed objects within 6 object streams
+ 191 named destinations out of 1000 (max. 500000)
+ 254 words of extra memory for PDF output out of 10000 (max. 10000000)
 

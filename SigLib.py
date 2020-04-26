@@ -37,20 +37,6 @@ from Metadata import Metadata
 from Image import Image
 import Util
 
-
-def syntax():
-    sys.stderr.write("""
-    SYNTAX: siglib configfile.cfg [zipfile]
-
-    Options:
-        zipfile     The name of a single zipfile to work on.
-    \n""")
-    sys.exit(1)
-
-if len(sys.argv) == 1:
-    sys.stderr.write("No input given\n")
-    syntax()
-
 class SigLib:
     def __init__(self):       
         self.cfg = os.path.expanduser((sys.argv[1]))
@@ -76,23 +62,22 @@ class SigLib:
         self.scanPath = config.get("Input", "path")
         self.scanFile = config.get("Input", "file")
         self.scanFor = config.get("Input", "scanFor")
-        self.query = config.get("Input", "sql")
+        self.uploadData = config.get("Input", "uploadData")
 
         self.processData2db = config.get("Process", "data2db")
         self.processData2img = config.get("Process", "data2img")
         self.scientificProcess = config.get("Process", "scientific")
         self.polarimetricProcess = config.get("Process", "polarimetric")
-        self.saveMeta = True  #TODO put in cfg
         
-        self.mode = "MISC"
-        self.proj = config.get(self.mode,"proj")
-        self.crop = config.get(self.mode,"crop")
-        self.mask = config.get(self.mode,"mask")
-        self.roi = config.get(self.mode,"roi")
-        self.roiProjSRID = config.get(self.mode,"roiProjSRID")
-        self.spatialrel = config.get(self.mode,"spatialrel")
-        self.imgType = config.get(self.mode,"imgTypes")
-        self.imgFormat = config.get(self.mode,"imgFormat")
+        self.proj = config.get('MISC',"proj")
+        self.projSRID = config.get('MISC', "projSRID")
+        self.crop = config.get('MISC',"crop")
+        self.mask = config.get('MISC',"mask")
+        self.roi = config.get('MISC',"roi")
+        self.roiProjSRID = config.get('MISC',"roiProjSRID")
+        self.spatialrel = config.get('MISC',"spatialrel")
+        self.imgType = config.get('MISC',"imgTypes")
+        self.imgFormat = config.get('MISC',"imgFormat")
 
         self.issueString = ""
         self.count_img = 0            # Number of images processed
@@ -129,14 +114,6 @@ class SigLib:
         self.logger.info("SigLib Run w/ config: %s", self.cfg)
         self.logger.info("User: %s",os.getenv('USER'))        
 
-    def handler(self, signum, frame):   #This function needs work
-        """
-        Handles exceptions - most notably time out errors
-        """  
-        
-        self.logger.error("Image processing is taking longer than usual, stopping/moving to next image")
-        self.bad_img += 1        
-        raise Exception
 
     def proc_File(self, zipfile):
         """
@@ -196,8 +173,7 @@ class SigLib:
             
         self.logger = self.createLog()
         self.logger = logging.getLogger(__name__)
-        
-        
+                
         ziproots = []           # List of the zip files (dirpath + *.zip: '/xx/yy/zz/*.zip')
 
         # Returns a list 'ziproots' of the zip files with the specified path and pattern
@@ -308,8 +284,7 @@ class SigLib:
                 formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')         
                 self.loghandler.setFormatter(formatter)
 
-            if self.saveMeta:
-                sar_meta.saveMetaFile(self.imgDir)
+            sar_meta.saveMetaFile(self.imgDir)
                         
             if self.processData2db == "1":
                 db = Database(self.table_to_query, self.dbName, loghandler=self.loghandler, host=self.dbHost)  # Connect to the database
@@ -352,8 +327,7 @@ class SigLib:
             self.logger.error("Creating an instance of the meta class failed, moving to next file")
             self.bad_img += 1
             self.issueString += "\n\nERROR (Metadata): " + zipfile
-
-        return
+            
 
     def data2img(self, fname, imgname, zipname, sattype, granule, zipfile, sar_meta, unzipdir):
         """
@@ -392,7 +366,7 @@ class SigLib:
         
         if sar_img.status == "error":
             self.logger.error("Image could not be opened or manipulated, moving to next image")
-            os.remove(sar_img.tifname)
+            sar_img.cleanFiles(levels=['nil']) 
             self.issueString += "\n\nError (image processing): " + zipfile
             self.bad_img += 1
             
@@ -427,16 +401,7 @@ class SigLib:
                 self.logger.error('ERROR: Issue with projection... will stop projecting this img')
                 self.issueString += "\n\nWARNING (image projection): " + zipfile
                        
-            self.logger.debug('Image projected ok')
-            
-            
-            if self.crop is not "":
-                self.logger.debug('Image crop')
-                
-                sar_img.cropImg([tuple(map(float, self.crop.split(" "))[:2]), \
-                   tuple(map(float, self.crop.split(" "))[2:])], 'crop')
-                                
-                self.logger.debug('Image crop done')   
+            self.logger.debug('Image projected ok')             
                 
             try: 
                 sar_img.vrt2RealImg()
@@ -446,16 +411,16 @@ class SigLib:
                 self.issueString += "\n\nWARNING (vrt2real): " + zipfile
                 self.bad_img += 1
                 
-            if self.imgType == 'amp':                                              
-                stats = sar_img.getImgStats()
-                sar_img.applyStretch(stats, procedure='std', sd=3, sep=True)
-                self.logger.debug('Image stretch ok')
+            #if self.imgType == 'amp':                                              
+            stats = sar_img.getImgStats()
+            sar_img.applyStretch(stats, procedure='std', sd=3, sep=True)
+            self.logger.debug('Image stretch ok')
              
             sar_img.compress()
             sar_img.makePyramids()
             self.logger.debug('Image pyramid ok')
             
-            sar_img.cleanFiles(levels=['nil','proj','crop']) 
+            sar_img.cleanFiles(levels=['nil','proj']) 
             self.logger.debug('Intermediate file cleanup done')
             sar_img.removeHandler()
             sar_meta.removeHandler()
@@ -501,77 +466,68 @@ class SigLib:
         else:
             self.logger.debug('Image read ok')        
         
-        selectFrom = 'tblmetadata_r1_r2'       #Main database table with reference to all available images
-
-        instances = db.qryGetInstances(granule, self.roi, selectFrom)   
+        instances = db.qryGetInstances(granule, self.roi, self.table_to_query)   
         if instances == -1:
             self.logger.error(fname + ' has no associated polygons, exiting')
             return
             
         sar_img.tmpFiles = sar_img.FileNames
         for i, inst in enumerate(instances):
-            sar_img.FileNames = sar_img.tmpFiles
-            
-            
+            sar_img.FileNames = sar_img.tmpFiles   #reset list of filenames within Image.py each loop
+                      
             sar_img.cleanFileNames()
             #Crop!
-            self.logger.debug('Processing '+ inst + ' : ' + str(i+1) + ' of ' + str(len(instances)) + ' subsets')
-   
-            crop = db.qryCropZone(granule, self.roi, self.spatialrel, inst, selectFrom) 
+            self.logger.debug('Processing '+ str(inst) + ' : ' + str(i+1) + ' of ' + str(len(instances)) + ' subsets')
+              
+            #PROJECT
+            if self.imgType == 'amp':
+                ok = sar_img.projectImg(self.proj, self.projDir, resample='bilinear')
+            else:  # no smoothing for quantitative images
+                ok = sar_img.projectImg(self.proj, self.projDir, resample='near')
+            if ok != 0: # trap errors here 
+                self.logger.error('ERROR: Issue with projection... will stop processing this img')
+                
+                sar_img.cleanFiles(levels=['nil','proj']) 
+                return
+              
+            crop = db.qryCropZone(granule, self.roi, self.spatialrel, inst, self.table_to_query, srid=self.projSRID) 
             #ok = sar_img.snapSubset(inst, ullr=crop) 
             ok = sar_img.cropImg(crop, inst)   #error due to sending last inst?
             
             if ok != 0: # trap errors here 
                 self.logger.error('ERROR: Issue with cropping... will stop processing this subset')
-                sar_img.cleanFiles(['crop'])
+                sar_img.cleanFiles(['nil', 'proj', 'crop'])
                 continue
             sar_img.vrt2RealImg(inst)
-        
-            #PROJECT
-            if self.imgType == 'amp':
-                ok = sar_img.projectImg(self.proj, self.projdir, resample='bilinear')
-            else:  # no smoothing for quantitative images
-                ok = sar_img.projectImg(self.proj, self.projdir, resample='near')
-            if ok != 0: # trap errors here 
-                self.logger.error('ERROR: Issue with projection... will stop processing this img')
-                
-                sar_img.cleanFiles(levels=['nil','proj','crop']) 
-                return
             
                    ### MASK
-            if self.imgType == 'amp': #this is a qualitative image, make small pretty images
-                if self.mask != '':     #If providing a mask, use that one
-                    os.chdir(self.imgDir)
-                    sar_img.maskImg(self.mask, self.vectDir, 'outside', self.imgType) #mask the coastline
-                    stats = sar_img.getImgStats()
-                    sar_img.applyStretch(stats, procedure='std', sd=3, sep='tog')
-                else:            #If no mask provided, make one based on ROI and inst
-                    os.chdir(self.imgDir)
-                    maskwkt = db.qryMaskZone(granule, self.roi, self.roiProjSRID, inst, selectFrom)
-                    Util.wkt2shp('instmask'+inst, self.tmpDir, self.proj, self.projDir, maskwkt)
-                    sar_img.maskImg('instmask'+inst, self.tmpDir, 'outside', self.imgType)
-                    stats = sar_img.getImgStats()
-                    sar_img.applyStretch(stats, procedure='std', sd=3, sep='sep')
+            if self.mask != '':     #If providing a mask, use that one
+                #os.chdir(self.imgDir)
+                sar_img.maskImg(self.mask, self.vectDir, 'outside') #mask the coastline
+                sep = 'tog'
+                
+            else:            #If no mask provided, make one based on ROI and inst
+                #os.chdir(self.imgDir)
+                maskwkt = db.qryMaskZone(granule, self.roi, self.roiProjSRID, inst, self.table_to_query)
+                Util.wkt2shp('instmask'+str(inst), self.tmpDir, self.proj, self.projDir, maskwkt)
+                sar_img.maskImg('instmask'+str(inst), self.tmpDir, 'outside')
+                sep = 'sep'
                     
-            else: # this is a quantitative image, collect image data and put it all in a database table
-                if self.mask == '':
-                    maskwkt = db.qryMaskZone(granule, self.roi, self.roiProjSRID, inst, selectFrom)
-                    Util.wkt2shp('instmask'+inst, self.vectDir, self.proj, self.projdir, maskwkt)
-                    sar_img.maskImg('instmask'+inst, self.vectDir, 'outside', self.imgType)
-                else:
-                    sar_img.maskImg(self.mask, self.vectDir, 'outside', self.imgType)
-    
-                #bands...
+            if self.uploadData == '1':  
                 for i, bandName in enumerate(sar_img.bandNames):
                     band = i+1
-                    imgData, xSpacing, ySpacing = sar_img.getBandData(band)                    
-                    db.imgData2db(imgData, xSpacing, ySpacing, bandName, inst, sar_img.meta.dimgname, zipname)
-                    
+                    imgData = sar_img.getBandData(band)                    
+                    db.imgData2db(imgData, bandName, inst, sar_img.meta.dimgname, zipname)
+            else:
+                stats = sar_img.getImgStats()
+                sar_img.applyStretch(stats, procedure='std', sd=3, sep=sep)
+                
             sar_img.cleanFiles(levels=['proj', 'crop'])
-        sar_img.cleanFiles(levels=['nil','proj','crop']) 
+        sar_img.cleanFiles(levels=['nil']) 
         self.logger.debug('Intermediate file cleanup done')
         sar_img.removeHandler()
-        
+  
+      
     def polarimetric(self, db, fname, imgname, zipname, sattype, granule, zipfile, sar_meta, unzipdir):
         """
         This function will take full FQ images and perform desired polarimetric matrix generation(s), speckle filtering, and decomposition(s). 
@@ -615,7 +571,7 @@ class SigLib:
         sar_img = Image(fname, unzipdir, sar_meta, self.imgType, self.imgFormat, zipname, self.imgDir, newTmp, self.loghandler, pol=True)
         
         seenBeacons = []
-        filenames = []
+        #filenames = []
         sar_img.tmpFiles = sar_img.FileNames
         for i in range(len(beacons)):
             sar_img.FileNames = sar_img.tmpFiles
@@ -642,11 +598,7 @@ class SigLib:
             if output == -1:
                 return
             
-            amp = sar_img.makeAmp(newFile = False, pol = True)
-            
-            splitPath = amp.split('/')          #Send .tif for Amplitude to output location
-            outname = splitPath[len(splitPath)-1]
-            filenames.append(outname)
+            sar_img.makeAmp(newFile = False, save = False)
                 
             matrices = ['C3', 'T3']           
             
@@ -654,40 +606,42 @@ class SigLib:
             for matrix in matrices:
                 sar_img.FileNames = tmpArr
                 matrixFN = sar_img.matrix_generation(matrix)  #Generate each type of matrix, one at a time
-                gen_filter = sar_img.polarFilter()
+                if matrix == 'C3':
+                    sar_img.polarFilter(save=False)  #only want to save the filename of the latter, so T3 isn't generated upon C3
+                else:
+                    sar_img.polarFilter(save=True)
                 
-                splitPath = gen_filter.split('/')          #Send .tif for matrix to output location
-                outname = splitPath[len(splitPath)-1]
-                filenames.append(outname)
-                os.remove(matrixFN)
+                rm = os.path.join(finalsDir, matrixFN+'.data')
                 
+                for dirpath, dirs, files in os.walk(rm):
+                    for file in files:
+                        try:
+                            os.chdir(dirpath)
+                            os.remove(file)
+                        except:
+                            pass
+                os.remove(matrixFN+'.dim')               
             
             self.logger.debug("All matrices generated!")
                       
             decompositions = ['Sinclair Decomposition', 'Pauli Decomposition', 'Freeman-Durden Decomposition', 'Yamaguchi Decomposition', 'van Zyl Decomposition', 'H-A-Alpha Quad Pol Decomposition', 'Cloude Decomposition']
-            
-            os.chdir(self.imgDir)
-            
+                        
             for decomposition in decompositions:
                 try:
                     if decomposition == "H-A-Alpha Quad Pol Decomposition":
                         i = 4
                         while i <= 4:
-                            gen_decomp = sar_img.decomposition_generation(decomposition, outputType=i)
+                            sar_img.decomposition_generation(decomposition, outputType=i)
                             i+=1
                         
                     elif decomposition == "Touzi Decomposition":
                         i = 5
                         while i <= 8:
-                            gen_decomp = sar_img.decomposition_generation(decomposition, outputType=i)
+                            sar_img.decomposition_generation(decomposition, outputType=i)
                             i+=1
                     
                     else:
-                        gen_decomp = sar_img.decomposition_generation(decomposition)
-                    
-                    splitPath = gen_decomp.split('/')          #Send .tif for decomp to output location
-                    outname = splitPath[len(splitPath)-1]
-                    filenames.append(outname)
+                        sar_img.decomposition_generation(decomposition)
                     
                 except:
                     self.logger.error("Error with " + decomposition + ", moving on")
@@ -695,34 +649,41 @@ class SigLib:
             self.logger.debug('All matrix-decomposition combinations generated!')
           
         #for filename in filenames:
-        for dirpath, dirnames, filenames in os.walk(finalsDir):
-            for filename in filenames:
-                if os.path.splitext(filename)[1] == '.dim':                 
-                    os.chdir(dirpath)
-                    name = os.path.splitext(filename)[0]
-                    #ext =  os.path.splitext(filename)[1]
-                    
-                    masks = db.polarimetricDonuts(granule, beaconid)
-                    counter = 0
-                    type = ''
-                    for mask in masks:
-                        if counter == 0: 
-                            type = 'ii'
-                        else: 
-                            type = 'donut'
+            for dirpath, dirnames, filenames in os.walk(finalsDir):
+                for filename in filenames:
+                    if os.path.splitext(filename)[1] == '.img':                 
+                        os.chdir(dirpath)
+                        name = os.path.splitext(filename)[0]
+                        
+                        masks = db.polarimetricDonuts(granule, beaconid)
+                        counter = 0
+                        type = ''
+                        for mask in masks:
+                            if counter == 0: 
+                                type = 'ii'
+                            else: 
+                                type = 'donut'
+                                
+                            shutil.copy(name+'.img', name+type+'.img')  #make local copies for this maskign operation 
+                            shutil.copy(name+'.hdr', name+type+'.hdr')
                             
-                        convMask = sar_img.slantRangeMask(mask, name)     
+                            name = name+type
+                              
+                            convMask = sar_img.slantRangeMask(mask, os.path.splitext(dirpath)[0], name)     #add back masking
+                            
                         
-                        shpname = 'instmask_'+zipname+'_'+str(beaconid)+ '_' + type
-                        Util.wkt2shp(shpname, dir, self.proj, self.projDir, convMask)
-
-                        sar_img.slantRangeMask(shpname + '.shp', shpname, name, finalsDir)                        
-                        
-                        imgData, xSpacing, ySpacing = sar_img.getBandData(1, name)                    
-                        db.imgData2db(imgData, xSpacing, ySpacing, name, str(beaconid), sar_img.meta.dimgname, granule)  
-                        counter+=1
-
-          
+                            shpname = 'instmask_'+zipname+'_'+str(beaconid)+ '_' + type
+                            Util.wkt2shp(shpname, finalsDir, self.proj, self.projDir, convMask)
+                            
+                            sar_img.maskImg(shpname, finalsDir, side = 'outside', inname = name+'.img')                            
+                            
+                            imgData = sar_img.getBandData(1, name+'.img')                    
+                            db.imgData2db(imgData, name, str(beaconid), sar_img.meta.dimgname, granule)  
+                            counter+=1
+                            
+                            os.remove(name+'.img')  #remove our tmp masking files
+                            os.remove(name+'.hdr')
+         
     def run(self):      
         if self.create_tblmetadata == "1":
             ans = raw_input("Confirm you want to create/overwrite tblMetadata? Y/N")
@@ -736,8 +697,6 @@ class SigLib:
             self.proc_Dir(self.scanDir, self.scanFor)      # Scan by path pattern
         elif self.scanFile == "1":
             self.proc_File(os.path.abspath(os.path.expanduser(str(sys.argv[-1]))))  #assume this is the last arg (after 'jobid')
-        elif self.proc_Query == "1":
-            print "\nScan Query not implemented yet.\n"
         else:
             print "\nPlease specify one method to scan the data in the config file.\n"
 

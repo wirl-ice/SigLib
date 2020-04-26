@@ -34,14 +34,11 @@ import glob
 import math
 import logging
 import shlex
-import sys
-import shutil
 import re
 try:
     import snappy
     from snappy import ProductIO
     from snappy import GPF
-    from snappy import WKTReader
     from snappy import GeoPos
 except:
     pass
@@ -51,7 +48,6 @@ import gc
 from osgeo import gdal
 from osgeo.gdalconst import *
 from osgeo import gdal_array
-from osgeo import osr
 
 import Util
 
@@ -538,7 +534,7 @@ class Image(object):
         imgFormat = 'vrt'
         ext = '.vrt'
         inname = self.FileNames[-1] # this is potentially an issue here
-        outname = os.path.splitext(inname)[0] +'_'+subscene +ext
+        outname = os.path.splitext(inname)[0] +'_'+str(subscene) +ext
         
         sep = ' '
         crop = str(llur[0][0]) +sep+ str(llur[0][1]) +sep+ str(llur[1][0]) +sep+ str(llur[1][1])
@@ -572,7 +568,7 @@ class Image(object):
         imgFormat = 'vrt'
         ext = '.vrt'
         inname = self.FileNames[-1] # this is potentially an issue here
-        outname = os.path.splitext(inname)[0] +'_'+subscene +ext
+        outname = os.path.splitext(inname)[0] +'_'+str(subscene) +ext
         
         inname = self.FileNames[-1] # this is potentially an issue here
         self.fname_nosubest = inname
@@ -593,7 +589,7 @@ class Image(object):
         return ok
 
 
-    def maskImg(self, mask, vectdir, side, imgType):
+    def maskImg(self, mask, vectdir, side, inname=None):
         """
         Masks all bands with gdal_rasterize using the 'layer'
 
@@ -608,11 +604,10 @@ class Image(object):
             *vectdir* : directory where the mask shapefile is
 
             *side*    : 'inside' or 'outside' depending on desired mask result
-
-            *imgType* : the image type
+            
         """
-
-        inname = self.FileNames[-1] # this is potentially an issue here
+        if inname == None:
+            inname = self.FileNames[-1] # this is potentially an issue here
 
         if side.lower() == 'inside':
             sidecode = ''
@@ -627,9 +622,9 @@ class Image(object):
 
         # must list the bands to mask if more than 1 band
         ds = gdal.Open(inname)
-        if imgType == 'sigma' or imgType == 'amp':
-            for band in range(1,ds.RasterCount+1):
-                bstr = bstr + bandFlag + str(band)
+
+        for band in range(1,ds.RasterCount+1):
+            bstr = bstr + bandFlag + str(band)
                 
         ds = None
         cmd = 'gdal_rasterize ' + sidecode + bstr +\
@@ -855,10 +850,11 @@ class Image(object):
         self.inds = None
 
         # delete original file and rename tmp
-        if self.fname_nosubest != None:
-            filename = self.fname_nosubest
-        
+        os.rename(os.path.splitext(self.FileNames[1])[0] + '_temp_stretch.tif', os.path.splitext(self.FileNames[1])[0] + '_final.tif') 
+        os.remove(self.FileNames[-1])
+        self.FileNames[len(self.FileNames)-1] = os.path.splitext(self.FileNames[1])[0] + '_final.tif'                 
         self.logger.info('Image stretched... ')
+
             
     def stretchLinear(self, datachunk, scaleRange, dynRange, minVal, offset=0):
         """
@@ -900,7 +896,7 @@ class Image(object):
         return stretchData
 
 
-    def getBandData(self, band, inname):
+    def getBandData(self, band, inname=None):
         """
         opens an img file and reads in data from a given band
         assume that the dataset is small enough to fit into memory all at once
@@ -917,9 +913,10 @@ class Image(object):
 
             *ySpacing* : size of pixel in y direction (decimal degrees)
         """
-
+        if inname == None:
+            inname = self.FileNames[-1]
+            
         gdal.AllRegister() # for all purposes
-        inname = self.FileNames[-1]
         ds = gdal.Open(inname, GA_ReadOnly)
         n_cols = ds.RasterXSize
         n_lines = ds.RasterYSize
@@ -927,13 +924,9 @@ class Image(object):
         # read in all data (better not be too big for memory!)
         imgData = gdal_array.BandReadAsArray(bandobj, 0, 0, n_cols, n_lines )
 
-        geotransform = ds.GetGeoTransform()
-        xSpacing = geotransform[1]
-        ySpacing = geotransform[5]
-
         bandobj = None
         ds = None
-        return imgData, xSpacing, ySpacing
+        return imgData
 
     def cleanFiles(self, levels=['crop']):
         """
@@ -946,23 +939,21 @@ class Image(object):
             *levels* : a list of different types of files to delete
         """
         
-        ext = ['.zip', self.imgExt, '.vrt', self.imgExt]
         deleteMe = []
         if 'crop' in levels:
-            deleteMe = glob.glob(self.FileNames[2]+'_*'+ext[2]) #The wildcard is the subscene name
+            deleteMe = glob.glob(self.FileNames[3]) #The wildcard is the subscene name
         if 'proj' in levels:
-            deleteMe = deleteMe+[self.FileNames[2]+ext[2]]
+            deleteMe = deleteMe+[self.FileNames[2]]
         if 'nil' in levels:
-            deleteMe = deleteMe+[self.FileNames[1]+ext[1]]
-        if 'raw' in levels:
-            deleteMe = deleteMe+[self.FileNames[0]+ext[0]]
+            deleteMe = deleteMe+[self.FileNames[1]]
 
         for filename in deleteMe:
             if filename != []:
                 try:
                     os.remove( filename )
+                    self.FileNames.remove(filename)
                 except:
-                    self.logger.error('File not deleted: ' + filename)
+                    pass
 
     def getSigma(self, datachunk, n_lines):
         """
@@ -1286,8 +1277,7 @@ class Image(object):
         self.logger.debug("Subset complete on " + self.zipname + " for id " + str(idNum))
         self.FileNames.append(output+'.dim')
         return output
-        
-        
+               
     def matrix_generation(self, matrix):
         '''
         Generate chosen matrix for calibrated quad-pol product
@@ -1295,8 +1285,6 @@ class Image(object):
         **Parameters**
         
             *matrix* : matrix to be generated. options include: C3, C4, T3, or T4
-            
-            *input* : filename with path of snap raster (.dim) to have matrix generated upon (must be calibrated)
             
         **Returns**
         
@@ -1317,16 +1305,16 @@ class Image(object):
         self.logger.debug(matrix + ' generated sucessfully') 
         
         self.FileNames.append(output+'.dim')        
-        return output+'.dim'
+        return output
         
         
-    def polarFilter(self):
+    def polarFilter(self, save = True):
         '''
         Apply a speckle filter on a fully polarimetric product
         
         **Parameters**
             
-            *input* : filename with path of snap raster (.dim) to filter
+            *save*   : True if output filename should be added into internal filenames array for later use
             
         **Returns**
         
@@ -1349,8 +1337,11 @@ class Image(object):
         
         self.logger.debug('Filtering successful')
         
-        self.FileNames.append(output +'.dim')
-        return output                  
+        if save:
+            self.FileNames.append(output +'.dim')
+        else:
+            self.FileNames.remove(self.FileNames[-1])
+                 
         
     def decomposition_generation(self, decomposition, outputType=0, amp = False):
         '''
@@ -1360,12 +1351,7 @@ class Image(object):
         **Parameters**
         
             *decomposition* : decomposition to be generated. options include: Sinclair Decomposition, Pauli Decomposition, Freeman-Durden Decomposition, Yamagushi Decomposition, van Zyl Decomposition, H-A-Alpha Quad Pol Decomposition, Cloude Decomposition, or Touzi Decomposition
-        pixel_posUL = info.getPixelPos(GeoPos(ullr[0][1], ullr[0][0]), geoPosOP())
-            *input* : filename with path of snap raster (.dim) to have decomposition generated upon (must be calibrated and have a matrix generated)    
-        
-            *matrix* : The matrix (string) that was generated on this product
-            
-            *dir* : directory that finished tifs will be stored in
+        pixel_posUL = info.getPixelPos(GeoPos(ullr[0][1], ullr[0][0]), geoPosOP())   
             
             *outputType* : option to select which set of output parameters that will be used for the Touzi or HAAlpha (1-8, leave 0 for none)
             
@@ -1392,7 +1378,6 @@ class Image(object):
         
             self.logger.debug(decomposition + ' generated sucessfully')
             self.FileNames.append(outname+'.dim')
-            return 0
             
         else:
             output = os.path.splitext(self.FileNames[-1])[0] + '_' + decomposition
@@ -1436,8 +1421,7 @@ class Image(object):
             ProductIO.writeProduct(target, output, 'BEAM-DIMAP')
             
             self.logger.debug(decomposition + ' generated sucessfully')
-              
-        return output   
+                
     
     def snapTC(self, proj, projDir, smooth = True, outFormat = 'BEAM-DIMAP'):
         '''
@@ -1448,13 +1432,10 @@ class Image(object):
             *proj* : name of wkt projection file (minus file extension)
             
             *projDir* : directory containing projection file
-        
-            *existingInput* : If a snap-product has already been created before this function (default is True)
             
             *smooth* : If quanitative data, do not smooth (Smooth using Bilinear resampling for quality)
             
             *outFormat* : Format of product this function returns, default is BEAM-DIMAP
-
         '''
         
         os.chdir(self.tmpDir)     
@@ -1551,9 +1532,15 @@ class Image(object):
         os.remove(inname+'.tif')
         os.rename(inname+'_tmp.tif', inname+'.tif')
         
-    def makeAmp(self, newFile=True, pol=False):
+    def makeAmp(self, newFile=True, save=True):
         '''
         Use snap bandMaths to create amplitude band for SLC products
+        
+        **Parameters**
+            
+            *newFile* :  True if the inname is the product file
+            
+            *save*    :  True if output filename should be added into internal filenames array for later use
         '''
         
         count = 0
@@ -1586,23 +1573,26 @@ class Image(object):
         t = GPF.createProduct('BandMaths', parameters, product)
         ProductIO.writeProduct(t, output, 'BEAM-DIMAP')
         count += 1
-        
-        if not pol:
+        if save:
             self.FileNames.append(output+'.dim')
-        return output
-        
     
-    def defineBands(self, inname):
-        self.bandNames = []
-        ds = gdal.Open(inname+self.imgExt)
-        for band in range(1,ds.RasterCount+1):
-            self.bandNames.append(band)
             
-    def slantRangeMask(self, mask, input):
+    def slantRangeMask(self, mask, inname, name):
         '''
         This function takes a wkt with lat long coordinates, and traslates it into a wkt in line-pixel coordinates
+        
+        **Parameters**
+            
+            *mask*  :  wkt file of a polygonal mask in wgs84 coordinates
+            
+            *inname*  :  snap product to cross-reference mask corrdinated to convert them to slant-range
+            
+        **Returns**
+        
+            *newMask*  : wkt file of a polygonal mask in slant-range line-pixel coordinates
         '''
-        input = input+'.dim'
+        
+        input = inname+'.dim'
         
         rsat = ProductIO.readProduct(input)
         info = rsat.getSceneGeoCoding()        
@@ -1614,22 +1604,26 @@ class Image(object):
         i=0
         while i < len(splitMask):
             if any(char.isdigit() for char in splitMask[i]):
-                pixel_pos = info.getPixelPos(GeoPos(float(splitMask[i]), float(splitMask[i+2])), geoPosOP())
-                splitMask[i] = pixel_pos.x
-                splitMask[i+2] = pixel_pos.y
+                pixel_pos = info.getPixelPos(GeoPos(float(splitMask[i+2]), float(splitMask[i])), geoPosOP())
+                splitMask[i] = str(pixel_pos.x)
+                splitMask[i+2] = str(-pixel_pos.y)
                 i+=2
             i+=1
                 
         newMask = ''
         for item in splitMask:
             newMask = newMask + item
-            
+         
+        os.chdir(inname+'.data')
+        
+        f = open('mask.csv', 'wt')
+        f.write('WKT,dummy\n')
+        f.write("\"" + newMask + "\",\n")
+        f.close()
+                
+        cmd = '''gdalwarp -overwrite -to SRC_METHOD=NO_GEOTRANSFORM -to DST_METHOD=NO_GEOTRANSFORM -cutline mask.csv ''' + name +'''.img ''' + name +'''_masked.img'''
+        ok = os.system(cmd)
+        
         return newMask
-                    
-        
-        
-                
-                    
-                    
-                            
-                
+
+            

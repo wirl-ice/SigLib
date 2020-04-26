@@ -1,7 +1,7 @@
 This is makeindex, version 2.15 [TeX Live 2015] (kpathsea + Thai support).
 Scanning style file ./python.ist......done (6 attributes redefined, 0 ignored).
-Scanning input file Siglib.idx....done (109 entries accepted, 0 rejected).
-Sorting entries....done (797 comparisons).
-Generating output file Siglib.ind....done (172 lines written, 0 warnings).
+Scanning input file Siglib.idx....done (108 entries accepted, 0 rejected).
+Sorting entries....done (796 comparisons).
+Generating output file Siglib.ind....done (168 lines written, 0 warnings).
 Output written in Siglib.ind.
 Transcript written in Siglib.ilg.

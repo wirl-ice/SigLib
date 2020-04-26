@@ -10,7 +10,7 @@ Welcome to SigLib's documentation!
    :maxdepth: 0
 
    intro
-   project
+   wiki
    tutorial
    code
 
