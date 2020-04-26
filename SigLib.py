@@ -80,7 +80,7 @@ class SigLib:
         self.imgType = config.get('MISC',"imgTypes")
         self.imgFormat = config.get('MISC',"imgFormat")
 
-        self.elevation_correction = config.get(self.mode, "elevationCorrection")
+        self.elevation_correction = config.get('MISC', "elevationCorrection")
 
         self.issueString = ""
         self.count_img = 0            # Number of images processed
@@ -701,11 +701,6 @@ class SigLib:
             self.proc_Dir(self.scanDir, self.scanFor)      # Scan by path pattern
         elif self.scanFile == "1":
             self.proc_File(os.path.abspath(os.path.expanduser(str(sys.argv[-1]))))  #assume this is the last arg (after 'jobid')
-<<<<<<< HEAD
-        elif self.scanQuery == "1":
-            print("\nScan Query not implemented yet.\n")
-=======
->>>>>>> upstream/master
         else:
             print("\nPlease specify one method to scan the data in the config file.\n")
 

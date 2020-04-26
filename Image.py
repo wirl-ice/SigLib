@@ -1126,7 +1126,6 @@ class Image(object):
             pauli1 =  numpy.abs( (datachunk_hh - datachunk_vv) / math.sqrt(2) )
             pauli2 =  numpy.abs( ((datachunk_hv + datachunk_vh)/2.0)* math.sqrt(2) )
             pauli3 =  numpy.abs(  (datachunk_hh + datachunk_vv) / math.sqrt(2) )
-q
 
             datachunk_hh, datachunk_vv, datachunk_hv, datachunk_vh = 0, 0, 0, 0 #free memory
 

@@ -869,7 +869,7 @@ class Database:
         
         try:
             curs.execute(sqlIns, upload)
-        except Exception, e:
+        except Exception as e:
             self.logger.error(e)
             return
         self.connection.commit()
@@ -1075,7 +1075,7 @@ class Database:
         try:
             curs.execute(sql2, param)
         except Exception as e:
-            print e
+            print(e)
         result = str(curs.fetchone()[0])
         if result == 'GEOMETRYCOLLECTION EMPTY':
             return []
