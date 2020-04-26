@@ -94,9 +94,7 @@ options must = 1**
    command line argument (*note* this must be enabled to parallelize SigLib); 0
    otherwise
 -  scanFor = a file pattern to search for (eg. \*.zip) - use when path=1
--  sql = define a custom query here for selecting data to process - use
-   when query=1. eg. SELECT location FROM tblmetadata WHERE granule =
-   'B0558007.img'
+-  uploadData = 1 to upload descriptive statistics of subscenes generated in Scientific mode to the database 
 
 *Process*
 
@@ -109,16 +107,15 @@ options must = 1**
 *MISC*
 
 -  proj = basename of wkt projection file (eg. lcc) in the projDir
--  imgtypes = types of images to process (Amplitude Image - amp, Sigma
-   Nought Image - sigma, Gamma Nought Image - gamma, Beta Nought
-   Image - beta)
+-  projSRID = SRID # of the wkt projection
+-  imgtypes = types of images to process (*List these once finalized*)
 -  imgformat = file format for output imagery (gdal convention)
--  roi = ROI Shapefile for Discovery or Scientific modes, stored in vectDir
--  roiproj = projection of the roi
+-  roi = Region of Interest shapefile or database table
+-  roiprojSRID = SRID # of projection roi is in
 -  crop = leave blank for no cropping, or four space-delimited numbers,
    upper-left and lower-right corners (in proj above) that denote a crop
    area: ul_x ul_y lr_x lr_y
--  maskshp = a polygon shapefile (with only one feature) to mask image data with
+-  mask = a polygon shapefile (with only one feature) to mask image data with
 -  spatialrel = ST_Contains (Search for images that fully contain the
    roi polygon) or ST_Intersects (Search for images that merely
    intersect with the roi)
@@ -288,46 +285,5 @@ Table: **ROI.shp fields**
 -  See folder ROISamples for example ROIs - Discovery and Scientific
    mode
 
-TODO
-====
-
-\*# Make sure there is process/output testing and error trapping at
-every major step.
-
-\*# Develop a test suite of imagery for the project - R2 and R1 images
-that are in different beam modes, orbit directions, even bad images to
-test SigLib. (imagery with no EULA so it can be shared)
-
--  Continue documentation
-
-   #. overarching documentation important too
-   #. UML diagram for visual
-   #. example scripts/configs
-   #. example ROI.shp
-
--  add local? [Not sure exactly what this is]
--  investigate compatibility with python 3
-
-SigLib.py
----------
-
--  Does scientific work?
-
-Metadata.py
------------
-
--  get look direction for RSAT2, test against RSAT1
-
-Image.py
---------
-
--  test image crop and mask - in both modes
--  Sigma0 testing (image vs snap vs ZAPro)
--  compare snap equivilancy to gdal, if so remove unnessesary gdal code (clean!)
-
-Util.py
--------
-
--  deltree needs work (or can it be removed?)
 
 

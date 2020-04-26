@@ -304,6 +304,8 @@ class Metadata(object):
             imgname = self.imgname + '.img'
         if self.sattype == "RS2":
             imgname = 'product.xml'
+        if self.sattype == "SEN-1":
+            imgname = 'manifest.safe'
 
 	    ### register all drivers at once ... works for reading data but not for creating data sets
         gdal.AllRegister() # for all purposes
@@ -372,14 +374,6 @@ class Metadata(object):
         z = numpy.zeros((len(self.geopts), 1), dtype=numpy.float64)
         row = numpy.zeros((len(self.geopts), 1), dtype=numpy.float64)
         col = numpy.zeros((len(self.geopts), 1), dtype=numpy.float64)
-
-        # won't work with homemade geopt
-        #        for i, geopt in enumerate(self.geopts):
-        #            x[i] = geopt.GCPX
-        #            y[i] = geopt.GCPY
-        #            z[i] = geopt.GCPZ
-        #            row[i]= geopt.GCPLine
-        #            col[i] = geopt.GCPPixel
 
         for i, geopt in enumerate(self.geopts):
             x[i] = gdal.GDAL_GCP_GCPX_get(geopt)

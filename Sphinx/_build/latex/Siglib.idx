@@ -1,109 +1,108 @@
-\indexentry{SigLib (module)|hyperpage}{14}
-\indexentry{SigLib (class in SigLib)|hyperpage}{14}
-\indexentry{createLog() (SigLib.SigLib method)|hyperpage}{14}
-\indexentry{data2db() (SigLib.SigLib method)|hyperpage}{14}
-\indexentry{data2img() (SigLib.SigLib method)|hyperpage}{14}
-\indexentry{handler() (SigLib.SigLib method)|hyperpage}{15}
-\indexentry{polarimetric() (SigLib.SigLib method)|hyperpage}{15}
-\indexentry{proc\_Dir() (SigLib.SigLib method)|hyperpage}{15}
-\indexentry{proc\_File() (SigLib.SigLib method)|hyperpage}{15}
-\indexentry{retrieve() (SigLib.SigLib method)|hyperpage}{15}
-\indexentry{scientific() (SigLib.SigLib method)|hyperpage}{15}
-\indexentry{Metadata (class in SigLib)|hyperpage}{16}
-\indexentry{Metadata (module)|hyperpage}{16}
-\indexentry{Metadata (class in Metadata)|hyperpage}{16}
-\indexentry{clean\_metaASF() (Metadata.Metadata method)|hyperpage}{17}
-\indexentry{clean\_metaCDPF() (Metadata.Metadata method)|hyperpage}{17}
-\indexentry{createMetaDict() (Metadata.Metadata method)|hyperpage}{17}
-\indexentry{extractGCPs() (Metadata.Metadata method)|hyperpage}{17}
-\indexentry{getASFMetaCorners() (Metadata.Metadata method)|hyperpage}{17}
-\indexentry{getASFProductType() (Metadata.Metadata method)|hyperpage}{17}
-\indexentry{getCEOSmetafile() (Metadata.Metadata method)|hyperpage}{17}
-\indexentry{getCornerPoints() (Metadata.Metadata method)|hyperpage}{17}
-\indexentry{getDimgname() (Metadata.Metadata method)|hyperpage}{18}
-\indexentry{getMoreGCPs() (Metadata.Metadata method)|hyperpage}{18}
-\indexentry{getRS2metadata() (Metadata.Metadata method)|hyperpage}{18}
-\indexentry{get\_ceos\_metadata() (Metadata.Metadata method)|hyperpage}{18}
-\indexentry{getgdalmeta() (Metadata.Metadata method)|hyperpage}{18}
-\indexentry{saveMetaFile() (Metadata.Metadata method)|hyperpage}{18}
-\indexentry{byte2int() (in module Metadata)|hyperpage}{18}
-\indexentry{date2doy() (in module Metadata)|hyperpage}{18}
-\indexentry{datetime2iso() (in module Metadata)|hyperpage}{19}
-\indexentry{getEarthRadius() (in module Metadata)|hyperpage}{19}
-\indexentry{getGroundRange() (in module Metadata)|hyperpage}{19}
-\indexentry{getSlantRange() (in module Metadata)|hyperpage}{19}
-\indexentry{getThetaPixel() (in module Metadata)|hyperpage}{19}
-\indexentry{getThetaVector() (in module Metadata)|hyperpage}{19}
-\indexentry{get\_data\_block() (in module Metadata)|hyperpage}{19}
-\indexentry{get\_field\_value() (in module Metadata)|hyperpage}{19}
-\indexentry{readdate() (in module Metadata)|hyperpage}{19}
-\indexentry{Image (module)|hyperpage}{20}
-\indexentry{Image (class in Image)|hyperpage}{20}
-\indexentry{applyStretch() (Image.Image method)|hyperpage}{20}
-\indexentry{cleanFiles() (Image.Image method)|hyperpage}{21}
-\indexentry{compress() (Image.Image method)|hyperpage}{21}
-\indexentry{cropBig() (Image.Image method)|hyperpage}{21}
-\indexentry{cropImg() (Image.Image method)|hyperpage}{21}
-\indexentry{cropSmall() (Image.Image method)|hyperpage}{21}
-\indexentry{decomp() (Image.Image method)|hyperpage}{21}
-\indexentry{decomposition\_generation() (Image.Image method)|hyperpage}{21}
-\indexentry{fnameGenerate() (Image.Image method)|hyperpage}{22}
-\indexentry{getAmp() (Image.Image method)|hyperpage}{22}
-\indexentry{getBandData() (Image.Image method)|hyperpage}{22}
-\indexentry{getImgStats() (Image.Image method)|hyperpage}{22}
-\indexentry{getMag() (Image.Image method)|hyperpage}{23}
-\indexentry{getNoise() (Image.Image method)|hyperpage}{23}
-\indexentry{getPhase() (Image.Image method)|hyperpage}{23}
-\indexentry{getSigma() (Image.Image method)|hyperpage}{23}
-\indexentry{getTheta() (Image.Image method)|hyperpage}{23}
-\indexentry{imgWrite() (Image.Image method)|hyperpage}{23}
-\indexentry{makeAmp() (Image.Image method)|hyperpage}{23}
-\indexentry{makePyramids() (Image.Image method)|hyperpage}{23}
-\indexentry{maskImg() (Image.Image method)|hyperpage}{23}
-\indexentry{matrix\_generation() (Image.Image method)|hyperpage}{23}
-\indexentry{openDataset() (Image.Image method)|hyperpage}{24}
-\indexentry{polarFilter() (Image.Image method)|hyperpage}{24}
-\indexentry{projectImg() (Image.Image method)|hyperpage}{24}
-\indexentry{reduceImg() (Image.Image method)|hyperpage}{24}
-\indexentry{snapCalibration() (Image.Image method)|hyperpage}{24}
-\indexentry{snapDataTypeConv() (Image.Image method)|hyperpage}{24}
-\indexentry{snapSubset() (Image.Image method)|hyperpage}{25}
-\indexentry{snapTC() (Image.Image method)|hyperpage}{25}
-\indexentry{stretchLinear() (Image.Image method)|hyperpage}{25}
-\indexentry{vrt2RealImg() (Image.Image method)|hyperpage}{25}
-\indexentry{Database (module)|hyperpage}{25}
-\indexentry{Database (class in Database)|hyperpage}{26}
-\indexentry{beaconIntersections() (Database.Database method)|hyperpage}{26}
-\indexentry{beaconShapefilesToTables() (Database.Database method)|hyperpage}{26}
-\indexentry{convertGPSTime() (Database.Database method)|hyperpage}{26}
-\indexentry{createTblMetadata() (Database.Database method)|hyperpage}{26}
-\indexentry{exportToCSV() (Database.Database method)|hyperpage}{27}
-\indexentry{imgData2db() (Database.Database method)|hyperpage}{27}
-\indexentry{meta2db() (Database.Database method)|hyperpage}{27}
-\indexentry{nameRelationTable() (Database.Database method)|hyperpage}{27}
-\indexentry{numpy2sql() (Database.Database method)|hyperpage}{27}
-\indexentry{qryCropZone() (Database.Database method)|hyperpage}{28}
-\indexentry{qryFromFile() (Database.Database method)|hyperpage}{28}
-\indexentry{qryFromText() (Database.Database method)|hyperpage}{28}
-\indexentry{qryGetInstances() (Database.Database method)|hyperpage}{28}
-\indexentry{qryMaskZone() (Database.Database method)|hyperpage}{29}
-\indexentry{qrySelectFromAvailable() (Database.Database method)|hyperpage}{29}
-\indexentry{relations2db() (Database.Database method)|hyperpage}{29}
-\indexentry{sql2numpy() (Database.Database method)|hyperpage}{30}
-\indexentry{updateFromArchive() (Database.Database method)|hyperpage}{30}
-\indexentry{updateROI() (Database.Database method)|hyperpage}{30}
-\indexentry{Util (module)|hyperpage}{31}
-\indexentry{az() (in module Util)|hyperpage}{31}
-\indexentry{cleartree() (in module Util)|hyperpage}{31}
-\indexentry{copyfiles() (in module Util)|hyperpage}{31}
-\indexentry{deltree() (in module Util)|hyperpage}{31}
-\indexentry{getFilename() (in module Util)|hyperpage}{31}
-\indexentry{getPowerScale() (in module Util)|hyperpage}{32}
-\indexentry{getZipRoot() (in module Util)|hyperpage}{32}
-\indexentry{getdBScale() (in module Util)|hyperpage}{32}
-\indexentry{llur2ullr() (in module Util)|hyperpage}{32}
-\indexentry{reprojSHP() (in module Util)|hyperpage}{33}
-\indexentry{ullr2llur() (in module Util)|hyperpage}{33}
-\indexentry{unZip() (in module Util)|hyperpage}{33}
-\indexentry{wkt2shp() (in module Util)|hyperpage}{33}
-\indexentry{wktpoly2pts() (in module Util)|hyperpage}{33}
+\indexentry{SigLib (module)|hyperpage}{18}
+\indexentry{SigLib (class in SigLib)|hyperpage}{18}
+\indexentry{createLog() (SigLib.SigLib method)|hyperpage}{18}
+\indexentry{data2db() (SigLib.SigLib method)|hyperpage}{18}
+\indexentry{data2img() (SigLib.SigLib method)|hyperpage}{18}
+\indexentry{polarimetric() (SigLib.SigLib method)|hyperpage}{19}
+\indexentry{proc\_Dir() (SigLib.SigLib method)|hyperpage}{19}
+\indexentry{proc\_File() (SigLib.SigLib method)|hyperpage}{19}
+\indexentry{retrieve() (SigLib.SigLib method)|hyperpage}{19}
+\indexentry{scientific() (SigLib.SigLib method)|hyperpage}{19}
+\indexentry{Metadata (class in SigLib)|hyperpage}{20}
+\indexentry{Metadata (module)|hyperpage}{20}
+\indexentry{Metadata (class in Metadata)|hyperpage}{20}
+\indexentry{clean\_metaASF() (Metadata.Metadata method)|hyperpage}{21}
+\indexentry{clean\_metaCDPF() (Metadata.Metadata method)|hyperpage}{21}
+\indexentry{createMetaDict() (Metadata.Metadata method)|hyperpage}{21}
+\indexentry{extractGCPs() (Metadata.Metadata method)|hyperpage}{21}
+\indexentry{getASFMetaCorners() (Metadata.Metadata method)|hyperpage}{21}
+\indexentry{getASFProductType() (Metadata.Metadata method)|hyperpage}{21}
+\indexentry{getCEOSmetafile() (Metadata.Metadata method)|hyperpage}{21}
+\indexentry{getCornerPoints() (Metadata.Metadata method)|hyperpage}{21}
+\indexentry{getDimgname() (Metadata.Metadata method)|hyperpage}{22}
+\indexentry{getMoreGCPs() (Metadata.Metadata method)|hyperpage}{22}
+\indexentry{getRS2metadata() (Metadata.Metadata method)|hyperpage}{22}
+\indexentry{get\_ceos\_metadata() (Metadata.Metadata method)|hyperpage}{22}
+\indexentry{getgdalmeta() (Metadata.Metadata method)|hyperpage}{22}
+\indexentry{saveMetaFile() (Metadata.Metadata method)|hyperpage}{22}
+\indexentry{byte2int() (in module Metadata)|hyperpage}{22}
+\indexentry{date2doy() (in module Metadata)|hyperpage}{22}
+\indexentry{datetime2iso() (in module Metadata)|hyperpage}{23}
+\indexentry{getEarthRadius() (in module Metadata)|hyperpage}{23}
+\indexentry{getGroundRange() (in module Metadata)|hyperpage}{23}
+\indexentry{getSlantRange() (in module Metadata)|hyperpage}{23}
+\indexentry{getThetaPixel() (in module Metadata)|hyperpage}{23}
+\indexentry{getThetaVector() (in module Metadata)|hyperpage}{23}
+\indexentry{get\_data\_block() (in module Metadata)|hyperpage}{23}
+\indexentry{get\_field\_value() (in module Metadata)|hyperpage}{23}
+\indexentry{readdate() (in module Metadata)|hyperpage}{23}
+\indexentry{Image (module)|hyperpage}{24}
+\indexentry{Image (class in Image)|hyperpage}{24}
+\indexentry{applyStretch() (Image.Image method)|hyperpage}{24}
+\indexentry{cleanFiles() (Image.Image method)|hyperpage}{25}
+\indexentry{compress() (Image.Image method)|hyperpage}{25}
+\indexentry{cropBig() (Image.Image method)|hyperpage}{25}
+\indexentry{cropImg() (Image.Image method)|hyperpage}{25}
+\indexentry{cropSmall() (Image.Image method)|hyperpage}{25}
+\indexentry{decomp() (Image.Image method)|hyperpage}{25}
+\indexentry{decomposition\_generation() (Image.Image method)|hyperpage}{25}
+\indexentry{fnameGenerate() (Image.Image method)|hyperpage}{26}
+\indexentry{getAmp() (Image.Image method)|hyperpage}{26}
+\indexentry{getBandData() (Image.Image method)|hyperpage}{26}
+\indexentry{getImgStats() (Image.Image method)|hyperpage}{26}
+\indexentry{getMag() (Image.Image method)|hyperpage}{26}
+\indexentry{getNoise() (Image.Image method)|hyperpage}{26}
+\indexentry{getPhase() (Image.Image method)|hyperpage}{27}
+\indexentry{getSigma() (Image.Image method)|hyperpage}{27}
+\indexentry{getTheta() (Image.Image method)|hyperpage}{27}
+\indexentry{imgWrite() (Image.Image method)|hyperpage}{27}
+\indexentry{makeAmp() (Image.Image method)|hyperpage}{27}
+\indexentry{makePyramids() (Image.Image method)|hyperpage}{27}
+\indexentry{maskImg() (Image.Image method)|hyperpage}{27}
+\indexentry{matrix\_generation() (Image.Image method)|hyperpage}{27}
+\indexentry{openDataset() (Image.Image method)|hyperpage}{28}
+\indexentry{polarFilter() (Image.Image method)|hyperpage}{28}
+\indexentry{projectImg() (Image.Image method)|hyperpage}{28}
+\indexentry{reduceImg() (Image.Image method)|hyperpage}{28}
+\indexentry{slantRangeMask() (Image.Image method)|hyperpage}{28}
+\indexentry{snapCalibration() (Image.Image method)|hyperpage}{28}
+\indexentry{snapDataTypeConv() (Image.Image method)|hyperpage}{29}
+\indexentry{snapSubset() (Image.Image method)|hyperpage}{29}
+\indexentry{snapTC() (Image.Image method)|hyperpage}{29}
+\indexentry{stretchLinear() (Image.Image method)|hyperpage}{29}
+\indexentry{vrt2RealImg() (Image.Image method)|hyperpage}{29}
+\indexentry{Database (module)|hyperpage}{30}
+\indexentry{Database (class in Database)|hyperpage}{30}
+\indexentry{beaconIntersections() (Database.Database method)|hyperpage}{30}
+\indexentry{beaconShapefilesToTables() (Database.Database method)|hyperpage}{30}
+\indexentry{convertGPSTime() (Database.Database method)|hyperpage}{30}
+\indexentry{createTblMetadata() (Database.Database method)|hyperpage}{31}
+\indexentry{exportToCSV() (Database.Database method)|hyperpage}{31}
+\indexentry{imgData2db() (Database.Database method)|hyperpage}{31}
+\indexentry{meta2db() (Database.Database method)|hyperpage}{31}
+\indexentry{nameRelationTable() (Database.Database method)|hyperpage}{31}
+\indexentry{numpy2sql() (Database.Database method)|hyperpage}{31}
+\indexentry{polarimetricDonuts() (Database.Database method)|hyperpage}{32}
+\indexentry{qryCropZone() (Database.Database method)|hyperpage}{32}
+\indexentry{qryFromFile() (Database.Database method)|hyperpage}{32}
+\indexentry{qryFromText() (Database.Database method)|hyperpage}{32}
+\indexentry{qryGetInstances() (Database.Database method)|hyperpage}{33}
+\indexentry{qryMaskZone() (Database.Database method)|hyperpage}{33}
+\indexentry{qrySelectFromAvailable() (Database.Database method)|hyperpage}{33}
+\indexentry{relations2db() (Database.Database method)|hyperpage}{34}
+\indexentry{sql2numpy() (Database.Database method)|hyperpage}{34}
+\indexentry{updateFromArchive() (Database.Database method)|hyperpage}{34}
+\indexentry{updateROI() (Database.Database method)|hyperpage}{34}
+\indexentry{Util (module)|hyperpage}{35}
+\indexentry{az() (in module Util)|hyperpage}{35}
+\indexentry{copyfiles() (in module Util)|hyperpage}{35}
+\indexentry{getFilename() (in module Util)|hyperpage}{36}
+\indexentry{getPowerScale() (in module Util)|hyperpage}{36}
+\indexentry{getZipRoot() (in module Util)|hyperpage}{36}
+\indexentry{getdBScale() (in module Util)|hyperpage}{36}
+\indexentry{llur2ullr() (in module Util)|hyperpage}{36}
+\indexentry{reprojSHP() (in module Util)|hyperpage}{37}
+\indexentry{ullr2llur() (in module Util)|hyperpage}{37}
+\indexentry{unZip() (in module Util)|hyperpage}{37}
+\indexentry{wkt2shp() (in module Util)|hyperpage}{37}
+\indexentry{wktpoly2pts() (in module Util)|hyperpage}{37}

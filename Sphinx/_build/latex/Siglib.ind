@@ -2,171 +2,167 @@
 \def\bigletter#1{{\Large\sffamily#1}\nopagebreak\vspace{1mm}}
 
   \bigletter A
-  \item applyStretch() (Image.Image method), \hyperpage{20}
-  \item az() (in module Util), \hyperpage{31}
+  \item applyStretch() (Image.Image method), \hyperpage{24}
+  \item az() (in module Util), \hyperpage{35}
 
   \indexspace
   \bigletter B
-  \item beaconIntersections() (Database.Database method), \hyperpage{26}
-  \item beaconShapefilesToTables() (Database.Database method), \hyperpage{26}
-  \item byte2int() (in module Metadata), \hyperpage{18}
+  \item beaconIntersections() (Database.Database method), \hyperpage{30}
+  \item beaconShapefilesToTables() (Database.Database method), \hyperpage{30}
+  \item byte2int() (in module Metadata), \hyperpage{22}
 
   \indexspace
   \bigletter C
-  \item clean\_metaASF() (Metadata.Metadata method), \hyperpage{17}
-  \item clean\_metaCDPF() (Metadata.Metadata method), \hyperpage{17}
-  \item cleanFiles() (Image.Image method), \hyperpage{21}
-  \item cleartree() (in module Util), \hyperpage{31}
-  \item compress() (Image.Image method), \hyperpage{21}
-  \item convertGPSTime() (Database.Database method), \hyperpage{26}
-  \item copyfiles() (in module Util), \hyperpage{31}
-  \item createLog() (SigLib.SigLib method), \hyperpage{14}
-  \item createMetaDict() (Metadata.Metadata method), \hyperpage{17}
-  \item createTblMetadata() (Database.Database method), \hyperpage{26}
-  \item cropBig() (Image.Image method), \hyperpage{21}
-  \item cropImg() (Image.Image method), \hyperpage{21}
-  \item cropSmall() (Image.Image method), \hyperpage{21}
+  \item clean\_metaASF() (Metadata.Metadata method), \hyperpage{21}
+  \item clean\_metaCDPF() (Metadata.Metadata method), \hyperpage{21}
+  \item cleanFiles() (Image.Image method), \hyperpage{25}
+  \item compress() (Image.Image method), \hyperpage{25}
+  \item convertGPSTime() (Database.Database method), \hyperpage{30}
+  \item copyfiles() (in module Util), \hyperpage{35}
+  \item createLog() (SigLib.SigLib method), \hyperpage{18}
+  \item createMetaDict() (Metadata.Metadata method), \hyperpage{21}
+  \item createTblMetadata() (Database.Database method), \hyperpage{31}
+  \item cropBig() (Image.Image method), \hyperpage{25}
+  \item cropImg() (Image.Image method), \hyperpage{25}
+  \item cropSmall() (Image.Image method), \hyperpage{25}
 
   \indexspace
   \bigletter D
-  \item data2db() (SigLib.SigLib method), \hyperpage{14}
-  \item data2img() (SigLib.SigLib method), \hyperpage{14}
-  \item Database (class in Database), \hyperpage{26}
-  \item Database (module), \hyperpage{25}
-  \item date2doy() (in module Metadata), \hyperpage{18}
-  \item datetime2iso() (in module Metadata), \hyperpage{19}
-  \item decomp() (Image.Image method), \hyperpage{21}
-  \item decomposition\_generation() (Image.Image method), \hyperpage{21}
-  \item deltree() (in module Util), \hyperpage{31}
+  \item data2db() (SigLib.SigLib method), \hyperpage{18}
+  \item data2img() (SigLib.SigLib method), \hyperpage{18}
+  \item Database (class in Database), \hyperpage{30}
+  \item Database (module), \hyperpage{30}
+  \item date2doy() (in module Metadata), \hyperpage{22}
+  \item datetime2iso() (in module Metadata), \hyperpage{23}
+  \item decomp() (Image.Image method), \hyperpage{25}
+  \item decomposition\_generation() (Image.Image method), \hyperpage{25}
 
   \indexspace
   \bigletter E
-  \item exportToCSV() (Database.Database method), \hyperpage{27}
-  \item extractGCPs() (Metadata.Metadata method), \hyperpage{17}
+  \item exportToCSV() (Database.Database method), \hyperpage{31}
+  \item extractGCPs() (Metadata.Metadata method), \hyperpage{21}
 
   \indexspace
   \bigletter F
-  \item fnameGenerate() (Image.Image method), \hyperpage{22}
+  \item fnameGenerate() (Image.Image method), \hyperpage{26}
 
   \indexspace
   \bigletter G
-  \item get\_ceos\_metadata() (Metadata.Metadata method), \hyperpage{18}
-  \item get\_data\_block() (in module Metadata), \hyperpage{19}
-  \item get\_field\_value() (in module Metadata), \hyperpage{19}
-  \item getAmp() (Image.Image method), \hyperpage{22}
-  \item getASFMetaCorners() (Metadata.Metadata method), \hyperpage{17}
-  \item getASFProductType() (Metadata.Metadata method), \hyperpage{17}
-  \item getBandData() (Image.Image method), \hyperpage{22}
-  \item getCEOSmetafile() (Metadata.Metadata method), \hyperpage{17}
-  \item getCornerPoints() (Metadata.Metadata method), \hyperpage{17}
-  \item getdBScale() (in module Util), \hyperpage{32}
-  \item getDimgname() (Metadata.Metadata method), \hyperpage{18}
-  \item getEarthRadius() (in module Metadata), \hyperpage{19}
-  \item getFilename() (in module Util), \hyperpage{31}
-  \item getgdalmeta() (Metadata.Metadata method), \hyperpage{18}
-  \item getGroundRange() (in module Metadata), \hyperpage{19}
-  \item getImgStats() (Image.Image method), \hyperpage{22}
-  \item getMag() (Image.Image method), \hyperpage{23}
-  \item getMoreGCPs() (Metadata.Metadata method), \hyperpage{18}
-  \item getNoise() (Image.Image method), \hyperpage{23}
-  \item getPhase() (Image.Image method), \hyperpage{23}
-  \item getPowerScale() (in module Util), \hyperpage{32}
-  \item getRS2metadata() (Metadata.Metadata method), \hyperpage{18}
-  \item getSigma() (Image.Image method), \hyperpage{23}
-  \item getSlantRange() (in module Metadata), \hyperpage{19}
-  \item getTheta() (Image.Image method), \hyperpage{23}
-  \item getThetaPixel() (in module Metadata), \hyperpage{19}
-  \item getThetaVector() (in module Metadata), \hyperpage{19}
-  \item getZipRoot() (in module Util), \hyperpage{32}
-
-  \indexspace
-  \bigletter H
-  \item handler() (SigLib.SigLib method), \hyperpage{15}
+  \item get\_ceos\_metadata() (Metadata.Metadata method), \hyperpage{22}
+  \item get\_data\_block() (in module Metadata), \hyperpage{23}
+  \item get\_field\_value() (in module Metadata), \hyperpage{23}
+  \item getAmp() (Image.Image method), \hyperpage{26}
+  \item getASFMetaCorners() (Metadata.Metadata method), \hyperpage{21}
+  \item getASFProductType() (Metadata.Metadata method), \hyperpage{21}
+  \item getBandData() (Image.Image method), \hyperpage{26}
+  \item getCEOSmetafile() (Metadata.Metadata method), \hyperpage{21}
+  \item getCornerPoints() (Metadata.Metadata method), \hyperpage{21}
+  \item getdBScale() (in module Util), \hyperpage{36}
+  \item getDimgname() (Metadata.Metadata method), \hyperpage{22}
+  \item getEarthRadius() (in module Metadata), \hyperpage{23}
+  \item getFilename() (in module Util), \hyperpage{36}
+  \item getgdalmeta() (Metadata.Metadata method), \hyperpage{22}
+  \item getGroundRange() (in module Metadata), \hyperpage{23}
+  \item getImgStats() (Image.Image method), \hyperpage{26}
+  \item getMag() (Image.Image method), \hyperpage{26}
+  \item getMoreGCPs() (Metadata.Metadata method), \hyperpage{22}
+  \item getNoise() (Image.Image method), \hyperpage{26}
+  \item getPhase() (Image.Image method), \hyperpage{27}
+  \item getPowerScale() (in module Util), \hyperpage{36}
+  \item getRS2metadata() (Metadata.Metadata method), \hyperpage{22}
+  \item getSigma() (Image.Image method), \hyperpage{27}
+  \item getSlantRange() (in module Metadata), \hyperpage{23}
+  \item getTheta() (Image.Image method), \hyperpage{27}
+  \item getThetaPixel() (in module Metadata), \hyperpage{23}
+  \item getThetaVector() (in module Metadata), \hyperpage{23}
+  \item getZipRoot() (in module Util), \hyperpage{36}
 
   \indexspace
   \bigletter I
-  \item Image (class in Image), \hyperpage{20}
-  \item Image (module), \hyperpage{20}
-  \item imgData2db() (Database.Database method), \hyperpage{27}
-  \item imgWrite() (Image.Image method), \hyperpage{23}
+  \item Image (class in Image), \hyperpage{24}
+  \item Image (module), \hyperpage{24}
+  \item imgData2db() (Database.Database method), \hyperpage{31}
+  \item imgWrite() (Image.Image method), \hyperpage{27}
 
   \indexspace
   \bigletter L
-  \item llur2ullr() (in module Util), \hyperpage{32}
+  \item llur2ullr() (in module Util), \hyperpage{36}
 
   \indexspace
   \bigletter M
-  \item makeAmp() (Image.Image method), \hyperpage{23}
-  \item makePyramids() (Image.Image method), \hyperpage{23}
-  \item maskImg() (Image.Image method), \hyperpage{23}
-  \item matrix\_generation() (Image.Image method), \hyperpage{23}
-  \item meta2db() (Database.Database method), \hyperpage{27}
-  \item Metadata (class in Metadata), \hyperpage{16}
-  \item Metadata (class in SigLib), \hyperpage{16}
-  \item Metadata (module), \hyperpage{16}
+  \item makeAmp() (Image.Image method), \hyperpage{27}
+  \item makePyramids() (Image.Image method), \hyperpage{27}
+  \item maskImg() (Image.Image method), \hyperpage{27}
+  \item matrix\_generation() (Image.Image method), \hyperpage{27}
+  \item meta2db() (Database.Database method), \hyperpage{31}
+  \item Metadata (class in Metadata), \hyperpage{20}
+  \item Metadata (class in SigLib), \hyperpage{20}
+  \item Metadata (module), \hyperpage{20}
 
   \indexspace
   \bigletter N
-  \item nameRelationTable() (Database.Database method), \hyperpage{27}
-  \item numpy2sql() (Database.Database method), \hyperpage{27}
+  \item nameRelationTable() (Database.Database method), \hyperpage{31}
+  \item numpy2sql() (Database.Database method), \hyperpage{31}
 
   \indexspace
   \bigletter O
-  \item openDataset() (Image.Image method), \hyperpage{24}
+  \item openDataset() (Image.Image method), \hyperpage{28}
 
   \indexspace
   \bigletter P
-  \item polarFilter() (Image.Image method), \hyperpage{24}
-  \item polarimetric() (SigLib.SigLib method), \hyperpage{15}
-  \item proc\_Dir() (SigLib.SigLib method), \hyperpage{15}
-  \item proc\_File() (SigLib.SigLib method), \hyperpage{15}
-  \item projectImg() (Image.Image method), \hyperpage{24}
+  \item polarFilter() (Image.Image method), \hyperpage{28}
+  \item polarimetric() (SigLib.SigLib method), \hyperpage{19}
+  \item polarimetricDonuts() (Database.Database method), \hyperpage{32}
+  \item proc\_Dir() (SigLib.SigLib method), \hyperpage{19}
+  \item proc\_File() (SigLib.SigLib method), \hyperpage{19}
+  \item projectImg() (Image.Image method), \hyperpage{28}
 
   \indexspace
   \bigletter Q
-  \item qryCropZone() (Database.Database method), \hyperpage{28}
-  \item qryFromFile() (Database.Database method), \hyperpage{28}
-  \item qryFromText() (Database.Database method), \hyperpage{28}
-  \item qryGetInstances() (Database.Database method), \hyperpage{28}
-  \item qryMaskZone() (Database.Database method), \hyperpage{29}
-  \item qrySelectFromAvailable() (Database.Database method), \hyperpage{29}
+  \item qryCropZone() (Database.Database method), \hyperpage{32}
+  \item qryFromFile() (Database.Database method), \hyperpage{32}
+  \item qryFromText() (Database.Database method), \hyperpage{32}
+  \item qryGetInstances() (Database.Database method), \hyperpage{33}
+  \item qryMaskZone() (Database.Database method), \hyperpage{33}
+  \item qrySelectFromAvailable() (Database.Database method), \hyperpage{33}
 
   \indexspace
   \bigletter R
-  \item readdate() (in module Metadata), \hyperpage{19}
-  \item reduceImg() (Image.Image method), \hyperpage{24}
-  \item relations2db() (Database.Database method), \hyperpage{29}
-  \item reprojSHP() (in module Util), \hyperpage{33}
-  \item retrieve() (SigLib.SigLib method), \hyperpage{15}
+  \item readdate() (in module Metadata), \hyperpage{23}
+  \item reduceImg() (Image.Image method), \hyperpage{28}
+  \item relations2db() (Database.Database method), \hyperpage{34}
+  \item reprojSHP() (in module Util), \hyperpage{37}
+  \item retrieve() (SigLib.SigLib method), \hyperpage{19}
 
   \indexspace
   \bigletter S
-  \item saveMetaFile() (Metadata.Metadata method), \hyperpage{18}
-  \item scientific() (SigLib.SigLib method), \hyperpage{15}
-  \item SigLib (class in SigLib), \hyperpage{14}
-  \item SigLib (module), \hyperpage{14}
-  \item snapCalibration() (Image.Image method), \hyperpage{24}
-  \item snapDataTypeConv() (Image.Image method), \hyperpage{24}
-  \item snapSubset() (Image.Image method), \hyperpage{25}
-  \item snapTC() (Image.Image method), \hyperpage{25}
-  \item sql2numpy() (Database.Database method), \hyperpage{30}
-  \item stretchLinear() (Image.Image method), \hyperpage{25}
+  \item saveMetaFile() (Metadata.Metadata method), \hyperpage{22}
+  \item scientific() (SigLib.SigLib method), \hyperpage{19}
+  \item SigLib (class in SigLib), \hyperpage{18}
+  \item SigLib (module), \hyperpage{18}
+  \item slantRangeMask() (Image.Image method), \hyperpage{28}
+  \item snapCalibration() (Image.Image method), \hyperpage{28}
+  \item snapDataTypeConv() (Image.Image method), \hyperpage{29}
+  \item snapSubset() (Image.Image method), \hyperpage{29}
+  \item snapTC() (Image.Image method), \hyperpage{29}
+  \item sql2numpy() (Database.Database method), \hyperpage{34}
+  \item stretchLinear() (Image.Image method), \hyperpage{29}
 
   \indexspace
   \bigletter U
-  \item ullr2llur() (in module Util), \hyperpage{33}
-  \item unZip() (in module Util), \hyperpage{33}
-  \item updateFromArchive() (Database.Database method), \hyperpage{30}
-  \item updateROI() (Database.Database method), \hyperpage{30}
-  \item Util (module), \hyperpage{31}
+  \item ullr2llur() (in module Util), \hyperpage{37}
+  \item unZip() (in module Util), \hyperpage{37}
+  \item updateFromArchive() (Database.Database method), \hyperpage{34}
+  \item updateROI() (Database.Database method), \hyperpage{34}
+  \item Util (module), \hyperpage{35}
 
   \indexspace
   \bigletter V
-  \item vrt2RealImg() (Image.Image method), \hyperpage{25}
+  \item vrt2RealImg() (Image.Image method), \hyperpage{29}
 
   \indexspace
   \bigletter W
-  \item wkt2shp() (in module Util), \hyperpage{33}
-  \item wktpoly2pts() (in module Util), \hyperpage{33}
+  \item wkt2shp() (in module Util), \hyperpage{37}
+  \item wktpoly2pts() (in module Util), \hyperpage{37}
 
 \end{theindex}

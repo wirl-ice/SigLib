@@ -129,40 +129,6 @@ def getFilename(zipname, unzipdir, loghandler=None):
         except:
             pass
         return fname, imgname, sattype
-    
-#TODO: this deletes the entire directory...fix it
-def deltree(dirname):
-    """
-    Delete all the files and sub-directories in a certain path
-
-    **Parameters**
-        
-        *dirname*   :
-    """
-
-    if os.path.exists(dirname):
-        for root,dirs,files in os.walk(dirname):
-                for dir in dirs:
-                    deltree(os.path.join(root,dir))
-                for file in files:
-                    os.remove(os.path.join(root,file))
-        os.rmdir(dirname)
-
-def cleartree(dirname):
-    """
-    Delet all files in a certain path
-    
-    **Parameters**
-        
-        *dirname* :
-    """
-
-    if os.path.exists(dirname):
-        for root,dirs,files in os.walk(dirname):
-                for dir in dirs:
-                    deltree(os.path.join(root,dir))
-                for file in files:
-                    os.remove(os.path.join(root,file))
 
 
 def getZipRoot(zip_file, tmpDir):
@@ -221,7 +187,13 @@ def getZipRoot(zip_file, tmpDir):
             unzipdir = tmpDir       # Unzipdir will be their own subdirectory
             nesteddir = 0
             break
-
+        
+        elif fsplit[0].split('.')[1] == 'SAFE': #Sentinel-1 zipfile, subdirectory with different name
+            zipname = fsplit[0]
+            unzipdir = tmpDir
+            nesteddir = 0
+            break
+        
         else:
             countdown = countdown -1
 
