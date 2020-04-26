@@ -25,12 +25,13 @@ Common Parameters of this Module:
 
 import os
 import sys
-import ConfigParser
+from configparser import ConfigParser, RawConfigParser
 import logging
 import shutil
 import time
 from time import localtime, strftime
 from glob import glob
+from builtins import input
 
 from Database import Database
 from Metadata import Metadata
@@ -41,7 +42,8 @@ class SigLib:
     def __init__(self):       
         self.cfg = os.path.expanduser((sys.argv[1]))
 
-        config = ConfigParser.RawConfigParser()
+        #config = ConfigParser.RawConfigParser()
+        config = RawConfigParser() # Needs to be tested for python2 compatibility 
         config.read(self.cfg)
         self.cfg = os.path.basename(self.cfg)[:-4]
         self.tmpDir = os.path.abspath(os.path.expanduser(config.get("Directories","tmpDir")))
@@ -50,7 +52,6 @@ class SigLib:
         self.scanDir = os.path.abspath(os.path.expanduser(config.get("Directories", "scanDir")))
         self.vectDir = os.path.abspath(os.path.expanduser(config.get("Directories","vectDir")))
         self.logDir = os.path.abspath(os.path.expanduser(config.get("Directories","logDir")))
-        self.archDir = os.path.abspath(os.path.expanduser(config.get("Directories", "archDir")))
         
         self.dbName = config.get("Database", "db")
         self.dbHost = config.get("Database", "host")
@@ -79,6 +80,8 @@ class SigLib:
         self.imgType = config.get('MISC',"imgTypes")
         self.imgFormat = config.get('MISC',"imgFormat")
 
+        self.elevation_correction = config.get('MISC', "elevationCorrection")
+
         self.issueString = ""
         self.count_img = 0            # Number of images processed
         self.bad_img = 0             # Number of bad images processed
@@ -86,7 +89,7 @@ class SigLib:
         shutil.copy(os.path.abspath(os.path.expanduser(sys.argv[1])), os.path.join(self.logDir,self.cfg + "_" +\
             self.starttime +'.cfg')) # make a copy of the cfg file
         self.length_time = 0
-        self.loghandler = 0
+        self.loghandler = None
         self.logger = 0        
     
     def createLog(self,zipfile=None):   
@@ -138,7 +141,7 @@ class SigLib:
             self.logger.debug('image retrieved')
             # Do clean-up
                             
-        except Exception, e: #Normally Exception, e
+        except Exception as e: #Normally Exception, e
             self.logger.error('Image failed %s, due to: %s', zipfile, e, exc_info=True)
             self.logger.error("Image processing exception, moving to next image")
             self.issueString += "\n\nERROR (exception): " + zipfile
@@ -318,7 +321,8 @@ class SigLib:
 
             *db*   :   database connection            
         """
-
+        #TODO: implement ROI filtering such that only images within the ROI
+        #are uploaded to tblmetadata
         if meta.status == "ok":
             meta_dict = meta.createMetaDict()  # Create dictionary of all the metadata fields
             db.meta2db(meta_dict)       # Upload metadata to database
@@ -362,7 +366,7 @@ class SigLib:
             os.makedirs(newTmp)
 
         # Process the image
-        sar_img = Image(fname, unzipdir, sar_meta, self.imgType, self.imgFormat, zipname, self.imgDir, newTmp, self.loghandler)
+        sar_img = Image(fname, unzipdir, sar_meta, self.imgType, self.imgFormat, zipname, self.imgDir, newTmp, loghandler = self.loghandler, eCorr = self.elevation_correction)
         
         if sar_img.status == "error":
             self.logger.error("Image could not be opened or manipulated, moving to next image")
@@ -468,7 +472,7 @@ class SigLib:
         
         instances = db.qryGetInstances(granule, self.roi, self.table_to_query)   
         if instances == -1:
-            self.logger.error(fname + ' has no associated polygons, exiting')
+            self.logger.error('{} has no associated polygons, exiting'.format(fname))
             return
             
         sar_img.tmpFiles = sar_img.FileNames
@@ -686,8 +690,8 @@ class SigLib:
          
     def run(self):      
         if self.create_tblmetadata == "1":
-            ans = raw_input("Confirm you want to create/overwrite tblMetadata? Y/N")
-            if ans.lower == 'y':
+            ans = input("Confirm you want to create/overwrite tblMetadata? [Y/N]\t")
+            if ans.lower() == 'y':
                 db = Database(self.table_to_query, self.dbName, self.loghandler, host=self.dbHost)
                 db.createTblMetadata()
         if self.uploadROI == "1":
@@ -698,7 +702,7 @@ class SigLib:
         elif self.scanFile == "1":
             self.proc_File(os.path.abspath(os.path.expanduser(str(sys.argv[-1]))))  #assume this is the last arg (after 'jobid')
         else:
-            print "\nPlease specify one method to scan the data in the config file.\n"
+            print("\nPlease specify one method to scan the data in the config file.\n")
 
 if __name__ == "__main__":   
     SigLib().run()

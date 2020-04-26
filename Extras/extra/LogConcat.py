@@ -77,7 +77,8 @@ if ans == 'y':
             
     fileA.write("Total Images Processed: " + str(num_images))
     fileA.close()
-    print "Concatenation complete" + "\n" + "Check error directory, logs containing errors have been moved!"
+    print("Concatenation complete\n \
+            Check error directory, logs containing errors have been moved!")
     
 else:
-    print "Process cancelled"          
+    print("Process cancelled")        

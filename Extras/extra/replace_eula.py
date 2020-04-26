@@ -82,7 +82,7 @@ def checkEULA(zipname, criteria):
     return list(set(eula_pdf))
 
 def syntax():
-    print '''SYNTAX: replace_eula.py directory/zipfile eula_name -r  
+    print('''SYNTAX: replace_eula.py directory/zipfile eula_name -r  
         
         Please supply a [directory -OR- zipfile] AND a [EULA file name]...
         
@@ -100,7 +100,7 @@ def syntax():
             Example:
             python replace_eula.py ./SAR_staging SingleUserEULA.pdf
 
-    '''
+    ''')
     sys.exit(1)
 
 #OK HERE IS THE SCRIPT
@@ -129,12 +129,12 @@ renamezip = ("-r" in optdict)
 
        
 if datadir is not None:
-    print '''This script may overwrite all zipfiles in the specified directory
+    print('''This script may overwrite all zipfiles in the specified directory
         Do not do this with your only copy of the data....
-        Type 'Y' to continue or any other key to exit'''
+        Type 'Y' to continue or any other key to exit''')
     ans = sys.stdin.readline()
     if ans.strip().lower() != 'y':
-        print 'Exiting the program'
+        print('Exiting the program')
         sys.exit(0)
 
     datadir = os.path.abspath(datadir)
@@ -150,7 +150,7 @@ if zipdata is not None:
 
 ####### Setup a for loop to go to a directory and unzip files
 for zipname in ziplist:
-    print 'Opening file: ' + zipname
+    print('Opening file: ', zipname)
     #   is there an offending EULA?
     eula_match = checkEULA(zipname, ['EULA_Gov', 'Multi-User'])
 
@@ -177,9 +177,8 @@ for zipname in ziplist:
         make_zipfile('temp_'+finalname, ziproot)
         #pdb.set_trace()
         os.remove(zipname) #delete the original zip file
-        print 'Removed original file ' + zipname
+        print('Removed original file ', zipname)
         os.rename('temp_'+finalname,finalname)
         deltree(ziproot)
 
-print
-print '....Finished job!'
+print('\n....Finished job!')

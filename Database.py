@@ -81,7 +81,7 @@ class Database:
             self.logger.info("Connecting to " + dbname + " with user " + getpass.getuser())
             connectionSetUp = "dbname=" + dbname + " port=" + port + " host=" + host
         else:
-            self.logger.info("Connecting to ", dbname, " with user ", user)
+            self.logger.info("Connecting to " + dbname + " with user " + user)
             connectionSetUp = "dbname=" + dbname + " user=" + user  + " password="+ password +" port=" + port + " host=" + host   
             
         self.connection = psycopg2.connect(connectionSetUp)
@@ -466,15 +466,15 @@ class Database:
                 rows = curs.fetchall()
                 colnames = [desc[0] for desc in curs.description]
                 
-        except ValueError, e:
+        except ValueError as e:
             self.logger.error('ERROR(value): Confirm that the values sent or retrieved are as expected--> ' +str(e))
             self.connection.rollback() #from Metadata import Metadatalback()
             
-        except psycopg2.ProgrammingError, e:
+        except psycopg2.ProgrammingError as e:
             self.logger.error('ERROR(programming): Confirm the SQL statement is valid--> ' +str(e))
             self.connection.rollback()
             
-        except StandardError, e:
+        except StandardError as e:
             self.logger.error('ERROR(standard): ' +str(e))   
             self.connection.rollback()
             
@@ -715,6 +715,8 @@ class Database:
         
         param = {"srid" : srid, "granule" : granule, "inst" : inst}  
     
+        #TODO: Investigate error:
+        #"could not form projection from 'srid=96718' to 'srid=4326"
         sql1 = "SELECT ST_AsText(ST_Envelope(ST_Intersection((SELECT ST_Transform(" + self.table_to_query + ".geom, %(srid)s) FROM " + self.table_to_query + " WHERE granule = %(granule)s), (SELECT ST_Transform("
         sql2 = ".geom, %(srid)s) FROM "
         sql3 = " WHERE ogc_fid = %(inst)s))))"
@@ -729,7 +731,7 @@ class Database:
         #parse the text to get the pair of tupples
         bbtext = bbtext[0][0]  #slice the piece you need
         
-        if bbtext == 'GEOMETRYCOLLECTION EMPTY' or bbtext == None:
+        if bbtext == 'GEOMETRYCOLLECTION EMPTY' or bbtext == 'POLYGON EMPTY' or bbtext == None:
             ullr = 0
          
         else:#clockwise
@@ -867,7 +869,7 @@ class Database:
         
         try:
             curs.execute(sqlIns, upload)
-        except Exception, e:
+        except Exception as e:
             self.logger.error(e)
             return
         self.connection.commit()
@@ -1032,15 +1034,14 @@ class Database:
 
         try:
             curs.execute(sql,param)
-        except psycopg2.ProgrammingError, e:
+        except psycopg2.ProgrammingError as e:
             self.logger.error('ERROR(programming): Confirm the SQL statement is valid--> ' +str(e))
-            print str(e)
             return
             
         self.connection.commit()
         
         rows = curs.fetchall()
-        print len(rows)
+
         return rows
         
     def polarimetricDonuts(self, granule, beaconid):
@@ -1074,7 +1075,7 @@ class Database:
         try:
             curs.execute(sql2, param)
         except Exception as e:
-            print e
+            print(e)
         result = str(curs.fetchone()[0])
         if result == 'GEOMETRYCOLLECTION EMPTY':
             return []
