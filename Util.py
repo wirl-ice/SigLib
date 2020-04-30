@@ -485,11 +485,14 @@ def wkt2shp(shpname, vectdir, proj, projdir, wkt):
         return -1
 
     spatialReference = osr.SpatialReference()
+    
     fname = os.path.join(projdir, proj+'.wkt')
     fwkt = open(fname, 'r')
     projwkt = fwkt.read()
+    
     spatialReference.ImportFromWkt(projwkt)
-
+    
+    #spatialReference.SetWellKnownGeogCS('WGS84')
     driver = ogr.GetDriverByName('ESRI Shapefile')
 
     extlist = ['.shp', '.dbf','.prj','.shx']
@@ -504,7 +507,7 @@ def wkt2shp(shpname, vectdir, proj, projdir, wkt):
     fout = shpname+'.shp'
 
     datasource = driver.CreateDataSource(os.path.join(vectdir, fout))
-    layer = datasource.CreateLayer(shpname, geom_type=ogr.wkbPolygon, srs=spatialReference)
+    layer = datasource.CreateLayer('layer', spatialReference, geom_type=ogr.wkbPolygon)
     feature = ogr.Feature(layer.GetLayerDefn())
     poly  = ogr.CreateGeometryFromWkt(wkt)
     # Set geometry

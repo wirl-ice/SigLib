@@ -139,34 +139,7 @@ class Image(object):
             self.snapCalibration(saveInComplex=True)
         else:                          
             self.openDataset(self.fname, self.path)
-            '''
-            #write out a tif of this imgType
-            try:
-                if self.imgType == 'amp' and 'Q' in self.meta.beam:  # this would be a quad pol scene...
-                    #self.decomp(format ='GTiff') # recommend using GTiff for this first one
-                    self.decomposition_generation('Pauli Decomposition', amp = True)
-                        
-                elif self.imgType == 'sigma':
-                    self.snapCalibration()
-                    
-                elif self.imgType == 'beta':
-                    self.snapCalibration(outDataType='beta')
-                    
-                elif self.imgType == 'gamma':
-                    self.snapCalibration(outDataType='gamma')
-                
-                elif self.imgType == 'amp' and self.meta.productType == 'SLC':
-                    self.makeAmp()
-                    
-                elif self.imgType == 'amp':
-                    pass
-                
-                else:
-                    self.logger.error("No legal image processing mode chosen, returning unprocessed!")
-                    self.status = 'error'
-            except:
-                self.status='error'
-            '''
+            
             if self.imgType == 'amp' and 'Q' in self.meta.beam:  # this would be a quad pol scene...
                 self.decomp(format='GTiff')
             else:
@@ -233,16 +206,15 @@ class Image(object):
         elif format.lower() == 'vrt':
             self.logger.error('Cannot write a vrt as an original image')
             return
-        
+            
         elif format.lower() == 'imgformat':
             ext = self.imgExt
-            driver = gdal.GetDriverByName(self.imgFormat)
+            driver = gdal.GetDriverByName(str(self.imgFormat))
             if self.imgFormat.lower() == 'gtiff':
                 options = ['COMPRESS=LZW']
                 if self.n_bands > 3:
-                    options = ['PHOTOMETRIC=MINISBLACK'] #probs here if you LZW compress
-            else:
-                options = ['']
+                    options = ['PHOTOMETRIC=MINISBLACK']
+        
         else:
             self.logger.error('That image type is not supported')
             return "error"
@@ -331,7 +303,7 @@ class Image(object):
         # finish the geotiff file
         
         if self.proj == 'nil':
-            if self.elevationCorrection:
+            if self.elevationCorrection == "1":
                 self.logger.info("Using terrain corrected GCPs with user input elevation = {} m".format(self.elevationCorrection))
                 gcp_list = self.correct_known_elevation()
                 outds.SetGCPs(gcp_list, self.meta.geoptsGCS)
@@ -349,7 +321,6 @@ class Image(object):
             self.tifname = outname+ext          ###
         
         outds = None         # release the dataset so it can be closed
-
 
 
     def reduceImg(self, xfactor, yfactor):
@@ -1164,6 +1135,19 @@ class Image(object):
         temp[0] = self.FileNames[0]
         temp[1] = self.FileNames[1]
         self.FileNames = temp  
+        
+    def compress(self):
+        '''
+        Use GDAL to LZW compress an image
+        '''
+        
+        inname = os.path.splitext(self.FileNames[-1])[0]
+        
+        command = "gdal_translate -of GTiff -co COMPRESS=LZW -a_nodata 0 " + inname + '.tif ' + inname + '_tmp.tif'
+        os.system(command)
+        
+        os.remove(inname+'.tif')
+        os.rename(inname+'_tmp.tif', inname+'.tif')
 
     def snapCalibration(self, outDataType='sigma', saveInComplex=False):
         '''
@@ -1501,43 +1485,7 @@ class Image(object):
         self.logger.debug('Terrain-Correction successful!') 
         
         self.FileNames.append(outname+ext)          
-        
-    def snapDataTypeConv(self, outFormat='GeoTiff-BigTiff'):
-        '''
-        Convert image data to byte format using gdal
-        
-        **Parameters**
-            
-            *outFormat* : Format of product this function returns, default is GeoTiff-BigTiff
-        '''
-        
-        outname = self.fnameGenerate(DC=True)[2] 
-        output = os.path.join(self.imgDir, outname)  #output, post gdal formatting
-        inname = self.FileNames[-1]
-        
-        parameters = self.HashMap()
-        product = ProductIO.readProduct(inname)
-        
-        parameters.put('targetDataType', "float32")
-        
-        target = GPF.createProduct("Convert-Datatype", parameters, product)            
-        ProductIO.writeProduct(target, output, outFormat)      
-        
-        self.FileNames.append(outname+'.dim')
-        self.logger.debug("Img converted to byte successfully")
     
-    def compress(self):
-        '''
-        Use gdal to LZW compress an image
-        '''
-        
-        inname = os.path.splitext(self.FileNames[-1])[0]        
-              
-        command = "gdal_translate -of GTiff -co COMPRESS=LZW -a_nodata 0 " + inname + '.tif ' + inname + '_tmp.tif' 
-        os.system(command)
-        
-        os.remove(inname+'.tif')
-        os.rename(inname+'_tmp.tif', inname+'.tif')
         
     def makeAmp(self, newFile=True, save=True):
         '''
@@ -1584,16 +1532,13 @@ class Image(object):
             self.FileNames.append(output+'.dim')
     
             
-    def slantRangeMask(self, mask, inname, name):
+    def slantRangeMask(self, mask, inname, workingDir, uploads):
         '''
         This function takes a wkt with lat long coordinates, and traslates it into a wkt in line-pixel coordinates
         
         **Parameters**
             
-            *mask*  :  wkt file of a polygonal mask in wgs84 coordinates
-            
-        self.FileNames.append(output)
-            
+            *mask*  :  wkt file of a polygonal mask in wgs84 coordinates            
 
             *inname*  :  snap product to cross-reference mask corrdinated to convert them to slant-range
             
@@ -1602,40 +1547,25 @@ class Image(object):
             *newMask*  : wkt file of a polygonal mask in slant-range line-pixel coordinates
         '''
         
-        input = inname+'.dim'
+        input = os.path.join(workingDir,inname+'.dim')
+        output = os.path.join(workingDir, inname)
         
         rsat = ProductIO.readProduct(input)
-        info = rsat.getSceneGeoCoding()        
         
-        geoPosOP = snappy.jpy.get_type('org.esa.snap.core.datamodel.PixelPos')
+        parameters = self.HashMap()        
+        parameters.put('vectorFile', os.path.join(workingDir, mask+'.shp'))
 
-        splitMask = re.split('([(), ])', mask)
+        t = GPF.createProduct('Import-Vector', parameters, rsat)
+        ProductIO.writeProduct(t, output, 'BEAM-DIMAP') 
         
-        i=0
-        while i < len(splitMask):
-            if any(char.isdigit() for char in splitMask[i]):
-                pixel_pos = info.getPixelPos(GeoPos(float(splitMask[i+2]), float(splitMask[i])), geoPosOP())
-                splitMask[i] = str(pixel_pos.x)
-                splitMask[i+2] = str(-pixel_pos.y)
-                i+=2
-            i+=1
-                
-        newMask = ''
-        for item in splitMask:
-            newMask = newMask + item
-         
-        os.chdir(inname+'.data')
+        masking = ProductIO.readProduct(input)
+        parameters = self.HashMap()
+        parameters.put('geometry', mask+'_1')
         
-        f = open('mask.csv', 'wt')
-        f.write('WKT,dummy\n')
-        f.write("\"" + newMask + "\",\n")
-        f.close()
-                
-        cmd = '''gdalwarp -overwrite -to SRC_METHOD=NO_GEOTRANSFORM -to DST_METHOD=NO_GEOTRANSFORM -cutline mask.csv ''' + name +'''.img ''' + name +'''_masked.img'''
-        ok = os.system(cmd)
+        o = GPF.createProduct('Land-Sea-Mask', parameters, masking)
+        ProductIO.writeProduct(o, os.path.join(uploads, inname), 'BEAM-DIMAP')
         
-        return newMask
-
+      
     def correct_known_elevation(self):
         '''
         Transforms image GCPs based on a known elevation for an image (rather than the default average)

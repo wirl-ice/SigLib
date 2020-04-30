@@ -31,7 +31,7 @@ import shutil
 import time
 from time import localtime, strftime
 from glob import glob
-from builtins import input
+#from builtins import input
 
 from Database import Database
 from Metadata import Metadata
@@ -46,41 +46,41 @@ class SigLib:
         config = RawConfigParser() # Needs to be tested for python2 compatibility 
         config.read(self.cfg)
         self.cfg = os.path.basename(self.cfg)[:-4]
-        self.tmpDir = os.path.abspath(os.path.expanduser(config.get("Directories","tmpDir")))
-        self.imgDir = os.path.abspath(os.path.expanduser(config.get("Directories", "imgDir")))
-        self.projDir = os.path.abspath(os.path.expanduser(config.get("Directories", "projDir")))
-        self.scanDir = os.path.abspath(os.path.expanduser(config.get("Directories", "scanDir")))
-        self.vectDir = os.path.abspath(os.path.expanduser(config.get("Directories","vectDir")))
-        self.logDir = os.path.abspath(os.path.expanduser(config.get("Directories","logDir")))
+        self.tmpDir = str(os.path.abspath(os.path.expanduser(config.get("Directories","tmpDir"))))
+        self.imgDir = str(os.path.abspath(os.path.expanduser(config.get("Directories", "imgDir"))))
+        self.projDir = str(os.path.abspath(os.path.expanduser(config.get("Directories", "projDir"))))
+        self.scanDir = str(os.path.abspath(os.path.expanduser(config.get("Directories", "scanDir"))))
+        self.vectDir = str(os.path.abspath(os.path.expanduser(config.get("Directories","vectDir"))))
+        self.logDir = str(os.path.abspath(os.path.expanduser(config.get("Directories","logDir"))))
         
-        self.dbName = config.get("Database", "db")
-        self.dbHost = config.get("Database", "host")
-        self.create_tblmetadata = config.get("Database", "create_tblmetadata") 
-        self.uploadROI = config.get("Database", "uploadROI")
-        self.table_to_query = config.get("Database", "table")
+        self.dbName = str(config.get("Database", "db"))
+        self.dbHost = str(config.get("Database", "host"))
+        self.create_tblmetadata = str(config.get("Database", "create_tblmetadata")) 
+        self.uploadROI = str(config.get("Database", "uploadROI"))
+        self.table_to_query = str(config.get("Database", "table"))
         
-        self.scanQuery = config.get("Input", "query")
-        self.scanPath = config.get("Input", "path")
-        self.scanFile = config.get("Input", "file")
-        self.scanFor = config.get("Input", "scanFor")
-        self.uploadData = config.get("Input", "uploadData")
+        self.scanQuery = str(config.get("Input", "query"))
+        self.scanPath = str(config.get("Input", "path"))
+        self.scanFile = str(config.get("Input", "file"))
+        self.scanFor = str(config.get("Input", "scanFor"))
+        self.uploadData = str(config.get("Input", "uploadData"))
 
-        self.processData2db = config.get("Process", "data2db")
-        self.processData2img = config.get("Process", "data2img")
-        self.scientificProcess = config.get("Process", "scientific")
-        self.polarimetricProcess = config.get("Process", "polarimetric")
+        self.processData2db = str(config.get("Process", "data2db"))
+        self.processData2img = str(config.get("Process", "data2img"))
+        self.scientificProcess = str(config.get("Process", "scientific"))
+        self.polarimetricProcess = str(config.get("Process", "polarimetric"))
         
-        self.proj = config.get('MISC',"proj")
-        self.projSRID = config.get('MISC', "projSRID")
-        self.crop = config.get('MISC',"crop")
-        self.mask = config.get('MISC',"mask")
-        self.roi = config.get('MISC',"roi")
-        self.roiProjSRID = config.get('MISC',"roiProjSRID")
-        self.spatialrel = config.get('MISC',"spatialrel")
-        self.imgType = config.get('MISC',"imgTypes")
-        self.imgFormat = config.get('MISC',"imgFormat")
+        self.proj = str(config.get('MISC',"proj"))
+        self.projSRID = str(config.get('MISC', "projSRID"))
+        self.crop = str(config.get('MISC',"crop"))
+        self.mask = str(config.get('MISC',"mask"))
+        self.roi = str(config.get('MISC',"roi"))
+        self.roiProjSRID = str(config.get('MISC',"roiProjSRID"))
+        self.spatialrel = str(config.get('MISC',"spatialrel"))
+        self.imgType = str(config.get('MISC',"imgTypes"))
+        self.imgFormat = str(config.get('MISC',"imgFormat"))
 
-        self.elevation_correction = config.get('MISC', "elevationCorrection")
+        self.elevation_correction = str(config.get('MISC', "elevationCorrection"))
 
         self.issueString = ""
         self.count_img = 0            # Number of images processed
@@ -375,22 +375,6 @@ class SigLib:
             self.bad_img += 1
             
         else:
-            """
-            self.logger.debug('Image read ok')
-            if self.imgType == 'amp' and 'Q' not in sar_meta.beam and sar_meta.productType == 'SLC':    #single or dual band SLC
-                sar_img.snapTC(self.proj, self.projDir)
-                sar_img.snapDataTypeConv()
-            elif self.imgType == 'amp' and 'Q' not in sar_meta.beam:           #non SLC product
-                sar_img.snapTC(self.proj, self.projDir, existingInput=False)
-                sar_img.snapDataTypeConv()
-            elif self.imgType == 'amp' and 'Q' in sar_meta.beam:   #quad-pol SLC product
-                sar_img.snapTC(self.proj, self.projDir)
-                sar_img.snapDataTypeConv()
-            else:             #any product, not amplitude
-                sar_img.snapTC(self.proj, self.projDir, smooth = False, outFormat = 'GeoTiff-BigTiff')    
-            
-            os.chdir(self.imgDir)
-            """
             try:    
                 if self.imgType == 'amp':
                     ok = sar_img.projectImg(self.proj, self.projDir, resample='bilinear')
@@ -415,7 +399,9 @@ class SigLib:
                 self.issueString += "\n\nWARNING (vrt2real): " + zipfile
                 self.bad_img += 1
                 
-            #if self.imgType == 'amp':                                              
+            if self.mask != '':     #If providing a mask, mask
+                sar_img.maskImg(self.mask, self.vectDir, 'outside') 
+                                                             
             stats = sar_img.getImgStats()
             sar_img.applyStretch(stats, procedure='std', sd=3, sep=True)
             self.logger.debug('Image stretch ok')
@@ -430,7 +416,7 @@ class SigLib:
             sar_meta.removeHandler()
     
                  
-    def scientific(self, db, fname, imgname, zipname, sattype, granule, zipfile, sar_meta, unzipdir):            #Needs final testing!!!!!!!
+    def scientific(self, db, fname, imgname, zipname, sattype, granule, zipfile, sar_meta, unzipdir):          
         """
         Process images 'Scientifically', based on an ROI in the database, and per zipfile:
             -Qry to find what polygons in the ROI overlap this image
@@ -472,14 +458,13 @@ class SigLib:
         
         instances = db.qryGetInstances(granule, self.roi, self.table_to_query)   
         if instances == -1:
-            self.logger.error('{} has no associated polygons, exiting'.format(fname))
+            self.logger.error('No instances!')
             return
             
         sar_img.tmpFiles = sar_img.FileNames
         for i, inst in enumerate(instances):
             sar_img.FileNames = sar_img.tmpFiles   #reset list of filenames within Image.py each loop
                       
-            sar_img.cleanFileNames()
             #Crop!
             self.logger.debug('Processing '+ str(inst) + ' : ' + str(i+1) + ' of ' + str(len(instances)) + ' subsets')
               
@@ -506,12 +491,10 @@ class SigLib:
             
                    ### MASK
             if self.mask != '':     #If providing a mask, use that one
-                #os.chdir(self.imgDir)
-                sar_img.maskImg(self.mask, self.vectDir, 'outside') #mask the coastline
+                sar_img.maskImg(self.mask, self.vectDir, 'outside') 
                 sep = 'tog'
                 
             else:            #If no mask provided, make one based on ROI and inst
-                #os.chdir(self.imgDir)
                 maskwkt = db.qryMaskZone(granule, self.roi, self.roiProjSRID, inst, self.table_to_query)
                 Util.wkt2shp('instmask'+str(inst), self.tmpDir, self.proj, self.projDir, maskwkt)
                 sar_img.maskImg('instmask'+str(inst), self.tmpDir, 'outside')
@@ -627,8 +610,8 @@ class SigLib:
                 os.remove(matrixFN+'.dim')               
             
             self.logger.debug("All matrices generated!")
-                      
-            decompositions = ['Sinclair Decomposition', 'Pauli Decomposition', 'Freeman-Durden Decomposition', 'Yamaguchi Decomposition', 'van Zyl Decomposition', 'H-A-Alpha Quad Pol Decomposition', 'Cloude Decomposition']
+                    
+            decompositions = []#['Sinclair Decomposition', 'Pauli Decomposition', 'Freeman-Durden Decomposition', 'Yamaguchi Decomposition', 'van Zyl Decomposition', 'H-A-Alpha Quad Pol Decomposition', 'Cloude Decomposition']
                         
             for decomposition in decompositions:
                 try:
@@ -652,41 +635,34 @@ class SigLib:
                         
             self.logger.debug('All matrix-decomposition combinations generated!')
           
-        #for filename in filenames:
-            for dirpath, dirnames, filenames in os.walk(finalsDir):
-                for filename in filenames:
-                    if os.path.splitext(filename)[1] == '.img':                 
-                        os.chdir(dirpath)
-                        name = os.path.splitext(filename)[0]
-                        
-                        masks = db.polarimetricDonuts(granule, beaconid)
-                        counter = 0
-                        type = ''
-                        for mask in masks:
-                            if counter == 0: 
-                                type = 'ii'
-                            else: 
-                                type = 'donut'
-                                
-                            shutil.copy(name+'.img', name+type+'.img')  #make local copies for this maskign operation 
-                            shutil.copy(name+'.hdr', name+type+'.hdr')
-                            
-                            name = name+type
-                              
-                            convMask = sar_img.slantRangeMask(mask, os.path.splitext(dirpath)[0], name)     #add back masking
-                            
-                        
-                            shpname = 'instmask_'+zipname+'_'+str(beaconid)+ '_' + type
-                            Util.wkt2shp(shpname, finalsDir, self.proj, self.projDir, convMask)
-                            
-                            sar_img.maskImg(shpname, finalsDir, side = 'outside', inname = name+'.img')                            
-                            
+            uploads = os.path.join(finalsDir, 'uploads')
+            os.makedirs(uploads)
+            masks = db.polarimetricDonuts(granule, beaconid)
+            count = 0
+            for mask in masks:       
+                if count == 0:
+                    type = 'ii'
+                else:
+                    type = 'donut'
+                
+                shpname = 'instmask_'+zipname+'_'+str(beaconid)+ '_' + type
+                Util.wkt2shp(shpname, finalsDir, self.proj, self.projDir, mask)
+                
+                for dirpath, dirnames, filenames in os.walk(finalsDir):
+                    for filename in filenames:
+                        if os.path.splitext(filename)[1] == '.dim':                 
+                            name = os.path.splitext(filename)[0]                                
+                            sar_img.slantRangeMask(shpname, name, finalsDir, uploads)    
+                           
+                for dirpath, dirnames, filenames in os.walk(uploads):
+                    for filename in filenames:
+                        if os.path.splitext(filename)[1] == '.img': 
+                            os.chdir(dirpath)
+                            name = os.path.splitext(filename)[0]
                             imgData = sar_img.getBandData(1, name+'.img')                    
-                            db.imgData2db(imgData, name, str(beaconid), sar_img.meta.dimgname, granule)  
-                            counter+=1
-                            
-                            os.remove(name+'.img')  #remove our tmp masking files
-                            os.remove(name+'.hdr')
+                            db.imgData2db(imgData, name+'_'+type, str(beaconid), sar_img.meta.dimgname, granule)  
+                count+=1
+                        
          
     def run(self):      
         if self.create_tblmetadata == "1":
