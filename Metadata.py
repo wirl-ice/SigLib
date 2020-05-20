@@ -902,6 +902,7 @@ class Metadata(object):
         self.copyright = xmldoc.getElementsByTagName('product')[0].attributes["copyright"].value
 
         #values for terrain correction with known height
+        self.acquisitionType = xmldoc.getElementsByTagName('acquisitionType')[0].firstChild.data
         self.h_proc = float(xmldoc.getElementsByTagName('geodeticTerrainHeight')[0].firstChild.data)
         self.near_range = float(xmldoc.getElementsByTagName('slantRangeNearEdge')[0].firstChild.data)
         #self.t_first = xmldoc.getElementsByTagName('zeroDopplerTimeFirstLine')[0].firstChild.data

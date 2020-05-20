@@ -593,26 +593,44 @@ def interpolate_bilinear_matrix(Q, x, y):
     
     return numpy.asarray(interp)
 
-def interpolate_bilinear(P_corr, Pixels, Lines, x_matrix, y_matrix, z_matrix):
+def interpolate_biquadratic(P_corr, Pixels, Lines, x_matrix, y_matrix, z_matrix):
     x, y, z = numpy.empty(P_corr.shape), numpy.empty(P_corr.shape), numpy.empty(P_corr.shape)
-    for l in range(len(P_corr)):
-        for p in range(len(P_corr[l])):
-            u = Pixels[l][int(P_corr[l][p])]
-            v = Lines[l][p]
-            L = Lines[l][p]
-            if (p+1) < len(P_corr[l]) and (l+1) < len(P_corr):
-                x_square = x_matrix[l:l+2,p:p+2]
-                y_square = y_matrix[l:l+2,p:p+2]
-                z_square = z_matrix[l:l+2,p:p+2]
-                x[l][p] = (u+1-P_corr[l][p])*(v+1-L)*x_square[0][0] + (P_corr[l][p]-u)*(v+1-L)*x_square[0][1] + (u+1-P_corr[l][p])*(L-v)*x_square[1][0] + (P_corr[l][p]-u)*(L-v)*x_square[0][0]
-                y[l][p] = (u+1-P_corr[l][p])*(v+1-L)*y_square[0][0] + (P_corr[l][p]-u)*(v+1-L)*y_square[0][1] + (u+1-P_corr[l][p])*(L-v)*y_square[1][0] + (P_corr[l][p]-u)*(L-v)*y_square[0][0]
-                z[l][p] = (u+1-P_corr[l][p])*(v+1-L)*z_square[0][0] + (P_corr[l][p]-u)*(v+1-L)*z_square[0][1] + (u+1-P_corr[l][p])*(L-v)*z_square[1][0] + (P_corr[l][p]-u)*(L-v)*z_square[0][0]
+    N,M = P_corr.shape
+    for l in range(N):
+        if l < 0.5:
+            v = 1
+        elif l >= N-1.5:
+            v = N - 2
+        else:
+            v = l
+        for p in range(M):
+            if p < 0.5:
+                u = 1
+            elif p >= M-1.5:
+                u = M-2
             else:
-                x[l][p] = 0
-                y[l][p] = 0
-                z[l][p] = 0
+                u = p
 
-    return x,y,z
+            P = numpy.matrix([[P_corr[l][p]**2], [P_corr[l][p]], [1]])
+            L = numpy.matrix([[Lines[l][p]**2], [Lines[l][p]], [1]])
+            U = numpy.matrix([[(u-1)**2, u-1, 1],[u**2, u , 1],[(u+1)**2, u+1 , 1]])
+            V = numpy.matrix([[(v-1)**2, v-1, 1],[v**2, v , 1],[(v+1)**2, v+1 , 1]])
+            X = numpy.matrix([
+                    [x_matrix[v-1][u-1], x_matrix[v-1][u], x_matrix[v-1][u+1]],
+                    [x_matrix[v][u-1], x_matrix[v][u], x_matrix[v][u+1]],
+                    [x_matrix[v+1][u-1], x_matrix[v+1][u], x_matrix[v+1][u+1]]])
+            Y = numpy.matrix([
+                    [y_matrix[v-1][u-1], y_matrix[v-1][u], y_matrix[v-1][u+1]],
+                    [y_matrix[v][u-1], y_matrix[v][u], y_matrix[v][u+1]],
+                    [y_matrix[v+1][u-1], y_matrix[v+1][u], y_matrix[v+1][u+1]]])
+            Z = numpy.matrix([
+                    [z_matrix[v-1][u-1], z_matrix[v-1][u], z_matrix[v-1][u+1]],
+                    [z_matrix[v][u-1], z_matrix[v][u], z_matrix[v][u+1]],
+                    [z_matrix[v+1][u-1], z_matrix[v+1][u], z_matrix[v+1][u+1]]])
+            x[l][p] = numpy.transpose(L) * numpy.linalg.inv(V) * X * numpy.transpose(numpy.linalg.inv(U)) * P
+            y[l][p] = numpy.transpose(L) * numpy.linalg.inv(V) * Y * numpy.transpose(numpy.linalg.inv(U)) * P
+            z[l][p] = numpy.transpose(L) * numpy.linalg.inv(V) * Z * numpy.transpose(numpy.linalg.inv(U)) * P
+    return x, y, z
 
 def geographic_to_cartesian(lat, lng, a, b):
     """
