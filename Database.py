@@ -31,7 +31,6 @@ import numpy
 import scipy.stats as stats
 import glob
 import getpass
-import pandas as pd
 import logging
 
 class Database:
