@@ -101,7 +101,6 @@ class Image(object):
         self.imgType = imgType
         self.imgFormat = imgFormat
         self.FileNames = [os.path.splitext(zipname)[0]] # list of all generated files
-        self.tmpFiles = []
         self.proj = 'nil' # initialize to nil (then change as appropriate)
         self.elevationCorrection = eCorr
         
@@ -435,14 +434,14 @@ class Image(object):
             *outname*  : New filename
         """
 
-        if self.imgType == "amp":
+        if self.imgType == "amp":      #Both snap and gdal compatible
             bands = self.n_bands
             if self.bitsPerSample == 8:
                 dataType = GDT_Byte
             else:
                 dataType = GDT_UInt16
             self.bandNames = None
-        if self.imgType == "sigma":   #Both snap and old Siglib Compatible
+        if self.imgType == "sigma":   #Both snap and gdal Compatible
             bands = self.n_bands
             dataType = GDT_Float32
             self.bandNames = None
@@ -454,19 +453,22 @@ class Image(object):
             bands = self.n_bands           
             self.bandNames = None
             dataType = GDT_Float32
-        if self.imgType == "noise":    #Old SigLib datatype
+        if self.imgType == "noise":    #gdal-only datatype
             bands = 1
             dataType = GDT_Float32
             self.bandNames['noise']
-        if self.imgType == "theta":    #Old SigLib datatype
+        if self.imgType == "theta":    #gdal-only datatype
             bands = 1
             self.bandNames = ['theta']
             dataType = GDT_Float32
-        if self.imgType == "phase":    #Old SigLib datatype
+        if self.imgType == "phase":    #gdal-only datatype
             bands = self.n_bands
             dataType = GDT_Float32
             self.bandNames = None
 
+        if self.sattype == 'SEN-1':
+                self.bandNames = self.polarization
+                
         if self.bandNames == None:
             self.bandNames = []
             names = self.polarization.split()
@@ -1196,7 +1198,7 @@ class Image(object):
 
     def snapSubset(self, idNum, lat, longt, dir, ullr=None):
         '''
-        Using lat long provided, create bounding box 200x200 pixels around it, and subset this
+        Using lat long provided, create bounding box 1200x1200 pixels around it, and subset this
         (This requires id, lat, and longt)
         OR
         Using ul and lr coordinates of bounding box, subset
@@ -1256,18 +1258,14 @@ class Image(object):
             height = y_LR - topL_y
         
         parameters = self.HashMap()  
-        try:
-            parameters.put('region', "%s,%s,%s,%s" % (topL_x, topL_y, width, height))       
-            target = GPF.createProduct('Subset', parameters, rsat) 
-            if ullr == None:
-                ProductIO.writeProduct(target, output, 'BEAM-DIMAP')
-        except:
-            self.logger.error('Subset region invalid!')
-            return -1
+
+        parameters.put('region', "%s,%s,%s,%s" % (topL_x, topL_y, width, height))       
+        target = GPF.createProduct('Subset', parameters, rsat) 
+        ProductIO.writeProduct(target, output, 'BEAM-DIMAP')
         
         self.logger.debug("Subset complete on " + self.zipname + " for id " + str(idNum))
         self.FileNames.append(output+'.dim')
-        return output
+        
                
     def matrix_generation(self, matrix):
         '''
@@ -1291,15 +1289,22 @@ class Image(object):
         parameters.put('matrix', matrix)
         
         target = GPF.createProduct('Polarimetric-Matrices', parameters, rsat)
-        ProductIO.writeProduct(target, output, 'BEAM-DIMAP')
+        parameters2 = self.HashMap()
+        
+        parameters2.put('filter', 'Refined Lee Filter')
+        parameters2.put('windowSize', '5x5')
+        parameters2.put('numLooksStr', '3')
+        
+        target2 = GPF.createProduct('Polarimetric-Speckle-Filter', parameters, target)
+        
+        ProductIO.writeProduct(target2, output, 'BEAM-DIMAP')
         
         self.logger.debug(matrix + ' generated sucessfully') 
         
         self.FileNames.append(output+'.dim')        
-        return output
+
         
-        
-    def polarFilter(self, save = True):
+    def polarFilter(self):
         '''
         Apply a speckle filter on a fully polarimetric product
         
@@ -1328,11 +1333,8 @@ class Image(object):
         
         self.logger.debug('Filtering successful')
         
-        if save:
-            self.FileNames.append(output +'.dim')
-        else:
-            self.FileNames.remove(self.FileNames[-1])
-                 
+        self.FileNames.append(output +'.dim')
+                
         
     def decomposition_generation(self, decomposition, outputType=0, amp = False):
         '''
@@ -1341,8 +1343,7 @@ class Image(object):
         
         **Parameters**
         
-            *decomposition* : decomposition to be generated. options include: Sinclair Decomposition, Pauli Decomposition, Freeman-Durden Decomposition, Yamagushi Decomposition, van Zyl Decomposition, H-A-Alpha Quad Pol Decomposition, Cloude Decomposition, or Touzi Decomposition
-        pixel_posUL = info.getPixelPos(GeoPos(ullr[0][1], ullr[0][0]), geoPosOP())   
+            *decomposition* : decomposition to be generated. options include: Sinclair Decomposition, Pauli Decomposition, Freeman-Durden Decomposition, Yamagushi Decomposition, van Zyl Decomposition, H-A-Alpha Quad Pol Decomposition, Cloude Decomposition, or Touzi Decompositio
             
             *outputType* : option to select which set of output parameters that will be used for the Touzi or HAAlpha (1-8, leave 0 for none)
             

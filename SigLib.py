@@ -128,7 +128,8 @@ class SigLib:
             
             *zipfile* 
         """
-        
+	print (zipfile)        
+
         self.logger = self.createLog(zipfile)
         self.logger = logging.getLogger(__name__)
         self.count_img += 1      
@@ -309,6 +310,7 @@ class SigLib:
                     return Exception
                 db = Database(self.table_to_query, self.dbName, loghandler=self.loghandler, host=self.dbHost)
                 self.polarimetric(db, fname, imgname, zipname, sattype, granule, zipfile, sar_meta, unzipdir)
+                db.removeHandler()
             
     def data2db(self, meta, db, zipfile):
         """
@@ -389,7 +391,13 @@ class SigLib:
                 self.logger.error('ERROR: Issue with projection... will stop projecting this img')
                 self.issueString += "\n\nWARNING (image projection): " + zipfile
                        
-            self.logger.debug('Image projected ok')             
+            self.logger.debug('Image projected ok')   
+            
+            if self.crop:
+                self.logger.debug("Image Crop")
+                sar_img.cropImg([tuple(map(float, self.crop.split(" "))[:2]), \
+                                 tuple(map(float, self.crop.split(" "))[2:])], 'crop')
+                self.logger.debug("Cropping complete")
                 
             try: 
                 sar_img.vrt2RealImg()
@@ -543,7 +551,7 @@ class SigLib:
         """
         
         os.chdir(self.imgDir)
-        newTmp = os.path.join(self.tmpDir,zipname)
+        newTmp = os.path.join(self.tmpDir, granule)
         
         beaconTable = 'beacon_tracks'              
         beacons = db.beaconIntersections(beaconTable, granule)  #Get beacon instances that overlap this image
@@ -558,10 +566,16 @@ class SigLib:
         sar_img = Image(fname, unzipdir, sar_meta, self.imgType, self.imgFormat, zipname, self.imgDir, newTmp, self.loghandler, pol=True)
         
         seenBeacons = []
-        #filenames = []
-        sar_img.tmpFiles = sar_img.FileNames
         for i in range(len(beacons)):
-            sar_img.FileNames = sar_img.tmpFiles
+            os.chdir(newTmp)
+            
+            r = len(sar_img.FileNames)-1
+            
+            while r > 1:
+                sar_img.FileNames.remove(sar_img.FileNames[r])
+                r-=1
+                
+            print(sar_img.FileNames)    
             beaconid = beacons[i][0]
             latitude = float(beacons[i][1])
             longitude = float(beacons[i][2])
@@ -574,49 +588,35 @@ class SigLib:
             self.logger.debug("Found beacon " + str(beaconid) + " in image " + granule + ". Processing...")
             seenBeacons.append(beaconid)
             
-            finalsDir = os.path.join(newTmp,'finals')  #directory in tmp for images to be masked  
+            finalsDir = os.path.join(newTmp,'finals_'+ str(beaconid))  #directory in tmp for images to be masked  
             if os.path.isdir(finalsDir):
                 pass
             else:
                 os.makedirs(finalsDir)
- 
-            output = sar_img.snapSubset(beaconid, latitude, longitude, finalsDir) #subset
             
-            if output == -1:
-                return
-            
-            sar_img.makeAmp(newFile = False, save = False)
+            try:
+                sar_img.snapSubset(beaconid, latitude, longitude, finalsDir) #subset
+            except:
+                self.logger.error("Problem with subset, moving on")
+                continue
+                
+            #sar_img.makeAmp(newFile = False, save = False)
                 
             matrices = ['C3', 'T3']           
             
             tmpArr = sar_img.FileNames
             for matrix in matrices:
                 sar_img.FileNames = tmpArr
-                matrixFN = sar_img.matrix_generation(matrix)  #Generate each type of matrix, one at a time
-                if matrix == 'C3':
-                    sar_img.polarFilter(save=False)  #only want to save the filename of the latter, so T3 isn't generated upon C3
-                else:
-                    sar_img.polarFilter(save=True)
-                
-                rm = os.path.join(finalsDir, matrixFN+'.data')
-                
-                for dirpath, dirs, files in os.walk(rm):
-                    for file in files:
-                        try:
-                            os.chdir(dirpath)
-                            os.remove(file)
-                        except:
-                            pass
-                os.remove(matrixFN+'.dim')               
-            
+                sar_img.matrix_generation(matrix)  #Generate each type of matrix, one at a time
+
             self.logger.debug("All matrices generated!")
                     
-            decompositions = []#['Sinclair Decomposition', 'Pauli Decomposition', 'Freeman-Durden Decomposition', 'Yamaguchi Decomposition', 'van Zyl Decomposition', 'H-A-Alpha Quad Pol Decomposition', 'Cloude Decomposition']
+            decompositions = ['Sinclair Decomposition', 'Pauli Decomposition', 'Freeman-Durden Decomposition', 'Yamaguchi Decomposition', 'van Zyl Decomposition', 'H-A-Alpha Quad Pol Decomposition', 'Cloude Decomposition', 'Touzi Decomposition']
                         
             for decomposition in decompositions:
                 try:
                     if decomposition == "H-A-Alpha Quad Pol Decomposition":
-                        i = 4
+                        i = 1
                         while i <= 4:
                             sar_img.decomposition_generation(decomposition, outputType=i)
                             i+=1
@@ -634,34 +634,51 @@ class SigLib:
                     self.logger.error("Error with " + decomposition + ", moving on")
                         
             self.logger.debug('All matrix-decomposition combinations generated!')
-          
-            uploads = os.path.join(finalsDir, 'uploads')
-            os.makedirs(uploads)
+                
             masks = db.polarimetricDonuts(granule, beaconid)
             count = 0
             for mask in masks:       
                 if count == 0:
                     type = 'ii'
-                else:
+                elif count == 1:
                     type = 'donut'
+                else: 
+                    break
+                    
+                uploads = os.path.join(finalsDir, 'uploads_' + str(beaconid)+type)
+                if os.path.isdir(uploads):
+                    pass
+                else:
+                    os.makedirs(uploads)
+                
                 
                 shpname = 'instmask_'+zipname+'_'+str(beaconid)+ '_' + type
                 Util.wkt2shp(shpname, finalsDir, self.proj, self.projDir, mask)
                 
                 for dirpath, dirnames, filenames in os.walk(finalsDir):
                     for filename in filenames:
-                        if os.path.splitext(filename)[1] == '.dim':                 
-                            name = os.path.splitext(filename)[0]                                
-                            sar_img.slantRangeMask(shpname, name, finalsDir, uploads)    
+                        if filename.endswith('.dim'):                 
+                            name = os.path.splitext(filename)[0]  
+                            try:                              
+                                sar_img.slantRangeMask(shpname, name, finalsDir, uploads)   
+                            except:
+                                self.logger.error("Error with masking!")
                            
                 for dirpath, dirnames, filenames in os.walk(uploads):
                     for filename in filenames:
-                        if os.path.splitext(filename)[1] == '.img': 
+                        if filename.endswith('.img'): 
                             os.chdir(dirpath)
                             name = os.path.splitext(filename)[0]
-                            imgData = sar_img.getBandData(1, name+'.img')                    
-                            db.imgData2db(imgData, name+'_'+type, str(beaconid), sar_img.meta.dimgname, granule)  
+                            try:
+                                imgData = sar_img.getBandData(1, name+'.img')
+                                db.imgData2db(imgData, name+'_'+type, str(beaconid), sar_img.meta.dimgname, granule) 
+                            except:
+                                self.logger.error("Unable to extract image data for {}! Skipping scene".format(name))
+                                
                 count+=1
+            
+        sar_img.removeHandler()
+        sar_meta.removeHandler()
                         
          
     def run(self):      

@@ -247,6 +247,7 @@ class Metadata(object):
         self.notes = []
         self.dimgname = imgname   # update dimgname after accessing meta
         self.status = "ok"
+        self.fname = None
 
 
         # now... image, describe thyself!
@@ -277,6 +278,11 @@ class Metadata(object):
         elif self.sattype == 'RS2':
             self.getCornerPoints()
             self.getRS2metadata()
+            
+        elif self.sattype == "SEN-1":
+            self.getCornerPoints()
+            self.getS1metadata()
+            
         else:
             pass # trap error here?
             
@@ -309,10 +315,10 @@ class Metadata(object):
 
 	    ### register all drivers at once ... works for reading data but not for creating data sets
         gdal.AllRegister() # for all purposes
-        fname = os.path.join(self.path, imgname)
+        self.fname = os.path.join(self.path, imgname)
 
 	    ### now that the driver has been registered, use the stand-alone Open method to return a Dataset object
-        ds = gdal.Open(fname, GA_ReadOnly)
+        ds = gdal.Open(self.fname, GA_ReadOnly)
 
         #TODO, more info here
 
@@ -389,6 +395,8 @@ class Metadata(object):
 
         # check to see if the gcps cover the corners
         if self.sattype == 'RS2': # these ones are not in the middle of the pixel
+            offset = 0.5
+        if self.sattype == "SEN-1":
             offset = 0.5
         else:
             offset = 0
@@ -853,6 +861,51 @@ class Metadata(object):
 
         return tuple(gcps)
 
+    #CAMERON - This function is the one that needs work mostly. 
+    def getS1metadata(self):         #Get a better description for this function, summarize fields, don't list all
+        """
+        Open a S1 and get all the required metadata
+        """
+
+        #Option 1 - get metadata from manifest.... 
+        xmldoc = minidom.parse(self.fname)
+        
+        #Option 2 - find metadata in here.... 
+        dataset = gdal.Open(self.fname)
+        geotrans = dataset.GetGeoTransform()
+        
+        #These are priority fields
+        self.beam = xmldoc.getElementsByTagName('s1sarl1:mode')[0].firstChild.data
+        self.polarization = []
+        self.n_bands = len(xmldoc.getElementsByTagName('s1sarl1:transmitterReceiverPolarisation'))
+        for i in range(self.n_bands):
+            self.polarization.append(xmldoc.getElementsByTagName('s1sarl1:transmitterReceiverPolarisation')[i].firstChild.data)
+        self.acDateTime =  xmldoc.getElementsByTagName('safe:startTime')[0].firstChild.data
+        self.acDateTime = readdate(self.acDateTime, self.sattype)
+        self.acDOY = date2doy(self.acDateTime, float=True)
+        self.bitsPerSample = 16 #hard coded for now
+        self.n_cols = dataset.RasterXSize
+        self.n_rows = dataset.RasterYSize
+        self.pixelSpacing = geotrans[1]
+        self.lineSpacing = -geotrans[5]
+        self.passDirection = xmldoc.getElementsByTagName('s1:pass')[0].firstChild.data
+
+        #Low priority fields - can be ignored for now... 
+        #self.antennaPointing = xmldoc.getElementsByTagName('antennaPointing')[0].firstChild.data
+        #self.lutApplied = xmldoc.getElementsByTagName('lutApplied')[0].firstChild.data
+        #self.looks_Rg = int(xmldoc.getElementsByTagName('numberOfRangeLooks')[0].firstChild.data)
+        #self.looks_Az = int(xmldoc.getElementsByTagName('numberOfAzimuthLooks')[0].firstChild.data)
+        #self.theta_near = None
+        #self.theta_far = None
+        #self.orbit = None
+        #self.sat_heading = None 
+        
+        self.satellite = xmldoc.getElementsByTagName('safe:familyName')[0].firstChild.data + xmldoc.getElementsByTagName('safe:number')[0].firstChild.data
+        self.copyright = "ESA"     #hardcoded
+
+        xmldoc.unlink()
+        self.getDimgname()   #CHECK TO SEE IF THIS WORKS
+        
 
     def getRS2metadata(self):         #Get a better description for this function, summarize fields, don't list all
         """
@@ -902,6 +955,7 @@ class Metadata(object):
         self.copyright = xmldoc.getElementsByTagName('product')[0].attributes["copyright"].value
 
         #values for terrain correction with known height
+        self.acquisitionType = xmldoc.getElementsByTagName('acquisitionType')[0].firstChild.data
         self.h_proc = float(xmldoc.getElementsByTagName('geodeticTerrainHeight')[0].firstChild.data)
         self.near_range = float(xmldoc.getElementsByTagName('slantRangeNearEdge')[0].firstChild.data)
         #self.t_first = xmldoc.getElementsByTagName('zeroDopplerTimeFirstLine')[0].firstChild.data
@@ -1332,6 +1386,10 @@ class Metadata(object):
 
         if self.sattype == 'RS2':
             sat = "r2"
+        
+        if self.sattype == "SEN-1":
+            sat = 's1'
+        
         if self.sattype == 'ASF_CEOS' or self.sattype == 'CDPF':
             if self.satellite == "ERS-1-":
                 sat = 'e1'
@@ -1339,8 +1397,8 @@ class Metadata(object):
                 sat = "r1"
             if self.satellite == "JERS-1":
                 sat = "j1"
-
-        # NB: the time is truncated here NOT rounded to second
+        
+		# NB: the time is truncated here NOT rounded to second
 
         self.dimgname = self.acDateTime.strftime('%Y%m%d_%H%M%S')+ sep + \
              sat + sep + self.beam.lower() + sep + pol
@@ -1452,6 +1510,13 @@ def readdate(date, sattype):
             datepart[i] = int(datepart[i])
         return datetime.datetime(datepart[0], datepart[1], datepart[2], datepart[3], datepart[4], datepart[5], datepart[6])
 
+    if sattype == "SEN-1":   #CAMERON CHECK THIS TO SEE IF IT WORKS WITH SEN-1
+        datepart = [date[0:4], date[5:7], date[8:10], date[11:13], date[14:16], date[17:19], date[20:-1]]
+        for i in range(len(datepart)):
+            datepart[i] = int(datepart[i])
+        return datetime.datetime(datepart[0], datepart[1], datepart[2], datepart[3], datepart[4], datepart[5], datepart[6])
+
+
 def date2doy(date, string=False, float=False):
     """
     Provide a python datetime object and get an integer or string (if string=True) doy, fractional DayOfYear(doy) returned if float=True
@@ -1513,6 +1578,12 @@ def getEarthRadius( ellip_maj, ellip_min, plat_lat):
     """
     Calculates the earth radius at the latitude of the satellite from the ellipsoid params
     """
+    if self.crop is not "":
+        self.logger.debug('Image crop')
+        sar_img.cropImg([tuple(map(float, self.crop.split(" "))[:2]), \
+                         tuple(map(float, self.crop.split(" "))[2:])], 'crop')
+        logger.debug('Image crop done')
+      
 
     r =  ellip_min * ( \
           math.sqrt( 1 + math.tan( plat_lat*D2R )**2 ) / \

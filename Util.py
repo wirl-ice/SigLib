@@ -109,13 +109,14 @@ def getFilename(zipname, unzipdir, loghandler=None):
             sattype = "ASF_CEOS"
 
             break
-        #We have Sentinel-1
+        
         elif imgext == ".safe":
             fname = 'manifest.safe'
             sattype = "SEN-1"
             imgname, imgext = os.path.splitext(fname)
             
             break
+
         else:
             countdown-1
 
@@ -187,13 +188,13 @@ def getZipRoot(zip_file, tmpDir):
             unzipdir = tmpDir       # Unzipdir will be their own subdirectory
             nesteddir = 0
             break
-        
-        elif fsplit[0].split('.')[1] == 'SAFE': #Sentinel-1 zipfile, subdirectory with different name
+
+        elif fsplit[0].split('.')[1] == 'SAFE':
             zipname = fsplit[0]
             unzipdir = tmpDir
             nesteddir = 0
-            break
-        
+            break            
+            
         else:
             countdown = countdown -1
 

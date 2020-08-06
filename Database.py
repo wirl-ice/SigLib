@@ -841,6 +841,13 @@ class Database:
             'skew' : str(stats.skew(polyData, None)),
             'kurtosis' : str(stats.kurtosis(polyData, None))
             }
+            
+            
+        #If table isn't created
+        '''
+        create table tblbanddata (granule varchar(100), bandname varchar(100), inst int, dimgname varchar(100), mean varchar(25), var varchar(25),
+        maxdata varchar(25), mindata varchar(25), median varchar(25), quart1 varchar (25), quart3 varchar(25), skew varchar (25), kurtosis varchar (25))
+        '''        
         
         #First, look to see if primary key exists, if so, overwrite record
         sqlDel = '''DELETE FROM tblbanddata WHERE bandname = %(bandname)s 
@@ -1075,7 +1082,8 @@ class Database:
         try:
             curs.execute(sql2, param)
         except Exception as e:
-            print(e)
+            self.logger.error(e)
+            return []
         result = str(curs.fetchone()[0])
         if result == 'GEOMETRYCOLLECTION EMPTY':
             return []
@@ -1084,7 +1092,11 @@ class Database:
         sql3 =  """SELECT ST_AsText(ST_Transform(ST_Multi(ST_Difference(ST_Buffer(ii_polygons.geom, 400), ST_Buffer(ii_polygons.geom, 30))), 4326)) """ +\
         """FROM ii_polygons WHERE ii_polygons.beaconid = %(beacnid)s AND %(dimgname)s LIKE ii_polygons.imgref"""
         
-        curs.execute(sql3, param)
+        try:
+            curs.execute(sql3, param)
+        except Exception as e:
+            self.logger.error(e)
+            return []
         result = str(curs.fetchone()[0])
         if result == 'GEOMETRYCOLLECTION EMPTY':
             return []
