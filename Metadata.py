@@ -35,6 +35,7 @@ from osgeo.gdalconst import *
 from future.utils import iteritems
 
 import Util
+import pdb
 
 D2R = math.pi / 180.0
 R2D = 180.0 / math.pi
@@ -249,7 +250,7 @@ class Metadata(object):
         self.status = "ok"
         self.fname = None
 
-
+        #pdb.set_trace()
         # now... image, describe thyself!
         result = self.getgdalmeta()     #result = None if test ok, otherwise its an error
 
@@ -394,9 +395,7 @@ class Metadata(object):
             return "gdalerror"
 
         # check to see if the gcps cover the corners
-        if self.sattype == 'RS2': # these ones are not in the middle of the pixel
-            offset = 0.5
-        if self.sattype == "SEN-1":
+        if self.sattype == 'RS2' or self.sattype == "SEN-1": # these ones are not in the middle of the pixel
             offset = 0.5
         else:
             offset = 0
@@ -1578,12 +1577,6 @@ def getEarthRadius( ellip_maj, ellip_min, plat_lat):
     """
     Calculates the earth radius at the latitude of the satellite from the ellipsoid params
     """
-    if self.crop is not "":
-        self.logger.debug('Image crop')
-        sar_img.cropImg([tuple(map(float, self.crop.split(" "))[:2]), \
-                         tuple(map(float, self.crop.split(" "))[2:])], 'crop')
-        logger.debug('Image crop done')
-      
 
     r =  ellip_min * ( \
           math.sqrt( 1 + math.tan( plat_lat*D2R )**2 ) / \

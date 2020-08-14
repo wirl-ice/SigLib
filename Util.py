@@ -189,7 +189,7 @@ def getZipRoot(zip_file, tmpDir):
             nesteddir = 0
             break
 
-        elif fsplit[0].split('.')[1] == 'SAFE':
+        elif len(fsplit[0].split('.')) > 1 and fsplit[0].split('.')[1] == 'SAFE':
             zipname = fsplit[0]
             unzipdir = tmpDir
             nesteddir = 0
