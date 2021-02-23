@@ -127,8 +127,7 @@ class SigLib:
         **Parameters**
             
             *zipfile* 
-        """
-	print (zipfile)        
+        """      
 
         self.logger = self.createLog(zipfile)
         self.logger = logging.getLogger(__name__)
@@ -152,7 +151,11 @@ class SigLib:
         end_time = time.time()
         self.logger.info("Image Processing Time: " + str(int((end_time-start_time)/60)) + " Minutes " + str(int((end_time-start_time)%60)) + " Seconds")
         os.chdir(self.tmpDir)
-        os.system("rm -r " +os.path.splitext(os.path.basename(zipfile))[0])
+        #os.system("rm -r " +os.path.splitext(os.path.basename(zipfile))[0])
+        try:
+            shutil.rmtree(os.path.splitext(os.path.basename(zipfile))[0])
+        except e:
+            self.logger.debug("Warning: could not remove file from temp directory")
         self.logger.debug('cleaned zip dir')
 
         good_img = self.count_img - self.bad_img
@@ -214,7 +217,11 @@ class SigLib:
             end_time = time.time()
             self.logger.info("Image Processing Time: " + str(int((end_time-start_time)/60)) + " Minutes " + str(int((end_time-start_time)%60)) + " Seconds")
             os.chdir(self.tmpDir)
-            os.system("rm -r " +os.path.splitext(os.path.basename(zipfile))[0])
+            #os.system("rm -r " +os.path.splitext(os.path.basename(zipfile))[0])
+            try:
+                shutil.rmtree(os.path.splitext(os.path.basename(zipfile))[0])
+            except e:
+                self.logger.debug("Warning: could not remove file from temp directory")
             self.logger.debug('cleaned zip dir')
 
         good_img = self.count_img - self.bad_img
@@ -242,7 +249,7 @@ class SigLib:
         """
         
         # Verify if zipfile has its own subdirectory before unzipping
-        unzipdir, granule, nested = Util.getZipRoot(os.path.join(self.scanDir,zipfile), self.tmpDir)            
+        unzipdir, zipname, nested, granule = Util.getZipRoot(os.path.join(self.scanDir,zipfile), self.tmpDir)            
         self.logger.debug("Zipfile %s will unzip to %s. Granule is %s and Nested is %s", zipfile, unzipdir, granule, nested)        
         # Unzip the zip file into the unzip directory
         Util.unZip(zipfile, unzipdir)
@@ -251,9 +258,9 @@ class SigLib:
         zipname, ext = os.path.splitext(os.path.basename(zipfile))
         
         if unzipdir == self.tmpDir:      # If files have been unzipped in their own subdirectory
-            unzipdir = os.path.join(self.tmpDir, granule)    # Then correct the name of unzipdir
+            unzipdir = os.path.join(self.tmpDir, zipname)    # Then correct the name of unzipdir
             if nested == 1:   # If zipfile has nested directories
-                unzipdir = os.path.join(unzipdir, granule)    # Then correct the name of unzipdir
+                unzipdir = os.path.join(unzipdir, zipname)    # Then correct the name of unzipdir
 
         # Parse zipfile
         fname, imgname, sattype = Util.getFilename(granule, unzipdir, self.loghandler)
@@ -275,7 +282,7 @@ class SigLib:
 
         else:#begin processing data ...
             sar_meta = Metadata(granule, imgname, unzipdir, zipfile, sattype, self.loghandler)   # Retrieve metadata          
-        
+
             if sar_meta.status != "ok":       # Meta class unsuccessful
                 self.logger.error("Creating an instance of the meta class failed, moving to next image")
                 self.bad_img += 1
@@ -574,8 +581,7 @@ class SigLib:
             while r > 1:
                 sar_img.FileNames.remove(sar_img.FileNames[r])
                 r-=1
-                
-            print(sar_img.FileNames)    
+                  
             beaconid = beacons[i][0]
             latitude = float(beacons[i][1])
             longitude = float(beacons[i][2])

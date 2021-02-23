@@ -261,10 +261,10 @@ class Metadata(object):
         if self.sattype == 'ASF_CEOS' or self.sattype == 'CDPF':
             self.getCEOSmetafile()
             ceos_meta = self.get_ceos_metadata()
-
+            
             if self.sattype == 'CDPF':
                 result = self.clean_metaCDPF(ceos_meta)
-
+                
                 if (result == "gdalerror"):
                     self.status = "gdalerror"
                     return
@@ -350,7 +350,6 @@ class Metadata(object):
         if self.sattype == "CDPF":
             self.geopts = self.extractGCPs(50)
 
-
         self.geoptsGCS = ds.GetGCPProjection()
         proj = ds.GetProjectionRef()
 
@@ -362,12 +361,11 @@ class Metadata(object):
         self.logger.info('Img has: ' + str(self.n_cols) + ' columns, ' + \
         str(self.n_rows) + ' rows & ' + str(self.n_bands) + ' band(s)')
             
-
         # All gdal_meta
         gdal_meta = ds.GetMetadata_List()
         
         ds = None
-
+        
         return gdal_meta
 
     def getCornerPoints(self):
@@ -687,17 +685,16 @@ class Metadata(object):
 
         record_index = {}
         for field in rsat_fields:
-            if record_index.has_key(field[0]):
+            if field[0] in record_index:
                 record_index[field[0]].append(field)
             else:
                 record_index[field[0]] = [field]
 
-
         # Extract from files
         result = {}
         for file_name in file_names:#
-
-            fp = open(file_name)
+        
+            fp = open(file_name, 'rb')
 
 
             # Get file size
@@ -720,13 +717,13 @@ class Metadata(object):
 
                 # read the record length from CEOS data
                 record_length = byte2int(header_data[8:12])
-                if rsat_records.has_key(record_key):
+                if record_key in rsat_records:
                     record_name = rsat_records[record_key]
                 else:
                     record_name = "Unknown Record"
 
                 # if we are looking for this record, then get data in record
-                if record_index.has_key(record_key):
+                if record_key in record_index:
 
                     # read in the data in native format
                     record_data = get_data_block(fp, record_offset, record_length)
@@ -751,11 +748,11 @@ class Metadata(object):
                         # if the values don't repeat - single values
                         else:
                             field_result = get_field_value(record_data,field[2],field[3],field[4]-1)
-
-                        result[field[1]] = field_result  # add data to result dictionary
+                        if type(field_result) == type(b''):
+                            field_result = debyte(field_result)
+                        result[field[1]] = str(field_result)  # add data to result dictionary
 
                 record_offset = record_offset + record_length
-
         return result
 
     def extractGCPs(self, interval):
@@ -773,7 +770,7 @@ class Metadata(object):
 
         file_name = self.image
 
-        fp = open(file_name)
+        fp = open(file_name, 'rb')
 
 
         # Get file size
@@ -809,7 +806,7 @@ class Metadata(object):
                 coords_bin = fp.read(24)
 
                 coords_int = struct.unpack('>llllll', coords_bin)
-
+                
                 first.append((coords_int[3]/1e6, coords_int[0]/1e6))
                 mid.append((coords_int[4]/1e6, coords_int[1]/1e6))
                 last.append((coords_int[5]/1e6, coords_int[2]/1e6))
@@ -1075,22 +1072,23 @@ class Metadata(object):
             *result* : A dictonary of metadata
         """
 
-        if result.has_key('act_ing_start'): #try this first
+        if 'act_ing_start' in result: #try this first
             self.acDateTime = readdate(result['act_ing_start'], self.sattype)
-        elif result.has_key('state_time'):
+        elif 'act_img_start' in result: #is above typo?
+            self.acDateTime = readdate(result['act_img_start'], self.sattype)
+        elif 'state_time' in result:
             self.acDateTime = readdate(result['state_time'], self.sattype)
         else:
             self.logger.error('No date field retrieved in metadata')
             #error handler
-
         self.satellite = result['sensor_id'][0:6]
         # scen_id describes the product type an not the beam mode
         ###self.beam = result['scene_id'].strip()
         ###self.beam = self.beam[-3:len(result['scene_id'])]
 
         self.n_bands = 1  # since we have HH
-        self.lineSpacing = result['line_spacing']
-        self.pixelSpacing = result['pix_spacing']
+        self.lineSpacing = float(result['line_spacing'])
+        self.pixelSpacing = float(result['pix_spacing'])
         assert self.lineSpacing > 0 and type(self.lineSpacing) == type(1.2)
         assert self.pixelSpacing > 0 and type(self.pixelSpacing) == type(1.2)
 
@@ -1123,17 +1121,15 @@ class Metadata(object):
         if 'S' in result['beam_type1'].strip() and result['beam_type2'].strip() == '':
             self.beam = "STND"
 
-
         self.beam = self.beam + '_____'  # this will pad the beam name
         self.beam = self.beam[0:5] # keep this to 5 chars
 
-        if result.has_key('nbit'):
+        if 'nbit' in result:
             self.bitsPerSample = result['nbit']
         else:
             self.bitsPerSample = 8  # A BIG ASSUMPTION HERE!!! COULD BE TROUBLE
-
         self.copyright = 'Copyright CSA ' + self.acDateTime.strftime('%Y')
-        self.freqSAR = 0.29979e9/result['wave_length'] # in Hz
+        self.freqSAR = 0.29979e9/float(result['wave_length']) # in Hz
         self.looks_Az = result['n_azilok']
         self.looks_Rg = result['n_rnglok']
         self.n_beams = result['n_beams']
@@ -1159,13 +1155,15 @@ class Metadata(object):
         #sometimes eph_orb_data is missing...
         if result['eph_orb_data'] == None: #quick check to see
             result['eph_orb_data'] = 7.167055e6 # in metres
-        self.sat_alt = result['eph_orb_data'] - getEarthRadius(result['ellip_maj'], \
-                result['ellip_min'], result['plat_lat'])
+        if result['eph_orb_data'] != "None":
+            self.sat_alt = result['eph_orb_data'] - getEarthRadius(result['ellip_maj'], \
+                        result['ellip_min'], result['plat_lat'])
+        else:
+            self.logger.debug("Warning! could not determine satellite altitude (line 1166 metadata.py)")
 
         #Save these to check the projections
         self.ellip_maj = result['ellip_maj']
         self.ellip_min = result['ellip_min']
-
 
         self.lutApplied = None
         self.order_Az = result["time_dir_lin"]
@@ -1304,7 +1302,7 @@ class Metadata(object):
         self.theta_near = None
 
 
-        if result.has_key('inp_sctim'):
+        if 'inp_sctim' in result:
             self.acDateTime = readdate(result['inp_sctim'], self.sattype)
         else:
             self.logger.error('No date field retrieved in metadata')
@@ -1327,7 +1325,7 @@ class Metadata(object):
         self.beams = result['beam_type1']+result['beam_type2']+result['beam_type3']+result['beam_type4']
         self.beams = self.beams.strip()
 
-        if result.has_key('nbit'):
+        if 'nbit' in result:
             self.bitsPerSample = result['nbit']
         else:
             self.bitsPerSample = None
@@ -1413,8 +1411,11 @@ def byte2int(byte):
     """
     Reads a byte and converts to an integer
     """
-    
-    return int(binascii.b2a_hex(byte),16)
+    if type(byte) == type(1): # check just in case int already sent
+        val = byte
+    else:
+        val = int(binascii.b2a_hex(byte),16)
+    return val
 
 def get_data_block(fp, offset, length):
     """
@@ -1556,7 +1557,6 @@ def doy2date(year, doy):
     
         Date in python datetime convension
     """
-
     if type(doy) == type(''):
         doy = float(doy)
     if type(year) == type(''):
@@ -1577,7 +1577,9 @@ def getEarthRadius( ellip_maj, ellip_min, plat_lat):
     """
     Calculates the earth radius at the latitude of the satellite from the ellipsoid params
     """
-
+    ellip_maj = float(ellip_maj)
+    ellip_min = float(ellip_min)
+    plat_lat = float(plat_lat)
     r =  ellip_min * ( \
           math.sqrt( 1 + math.tan( plat_lat*D2R )**2 ) / \
           math.sqrt( ((ellip_min**2) / (ellip_maj**2)) + math.tan( plat_lat*D2R )**2 ))
@@ -1640,3 +1642,15 @@ def getThetaVector(n_cols, slantRange, radius, sat_alt):
     for j in range(len(thetaVector)):
         thetaVector[j] = getThetaPixel(slantRange[j], radius, sat_alt)
     return thetaVector
+    
+def debyte(bb):
+    """
+    Convert a byte into int, float, or string
+    """
+    val = bb.decode('utf-8')
+    types = [int, float, str]
+    for typ in types:
+        try:
+            return typ(val)
+        except ValueError:
+            pass

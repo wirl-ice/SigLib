@@ -74,7 +74,6 @@ def getFilename(zipname, unzipdir, loghandler=None):
         elif imgext == ".sarl" or imgext == ".sart" or imgext == ".nvol" or imgext == ".vol":
             fname = imgname+".img"
             sattype = "CDPF"
-
             # Look for leader file, then deal with *.trl and *.img
             if os.path.isfile(os.path.join(unzipdir,imgname+".sarl")):
                 os.rename(os.path.join(unzipdir,imgname+".sarl"), os.path.join(unzipdir,imgname+".led"))
@@ -164,16 +163,17 @@ def getZipRoot(zip_file, tmpDir):
     zip = zipfile.ZipFile(zip_file)     # Open the zip_file as an object
     dirlist = zip.namelist()            # List of all the files in zip_file to be used as the loop iterative element
     countdown = len(dirlist)            # Number of files in zip_file to be used as a counter inside the loop
-
+    granule = None                      # in case granule is not same as zip directory
     for f in dirlist:
         fsplit = f.split("/")       # Seperate the directories if any
-
         if len(fsplit) > 1 and fsplit[0] == zipname:        # Files are in a directory
             unzipdir = tmpDir       # Unzipdir will be their own subdirectory
-
             if fsplit[1] == zipname:    # Takes care of new CIS data for CI2D3 with nested subdirectories
                 nesteddir = 1       # Determines if the unzipdir has sub sub dirs
             else:
+                temp = dirlist[1].split("/")
+                if len(temp) > 1:
+                    granule = temp[1].split(".")[0]
                 nesteddir = 0
             break
 
@@ -201,8 +201,11 @@ def getZipRoot(zip_file, tmpDir):
     if countdown == 0:      # Files are not in a directory
         unzipdir = os.path.join(tmpDir, zipname)        # Unzipdir will be a new directory
         nesteddir = 0
-
-    return unzipdir, zipname, nesteddir
+        
+    if granule is None:
+        granule = zipname
+        
+    return unzipdir, zipname, nesteddir, granule
 
 
 def unZip(zip_file, unzipdir, ext='all'):

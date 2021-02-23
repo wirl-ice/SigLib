@@ -1052,7 +1052,7 @@ class Image(object):
             return  "error"
         elif format.lower() == 'imgformat':
             ext = self.imgExt
-            driver = gdal.GetDriverByName(self.imgFormat)
+            driver = gdal.GetDriverByName(str(self.imgFormat))
             if self.imgFormat.lower() == 'gtiff':
                 options = ['COMPRESS=LZW']
             else:
