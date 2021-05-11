@@ -55,13 +55,15 @@ def getFilename(zipname, unzipdir, loghandler=None):
         logger = logging.getLogger(__name__)                        
         logger.setLevel(logging.DEBUG)
         logger.addHandler(logging.StreamHandler())
-    
+        
     dirlist = os.listdir(unzipdir)      # List of all the files in zip_file to be used as the loop iterative element
     countdown = len(dirlist)            # Number of files in zip_file to be used as a counter inside the loop
-
+    
     for file in dirlist:
+        if "." not in file:
+            continue
         imgname, imgext = os.path.splitext(file)
-
+        
         # Here is a RSAT-2
         if imgext == ".xml":
             fname = "product.xml"
@@ -113,7 +115,6 @@ def getFilename(zipname, unzipdir, loghandler=None):
             fname = 'manifest.safe'
             sattype = "SEN-1"
             imgname, imgext = os.path.splitext(fname)
-            
             break
 
         else:
@@ -128,6 +129,7 @@ def getFilename(zipname, unzipdir, loghandler=None):
             logger.handlers = []
         except:
             pass
+            
         return fname, imgname, sattype
 
 
@@ -172,7 +174,7 @@ def getZipRoot(zip_file, tmpDir):
                 nesteddir = 1       # Determines if the unzipdir has sub sub dirs
             else:
                 temp = dirlist[1].split("/")
-                if len(temp) > 1:
+                if len(temp) > 1 and 'sarl' in temp[1]:
                     granule = temp[1].split(".")[0]
                 nesteddir = 0
             break
@@ -226,12 +228,10 @@ def unZip(zip_file, unzipdir, ext='all'):
 
         *ext*      : 'all' or a specific ext as required
     """
-
     zip = zipfile.ZipFile(zip_file)     # Open the zip_file as an object
-
+    
     if ext == 'all':        # Unzip all the files
         zip.extractall(path=unzipdir)       # Unzip/extract everything in zip_file to unzipdir
-
     else:       # Unzip only the files with the specified extension
         zippedfiles = zip.namelist()        # List of all the files in zip_file
 

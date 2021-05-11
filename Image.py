@@ -11,7 +11,8 @@ cropped, masked, stretched, etc.
 **Modified on** 3 Feb  1:52:10 2012 **@reason:** Repackaged for r2convert **@author:** Derek Mueller
 **Modified on** 23 May 14:43:40 2018 **@reason:** Added logging functionality **@author:** Cameron Fitzpatrick
 **Modified on** 9 Aug  11:53:42 2019 **@reason:** Added in/replaced functions in this module with snapPy equivilants **@author:** Cameron Fitzpatrick
-""Modified on"" 9 May 13:50:00 2020 **@reason:** Added terrain correction for known elevation **@auther:** Allison Plourde
+**Modified on** 9 May 13:50:00 2020 **@reason:** Added terrain correction for known elevation **@auther:** Allison Plourde
+**Modified on** April 29 13:50:00 2020 **@reason:** Added sigma nought for Sentinel-1 **@auther:** Allison Plourde
 
 **Common Parameters of this Module:**
 
@@ -36,12 +37,15 @@ import math
 import logging
 import shlex
 import re
+import sys
 try:
     import snappy
     from snappy import ProductIO
     from snappy import GPF
     from snappy import GeoPos
 except:
+    print("Failure to import snappy!")
+    print("image processing will use gdal functions only...")
     pass
         
 import gc
@@ -94,7 +98,7 @@ class Image(object):
             self.logger = logging.getLogger(__name__)                        
             self.logger.setLevel(logging.DEBUG)
             self.logger.addHandler(logging.StreamHandler())
-
+            
         self.fname = fname # the filename to open
         self.path = path
         self.meta = meta
@@ -113,38 +117,46 @@ class Image(object):
             gc.enable()
         except:
             pass
-
+            
         # if values might change make a local copy
-        self.polarization = self.meta.polarization
+        try:
+            self.polarization = self.meta.polarization
+        except:
+            self.polarization = 'HH'
         self.sattype = self.meta.sattype
         self.bitsPerSample = self.meta.bitsPerSample
         
         self.imgDir = imgDir
-        self.tmpDir = tmpDir
+        self.tmpDir = tmpDir#+".SAFE" #FIXME
         self.zipname = zipname
         
-
         if self.imgType == 'noise' or self.imgType == 'theta':
             self.bandNames = self.imgType
         else:
             self.bandNames = self.polarization  # Assume these are in order
-
+            
         if imgFormat.lower() == 'gtiff':
             self.imgExt = '.tif'
         if imgFormat.lower() == 'hfa':
             self.imgExt = '.img'
-        
+            
         if pol: 
             self.snapCalibration(saveInComplex=True)
-        else:                          
-            self.openDataset(self.fname, self.path)
-            
-            if self.imgType == 'amp' and 'Q' in self.meta.beam:  # this would be a quad pol scene...
-                self.decomp(format='GTiff')
+        else:   
+            if self.sattype == 'SEN-1' and self.imgType == 'sigma':
+                #TODO: use snap calibration for other things
+                self.snapCalibration(saveInComplex=False)
             else:
-                self.status = self.imgWrite(format='GTiff')
+                self.openDataset(self.fname, self.path)
+                
+                if self.imgType == 'amp' and 'Q' in self.meta.beam:  # this would be a quad pol scene...
+                    self.decomp(format='GTiff')
+                else:
+                    self.status = self.imgWrite(format='GTiff')
+                
+                self.inds = None            
             
-            self.inds = None                 
+       
         
     def openDataset(self, fname, path=''):
         """
@@ -160,7 +172,7 @@ class Image(object):
         self.n_cols = self.inds.RasterXSize
         self.n_rows = self.inds.RasterYSize
         self.n_bands = self.inds.RasterCount
-
+        
         #If no rows are found take from metadata
         if(self.n_rows == 0):
             self.n_rows = self.meta.n_rows
@@ -379,6 +391,7 @@ class Image(object):
 
         **Note** The pixel IS NOT prescribed (it will be the smallest possible)
         """
+
         if format == None:
             imgFormat = 'VRT'
             ext = '.vrt'
@@ -396,14 +409,22 @@ class Image(object):
             return
 
         os.chdir(self.imgDir)
-        inname = self.FileNames[-1] #last file
+        
+        
+        #inname = self.FileNames[-1] #last file
+        inname = ''
+        for file in self.FileNames:
+            if 'a.tif' in file or 's.tif' in file: #handle multiple instances
+                inname = file
+        if not inname:
+            inname = self.FileNames[-1] #last file
         
         outname = os.path.splitext(inname)[0] + '_proj' + ext
-
         command = 'gdalwarp -of ' + imgFormat +  ' -t_srs ' +\
                 os.path.join(projdir, projout+'.wkt') + \
                     ' -order 3 -dstnodata 0 -r ' + resample +' '+clobber+ \
                     inname + ' ' + outname
+                    
         try:
             ok = subprocess.Popen(command).wait()  # run the other way on linux
         except:
@@ -647,7 +668,7 @@ class Image(object):
         
         inname = self.FileNames[-1]
         outname = os.path.splitext(inname)[0] + '_subset'+ self.imgExt
-
+        
         cmd = 'gdal_translate -of '+ self.imgFormat +' -co \"COMPRESS=LZW\" -a_nodata 0 ' +\
             inname +' '+ outname            
             
@@ -663,7 +684,7 @@ class Image(object):
         else:
             self.logger.error('Image export failed')
 
-    def getImgStats(self):
+    def getImgStats(self, save_stats = False):
         """
         Opens a raster and calculates (approx) the stats
         returns an array - 1 row per band
@@ -698,9 +719,14 @@ class Image(object):
 
         bandobj = None
         self.inds = None
+        
+        if save_stats:
+            statfile = inname[:-4] + "_stats.csv"
+            numpy.savetxt(statfile, stats, delimiter = ",")
+            
         return stats
 
-    def applyStretch(self, stats, procedure='std', sd=3, bitDepth=8, sep=False):
+    def applyStretch(self, stats, procedure='std', sd=3, bitDepth=8, sep=False, inst = ''):
         """
         Given an array of stats per band, will stretch a multiband image to the dataType based on
         procedure (either std for standard deviation, with +ve int in keyword sd,
@@ -735,7 +761,7 @@ class Image(object):
             
             *sep* : False for same stretch to all bands, True for individual stretches
         """
-
+        
         if procedure.lower() == 'std':
             assert sd > 0 and (type(sd) == type(1) or type(sd) == type(1.0))
         if stats[0, 2] not in [1,2,6]:
@@ -747,7 +773,7 @@ class Image(object):
                 
             bitDepth = 8
         scaleRange = (2**bitDepth)-2  #save 1 position for nodata and one for 0...
-
+        
         # create an array with band number, scaleRange, dynRange, minVal, maxVal
         stretchVals = numpy.zeros((self.n_bands, 5))
         for band in range(1,len(stats[:,0])+1):
@@ -789,7 +815,7 @@ class Image(object):
                 return 'error'
 
             stretchVals[index,:] = [band, scaleRange, dynRange, minVal, maxVal]
-
+            
         if sep == False and stretchVals.shape[1] > 1:
             #get the greatest dynamic range (as assigned above)
             index = numpy.argmax(stretchVals[:,2]) #takes the 1st band if tied
@@ -829,11 +855,18 @@ class Image(object):
         #write out a tif of this imgType
         self.imgWrite(stretchVals=stretchVals)
         self.inds = None
-
+        
         # delete original file and rename tmp
-        os.rename(os.path.splitext(self.FileNames[1])[0] + '_temp_stretch.tif', os.path.splitext(self.FileNames[1])[0] + '_final.tif') 
-        os.remove(self.FileNames[-1])
-        self.FileNames[len(self.FileNames)-1] = os.path.splitext(self.FileNames[1])[0] + '_final.tif'                 
+        if inst:
+            os.rename(os.path.splitext(self.FileNames[1])[0] + '_temp_stretch.tif', os.path.splitext(self.FileNames[1])[0] + '_inst'+str(inst)+'.tif') 
+            os.remove(self.FileNames[-1])
+            self.FileNames[len(self.FileNames)-1] = os.path.splitext(self.FileNames[1])[0] + '_inst'+str(inst)+'.tif'                 
+        else:
+            os.rename(os.path.splitext(self.FileNames[1])[0] + '_temp_stretch.tif', os.path.splitext(self.FileNames[1])[0] + '_final.tif') 
+            os.remove(self.FileNames[-1])
+            self.FileNames[len(self.FileNames)-1] = os.path.splitext(self.FileNames[1])[0] + '_final.tif'                 
+
+        
         self.logger.info('Image stretched... ')
 
             
@@ -919,22 +952,28 @@ class Image(object):
             
             *levels* : a list of different types of files to delete
         """
-        
         deleteMe = []
-        if 'crop' in levels:
-            deleteMe = glob.glob(self.FileNames[3]) #The wildcard is the subscene name
-        if 'proj' in levels:
-            deleteMe = deleteMe+[self.FileNames[2]]
-        if 'nil' in levels:
-            deleteMe = deleteMe+[self.FileNames[1]]
-
+        if 'crop' in levels and len(self.FileNames) > 3:
+            for file in self.FileNames:
+                if 'crop' in file:
+                    deleteMe.append(glob.glob(file))
+        if 'proj' in levels and len(self.FileNames) > 2:
+            for file in self.FileNames:
+                if 'proj' in file:
+                    deleteMe.append(glob.glob(file)) 
+        if 'nil' in levels and len(self.FileNames) > 1:
+            for file in self.FileNames:
+                if 'nil' in file:   #this needs to be tested
+                    deleteMe.append(glob.glob(file))
+                    
         for filename in deleteMe:
             if filename != []:
                 try:
-                    os.remove( filename )
-                    self.FileNames.remove(filename)
+                    os.remove( filename[0] )
+                    self.FileNames.remove(filename[0])
                 except:
-                    pass
+                    self.FileNames.remove(filename[0])
+                    
 
     def getSigma(self, datachunk, n_lines):
         """
@@ -950,10 +989,9 @@ class Image(object):
             
             *caldata* : calibrated chunk
         """
-
+        
         # create an array the size of datachunk that we'll fill with calibrated data
         caldata = numpy.zeros((n_lines, self.n_cols), dtype=numpy.float32)
-
         ## note data are calibrated differently if they are slc or detected
         if datachunk.dtype == numpy.complex64 or datachunk.dtype == numpy.complex128:
             #convert to detected image
@@ -964,10 +1002,10 @@ class Image(object):
             datachunk = numpy.float32(datachunk)**2 # convert to float, prevent integer overflow
             datachunk = datachunk - self.meta.caloffset
             gains = self.meta.calgain
-
+            
         for i, gain in enumerate(gains):
                 caldata[:, i] = datachunk[:, i] / gain
-
+                
         return caldata
 
 
@@ -1167,14 +1205,13 @@ class Image(object):
             *saveInComplex* : Output complex sigma data (for polarimetric mode)
         '''
         
-        os.chdir(self.tmpDir)       
-        self.openDataset(self.fname, self.path)       
-        outname = self.fnameGenerate()[2]         
+        os.chdir(self.tmpDir)      
+        self.openDataset(self.fname, self.path) 
+        outname = self.fnameGenerate()[2]
         
-        #Sigma calibration
-        input = os.path.join(self.path, self.fname)
-        rsat = ProductIO.readProduct(input)
-
+        img = os.path.join(self.path, self.fname)
+        sat = ProductIO.readProduct(img)
+        
         output = os.path.join(self.tmpDir, outname)
         
         parameters = self.HashMap()
@@ -1196,10 +1233,33 @@ class Image(object):
             else:
                 self.logger.error('Valid out data type not specified!')
                 return Exception
+                
+        target = GPF.createProduct("Calibration", parameters, sat)
+        ProductIO.writeProduct(target, output, 'BEAM-DIMAP') 
         
-        target = GPF.createProduct("Calibration", parameters, rsat)
-        ProductIO.writeProduct(target, output, 'BEAM-DIMAP')         
-        self.FileNames.append(outname+'.dim')
+        if self.sattype == 'SEN-1':  ### This was written to work with Scientific and Data2Img  
+            parameters = self.HashMap()
+            parameters.put('demResamplingMethod', 'NEAREST_NEIGHBOUR')
+            parameters.put('imgResamplingMethod', 'NEAREST_NEIGHBOUR')
+            parameters.put('demName', 'GETASSE30')
+            #   parameters.put('pixelSpacingInMeter', 50.0)
+            parameters.put('sourceBands', 'Sigma0_HH') ### TODO: process other polarizations
+            
+            print("Processing Sentinel-1 {} image (HH) with snappy (this may take a few minutes)...".format(self.imgType))
+            output_2 = os.path.join(self.imgDir, outname)
+            out = ProductIO.readProduct(output+'.dim')
+            target_2 = GPF.createProduct("Terrain-Correction", parameters, out)
+            ProductIO.writeProduct(target_2, output_2, 'GeoTIFF-BigTIFF') 
+            
+            self.FileNames.append(outname+'.tif')
+        
+        elif self.sattype == 'RSAT1': ### This was written to work with Polarimetric Mode
+            self.FileNames.append(outname+'.dim')
+        
+        else:
+            print("Warning! {} images not supported for {} in this mode!".format(self.imgType, self.sattype))
+            print("Terminating program...")
+            sys.exit()
 
     def snapSubset(self, idNum, lat, longt, dir, ullr=None):
         '''

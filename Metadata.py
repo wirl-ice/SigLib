@@ -249,11 +249,11 @@ class Metadata(object):
         self.dimgname = imgname   # update dimgname after accessing meta
         self.status = "ok"
         self.fname = None
-
+        
         #pdb.set_trace()
         # now... image, describe thyself!
         result = self.getgdalmeta()     #result = None if test ok, otherwise its an error
-
+        
         if (result == "gdalerror"):
             self.status = "gdalerror"
             return
@@ -317,7 +317,7 @@ class Metadata(object):
 	    ### register all drivers at once ... works for reading data but not for creating data sets
         gdal.AllRegister() # for all purposes
         self.fname = os.path.join(self.path, imgname)
-
+        
 	    ### now that the driver has been registered, use the stand-alone Open method to return a Dataset object
         ds = gdal.Open(self.fname, GA_ReadOnly)
 
@@ -640,7 +640,10 @@ class Metadata(object):
                     if type(value) == type(self.calgain):
                         metaDict[attr] = value.tolist()
                     else:
-                        metaDict[attr] = value
+                        if is_it_int(value):
+                            metaDict[attr] = int(float(value))
+                        else:
+                            metaDict[attr] = value
                 except AttributeError:
                     metaDict[attr] = value
         return metaDict
@@ -1159,7 +1162,7 @@ class Metadata(object):
             self.sat_alt = result['eph_orb_data'] - getEarthRadius(result['ellip_maj'], \
                         result['ellip_min'], result['plat_lat'])
         else:
-            self.logger.debug("Warning! could not determine satellite altitude (line 1166 metadata.py)")
+            self.logger.debug("Warning! could not determine satellite altitude (line 1160 metadata.py)")
 
         #Save these to check the projections
         self.ellip_maj = result['ellip_maj']
@@ -1168,6 +1171,10 @@ class Metadata(object):
         self.lutApplied = None
         self.order_Az = result["time_dir_lin"]
         self.order_Rg = result["time_dir_pix"]
+        
+        calgain = result["lookup_tab"].split("   ")       
+        self.calgain = [float(g) for g in calgain if g != '']
+        
 
         #Product type too long at the moment so default to none
         self.productType = None
@@ -1175,7 +1182,7 @@ class Metadata(object):
         self.theta_near = None
         self.theta = ()
         self.noise = ()
-        self.calgain = ()
+        #self.calgain = ()
         self.getDimgname()
 
         #Too long at the moment
@@ -1650,7 +1657,15 @@ def debyte(bb):
     val = bb.decode('utf-8')
     types = [int, float, str]
     for typ in types:
-        try:
-            return typ(val)
-        except ValueError:
-            pass
+        if is_it_int(val):
+            return int(float(val)) #handles strings of form '2.0'
+        else:
+            try:
+                return typ(val)
+            except ValueError:
+                pass
+            
+def is_it_int(num):
+    import re
+    s = str(num)
+    return re.match('^(-?\d+)(\.[0]*)?$',s) is not None
