@@ -232,7 +232,7 @@ def unZip(zip_file, unzipdir, ext='all'):
         *ext*      : 'all' or a specific ext as required
     """
     zip = zipfile.ZipFile(zip_file)     # Open the zip_file as an object
-    
+
     if ext == 'all':        # Unzip all the files
         zip.extractall(path=unzipdir)       # Unzip/extract everything in zip_file to unzipdir
     else:       # Unzip only the files with the specified extension

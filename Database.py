@@ -128,7 +128,7 @@ class Database:
             %(satellite)s, %(sattype)s, %(theta_far)s, %(theta_near)s, %(sat_heading)s, %(location)s
             )'''
         
-        elif self.sattype == 'SEN-1':
+        elif metaDict['sattype'] == 'SEN-1':
             sqlIns = '''INSERT INTO ''' + "tblmetadata_ai_s1" + ''' 
             (acDOY, geom, acDateTime, beam, bitsPerSample, 
             notes, copyright, dimgname, granule, lineSpacing, n_bands, n_cols, n_geopts, n_rows, 
@@ -309,7 +309,7 @@ class Database:
         param = {'granule' : granule}
         
         sql = "SELECT dimgname FROM " + self.table_to_query + " WHERE granule LIKE %(granule)s"
-        
+
         curs.execute(sql,param)
         try:
             dimgname = str(curs.fetchone()[0])
@@ -320,7 +320,7 @@ class Database:
             
         # retrieve all the instances of polygons that relate to image       
         param = {'dimgname' : dimgname}
-        sql = "SELECT ogc_fid FROM "+roi+" WHERE %(dimgname)s LIKE imgref"  
+        sql = "SELECT inst FROM "+roi+" WHERE %(dimgname)s LIKE imgref"  
         curs.execute(sql,param)
         result = curs.fetchall()
         instances = []
@@ -739,25 +739,27 @@ class Database:
             
             *ullr*       : upper left, lower right tupple pair in the projection given
         """
-        
-        param = {"srid" : srid, "granule" : granule, "inst" : inst}  
-    
+
+        param = {"srid" : int(srid), "granule" : granule, "inst" : str(inst)}  
+
         #TODO: Investigate error:
         #"could not form projection from 'srid=96718' to 'srid=4326"
-        sql1 = "SELECT ST_AsText(ST_Envelope(ST_Intersection((SELECT ST_Transform(" + self.table_to_query + ".geom, %(srid)s) FROM " + self.table_to_query + " WHERE granule = %(granule)s), (SELECT ST_Transform("
+        sql1 = "SELECT ST_AsText(ST_Envelope(ST_Intersection((SELECT ST_Transform(" + self.table_to_query + ".geom, %(srid)s) FROM " + self.table_to_query + " WHERE granule = '%(granule)s'), (SELECT ST_Transform("
         sql2 = ".geom, %(srid)s) FROM "
-        sql3 = " WHERE ogc_fid = %(inst)s))))"
+        sql3 = " WHERE inst = '%(inst)s'))))"
     
         sql = sql1+ roi +sql2+ roi +sql3
-    
+        print(sql%param)
+        
         curs = self.connection.cursor()
+        print(curs)
         curs.execute(sql, param)
-        
+        print("executed")
         bbtext = curs.fetchall()
-        
+        print(747)
         #parse the text to get the pair of tupples
         bbtext = bbtext[0][0]  #slice the piece you need
-        
+        print(bbtext)
         if bbtext == 'GEOMETRYCOLLECTION EMPTY' or bbtext == 'POLYGON EMPTY' or bbtext == None:
             ullr = 0
          
@@ -780,7 +782,7 @@ class Database:
 
             #ullr = (ulx, uly), (lrx, lry)
             ullr  = (urx, ury), (llx, lly)
-            
+        
         return ullr
 
     def qryMaskZone(self, granule, roi, srid, inst, metaTable):
@@ -820,7 +822,7 @@ class Database:
         
         #make table selected from unhardcoded
         sql = '''SELECT ST_AsText(ST_Transform('''+roi+'''.geom, %(srid)s))
-        FROM '''+roi+''' WHERE ogc_fid = %(inst)s AND %(dimgname)s LIKE imgref'''
+        FROM '''+roi+''' WHERE inst = %(inst)s AND %(dimgname)s LIKE imgref'''
         
         polytext = curs.fetchall()
         if len(polytext) > 0:
