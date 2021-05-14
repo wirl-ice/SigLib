@@ -382,8 +382,6 @@ class SigLib:
 
         """
 
-
-        print(self.roi, self.roiProjSRID, self.vectDir)
         #ROI needs to be in the Query Mode format.
         query = Query(self.roi, self.roiProjSRID, self.vectDir, method)
             
@@ -752,12 +750,12 @@ class SigLib:
                 db.findInstances(self.roi)
         if self.queryProcess == "1": #note query mode is seperate from qualitative and quantitative
             db = Database(self.table_to_query, self.dbName, self.loghandler, host=self.dbHost)
-            query_methods = {1: 'metadata', 2: 'cis', 3:'EODMS'}
-            print("Select which source to query imagery from:\n")
+            query_methods = {'1': 'metadata', '2': 'cis', '3':'EODMS'}
+            print("Available Query Methods:\n")
             print("1: {}".format(self.table_to_query))
             print("2: CIS Archive (WIRL users only)")
-            print("3: EODMS")
-            ans = input("Enter 1,2, or 3:\t")
+            print("3: EODMS\n")
+            ans = input("Please select the desired query method (1,2,3):\t")
             self.query_mode(db, query_methods[ans])
         if self.scanPath == "1":
             self.proc_Dir(self.scanDir, self.scanFor)      # Scan by path pattern

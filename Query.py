@@ -1,11 +1,7 @@
 #Dependencies
-import psycopg2
-import psycopg2.extras
-from psycopg2.extensions import AsIs
+
 from datetime import datetime, timezone
-import numpy
-import scipy.stats as stats
-import glob
+import os
 import getpass
 import logging
 import sys
@@ -55,7 +51,7 @@ class Query(object):
         elif method == 'cis':
             #do cis query
             pass
-        elif method == 'EODMS':
+        elif method == 'EODMS': #set up to query RSAT-1 data
             #query from EODMS
             roiShpFile = os.path.join(self.roiDir, roi)
             queryParams = self.readShpFile(roiShpFile)
@@ -86,11 +82,11 @@ class Query(object):
         for query_id, item in queryParams.items():
 
             start_date = datetime.strptime(item['fromdate'], "%Y/%m/%d")
-            if start_date.tzinfo is None:
-                start_date = start_date.replace(tzinfo=timezone.utc)
+            #if start_date.tzinfo is None:
+            #    start_date = start_date.replace(tzinfo=timezone.utc)
             end_date = datetime.strptime(item['todate'], '%Y/%m/%d')
-            if end_date.tzinfo is None:
-                end_date = end_date.replace(tzinfo=timezone.utc)
+            #if end_date.tzinfo is None:
+            #    end_date = end_date.replace(tzinfo=timezone.utc)
 
             coordinates = item['geom']
             records.append(self.getEODMSRecords(session, start_date, end_date, coordinates))
@@ -118,9 +114,9 @@ class Query(object):
 
                 *session*       : requests session for HTTP requests
                 
-                *start_date*    : (pandas datetime) find images after this date
+                *start_date*    : (datetime) find images after this date
                 
-                *end_date*      : (pandas datetime) find images before this date
+                *end_date*      : (datetime) find images before this date
                 
                 *coords*        : region on interest
 
@@ -156,11 +152,14 @@ class Query(object):
             if result["isOrderable"]:
                 for item in result["metadata2"]:
                     if item["id"] == "CATALOG_IMAGE.START_DATETIME":
-                        date = pandas.to_datetime(item["value"])
+                        #import pandas
+                        #date = pandas.to_datetime(item["value"])
+                        date = datetime.strptime(item["value"], "%Y-%m-%d %H:%M:%S %Z")
                 if date >= start_date and date <= end_date:
                     record_id = result["recordId"]
                     collection_id = result["collectionId"]
                     records.append([record_id, collection_id])
+            break
         
         return records
 
@@ -206,8 +205,7 @@ class Query(object):
         """
 
         driver = ogr.GetDriverByName('ESRI Shapefile')
-        shpfile = driver.Open(filename)
-
+        shpfile = driver.Open(filename+'.shp')
         shape = shpfile.GetLayer(0)
 
         #Ensure query is done in WGS84
