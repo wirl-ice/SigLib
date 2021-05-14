@@ -31,8 +31,8 @@ import numpy
 import scipy.stats as stats
 import glob
 import getpass
-import pandas as pd
 import logging
+import sys
 
 class Database:
     """
@@ -81,12 +81,13 @@ class Database:
             self.logger.info("Connecting to " + dbname + " with user " + getpass.getuser())
             connectionSetUp = "dbname=" + dbname + " port=" + port + " host=" + host
         else:
-            self.logger.info("Connecting to ", dbname, " with user ", user)
+            self.logger.info("Connecting to " + dbname + " with user " + user)
             connectionSetUp = "dbname=" + dbname + " user=" + user  + " password="+ password +" port=" + port + " host=" + host   
             
         self.connection = psycopg2.connect(connectionSetUp)
         self.logger.info("Connection successful")
     
+    #DATABASE UTILITY FUNCTION 
     def meta2db(self, metaDict, overwrite=False):
         """
         Uploads image metadata to the database as discovered by the meta module.
@@ -110,38 +111,57 @@ class Database:
         
         sqlSel = '''SELECT FROM ''' + self.table_to_query + ''' WHERE dimgname = %(dimgname)s'''
         sqlDel = '''DELETE FROM ''' + self.table_to_query + ''' WHERE dimgname = %(dimgname)s'''
-                     
-        
+
         #upload the data
-        sqlIns = '''INSERT INTO ''' + self.table_to_query + ''' 
-        (acDOY, geom, acDateTime, antennaPointing, beam, beams, bitsPerSample, 
-        notes, copyright, dimgname, freqSAR, granule, lineSpacing, looks_Az, looks_Rg, 
-        lutApplied, n_bands, n_beams, n_cols, n_geopts, n_rows, orbit, order_Az, order_Rg, 
-        passDirection, pixelSpacing, polarization, processingFacility, productType,
-        satellite, sattype, theta_far, theta_near, sat_heading, location) 
-        VALUES ( 
-        %(acDOY)s, ST_GeomFromText(%(geom)s, %(geoptsSRID)s), %(acDateTime)s, %(antennaPointing)s, %(beam)s, %(beams)s, %(bitsPerSample)s,
-        %(notes)s, %(copyright)s, %(dimgname)s, %(freqSAR)s, %(granule)s, %(lineSpacing)s, %(looks_Az)s, %(looks_Rg)s, 
-        %(lutApplied)s, %(n_bands)s, %(n_beams)s, %(n_cols)s, %(n_geopts)s, %(n_rows)s, %(orbit)s, %(order_Az)s, %(order_Rg)s, 
-        %(passDirection)s, %(pixelSpacing)s, %(polarization)s, %(processingFacility)s, %(productType)s,
-        %(satellite)s, %(sattype)s, %(theta_far)s, %(theta_near)s, %(sat_heading)s, %(location)s
-        )'''
-                    
+        if metaDict['sattype'] == 'RSAT1' or metaDict['sattype'] == 'RSAT2'or metaDict['sattype'] == 'RS2':
+            sqlIns = '''INSERT INTO ''' + self.table_to_query + ''' 
+            (acDOY, geom, acDateTime, antennaPointing, beam, beams, bitsPerSample, 
+            notes, copyright, dimgname, freqSAR, granule, lineSpacing, looks_Az, looks_Rg, 
+            lutApplied, n_bands, n_beams, n_cols, n_geopts, n_rows, orbit, order_Az, order_Rg, 
+            passDirection, pixelSpacing, polarization, processingFacility, productType,
+            satellite, sattype, theta_far, theta_near, sat_heading, location) 
+            VALUES ( 
+            %(acDOY)s, ST_GeomFromText(%(geom)s, %(geoptsSRID)s), %(acDateTime)s, %(antennaPointing)s, %(beam)s, %(beams)s, %(bitsPerSample)s,
+            %(notes)s, %(copyright)s, %(dimgname)s, %(freqSAR)s, %(granule)s, %(lineSpacing)s, %(looks_Az)s, %(looks_Rg)s, 
+            %(lutApplied)s, %(n_bands)s, %(n_beams)s, %(n_cols)s, %(n_geopts)s, %(n_rows)s, %(orbit)s, %(order_Az)s, %(order_Rg)s, 
+            %(passDirection)s, %(pixelSpacing)s, %(polarization)s, %(processingFacility)s, %(productType)s,
+            %(satellite)s, %(sattype)s, %(theta_far)s, %(theta_near)s, %(sat_heading)s, %(location)s
+            )'''
         
+        elif metaDict['sattype'] == 'SEN-1':
+            sqlIns = '''INSERT INTO ''' + "tblmetadata_ai_s1" + ''' 
+            (acDOY, geom, acDateTime, beam, bitsPerSample, 
+            notes, copyright, dimgname, granule, lineSpacing, n_bands, n_cols, n_geopts, n_rows, 
+            passDirection, pixelSpacing, polarization,
+            satellite, sattype, location) 
+            VALUES ( 
+            %(acDOY)s, ST_GeomFromText(%(geom)s, %(geoptsSRID)s), %(acDateTime)s, %(beam)s, %(bitsPerSample)s,
+            %(notes)s, %(copyright)s, %(dimgname)s, %(granule)s, %(lineSpacing)s, %(n_bands)s, %(n_cols)s, %(n_geopts)s, %(n_rows)s, 
+            %(passDirection)s, %(pixelSpacing)s, %(polarization)s,
+            %(satellite)s, %(sattype)s, %(location)s
+            )'''
+            
+        else:
+            print("Warning! Satellite type {} not supported in the mode.".format(self.metaDict.sattype))
+            print("Terminating program...")
+            sys.exit()
+                    
         curs = self.connection.cursor()
         if not overwrite:
             curs.execute(sqlSel, metaDict) #TODO
             result = curs.fetchall()
             if len(result) > 0:
                 self.logger.debug("This zip is already in the database!")
+                
         curs.execute(sqlDel, metaDict)
-            
         curs.execute(sqlIns, metaDict)
+        
         self.connection.commit()
         
         self.logger.info("dimgname:    " + metaDict['dimgname'] )
         self.logger.info("[Succesfuly added "+ metaDict['dimgname'] + " metadata into " + self.table_to_query + ".]" )
-        
+
+    #DATABASE UTILITY FUNCTION    
     def createTblMetadata(self):
         """
         Creates a metadata table of name specified in the cfg file under Table. It overwrites if that table name already exist, be careful!
@@ -150,10 +170,10 @@ class Database:
         #TODO - make SRID an option (default to 4326)
         
         name = self.table_to_query            
-        curs = self.connection.cursor()        
+        curs = self.connection.cursor()  
         
         curs.execute('DROP TABLE IF EXISTS ' + name) # overwrites !!!  
-        
+
         sql1 = 'CREATE TABLE ' + name
         sql2 = '(dimgname varchar(100), granule varchar(100), acDateTime timestamp, acDOY double precision, polarization varchar(20),'
         sql3 = 'beam varchar(5), n_bands int, n_cols int, n_rows int, lineSpacing double precision, pixelSpacing double precision, '
@@ -165,8 +185,8 @@ class Database:
                      
         
         createSql = sql1 + sql2 + sql3 + sql4 + sql5 + sql6 + sql7 + sql8
-        curs.execute(createSql) #Create the table
         
+        curs.execute(createSql) #Create the table
         
         # Add geometry - SRID of 4326 is WGS84 and must exist in Spatial refs - so check and add if needed
        
@@ -200,7 +220,8 @@ class Database:
         self.connection.commit()
 
         self.logger.info(self.table_to_query + " created")
-        
+
+    #CALL FROM QUERY    
     def updateFromArchive(self, archDir):
         """
         Goes to CIS Archive metadata shapefiles and (re)creates and updates tblArchive in the connected database
@@ -263,7 +284,8 @@ class Database:
         curs.execute(qryCountAllImgs)
         n_imgs = curs.fetchall()
         self.logger.info("tblArchive updated with " + str(n_imgs[0][0]) + " SAR images")     
-        
+
+    #CALL FROM QUERY    
     def qryGetInstances(self, granule, roi, metaTable):   
         """
         Writes a query to fetch the instance names that are
@@ -285,6 +307,7 @@ class Database:
         # retrieve the dimgname/imgref1 by querying granule that maps to the wanted imgref1
         curs = self.connection.cursor()
         param = {'granule' : granule}
+        
         sql = "SELECT dimgname FROM " + self.table_to_query + " WHERE granule LIKE %(granule)s"
 
         curs.execute(sql,param)
@@ -294,19 +317,18 @@ class Database:
         except:
             instances = -1
             return instances
-      
+            
         # retrieve all the instances of polygons that relate to image       
         param = {'dimgname' : dimgname}
-        sql = "SELECT ogc_fid FROM "+roi+" WHERE %(dimgname)s LIKE imgref"  
+        sql = "SELECT inst FROM "+roi+" WHERE %(dimgname)s LIKE imgref"  
         curs.execute(sql,param)
         result = curs.fetchall()
-
         instances = []
         for i in range(len(result)):
             instances.append(result[i][0])
-        
         return instances
-        
+
+    #OBSOLETE    
     def nameRelationTable(self, roi, spatialrel):
         """
         Automatically gives a name to a relational table in the format: "trel" + roi + "img" + _int or _con (in reference to spatialrel)
@@ -330,7 +352,8 @@ class Database:
         name = 'trel'+roi+'img'+spat
         
         return name
-        
+
+    #DATABASE UTILITY FUNCTION   
     def updateROI(self, inFile, srid, wdir, ogr=False): 
         """
         This function will update an ROI (Region Of Interest) table in the database. It has a prescribed format
@@ -438,6 +461,7 @@ class Database:
         
         self.logger.info("Database updated with " + str(n_rows[0][0]) + " ROI polygons")
         
+    #POSSIBLY OBSOLETE    
     def qryFromText(self, sql, output=False):
         """
         Runs a query in the current databse by sending an sql string  
@@ -466,15 +490,15 @@ class Database:
                 rows = curs.fetchall()
                 colnames = [desc[0] for desc in curs.description]
                 
-        except ValueError, e:
+        except ValueError as e:
             self.logger.error('ERROR(value): Confirm that the values sent or retrieved are as expected--> ' +str(e))
             self.connection.rollback() #from Metadata import Metadatalback()
             
-        except psycopg2.ProgrammingError, e:
+        except psycopg2.ProgrammingError as e:
             self.logger.error('ERROR(programming): Confirm the SQL statement is valid--> ' +str(e))
             self.connection.rollback()
             
-        except StandardError, e:
+        except StandardError as e:
             self.logger.error('ERROR(standard): ' +str(e))   
             self.connection.rollback()
             
@@ -483,7 +507,8 @@ class Database:
             self.logger.debug('Query sent successfully')
             if output:
                 return(numpy.asarray(rows), colnames)       
-        
+
+    #OBSOLETE    
     def qryFromFile(self, fname, path, output=False):
         """
         Runs a query in the current databse by opening a file - adds the path and 
@@ -508,7 +533,8 @@ class Database:
         data = self.qryFromText(sql, output)
         if output:
             return(data)       
-            
+
+    #OBSOLETE        
     def qrySelectFromAvailable(self, roi, selectFrom, spatialrel, srid):
         """
         Given a roi table name (with polygons, from/todates), determine the scenes that cover the area
@@ -623,6 +649,7 @@ class Database:
         
         return copylist, instimg
 
+    #OBSOLETE
     def relations2db(self, roi, spatialrel, instimg, fname=None, mode='refresh', export=False):
         """
         A function to add or update relational tables that contain the name of an image
@@ -687,7 +714,7 @@ class Database:
                 if tmp[col].dtype == 'O' or tmp[col].dtype == 'S':
                     tmp[col] = tmp[col].str.rstrip()  # somehow there are plenty of spaces in some cols
             tmp.to_csv(fname,index=False)    
-        
+
     def qryCropZone(self, granule, roi, spatialrel, inst, metaTable, srid=4326):
         """
         Writes a query to fetch the bounding box of the area that the inst polygon and
@@ -712,24 +739,25 @@ class Database:
             
             *ullr*       : upper left, lower right tupple pair in the projection given
         """
-        
-        param = {"srid" : srid, "granule" : granule, "inst" : inst}  
-    
-        sql1 = "SELECT ST_AsText(ST_Envelope(ST_Intersection((SELECT ST_Transform(" + self.table_to_query + ".geom, %(srid)s) FROM " + self.table_to_query + " WHERE granule = %(granule)s), (SELECT ST_Transform("
+
+        param = {"srid" : int(srid), "granule" : granule, "inst" : str(inst)}  
+
+        #TODO: Investigate error:
+        #"could not form projection from 'srid=96718' to 'srid=4326"
+        sql1 = "SELECT ST_AsText(ST_Envelope(ST_Intersection((SELECT ST_Transform(" + self.table_to_query + ".geom, %(srid)s) FROM " + self.table_to_query + " WHERE granule = '%(granule)s'), (SELECT ST_Transform("
         sql2 = ".geom, %(srid)s) FROM "
-        sql3 = " WHERE ogc_fid = %(inst)s))))"
+        sql3 = " WHERE inst = '%(inst)s'))))"
     
         sql = sql1+ roi +sql2+ roi +sql3
-    
+        
         curs = self.connection.cursor()
         curs.execute(sql, param)
-        
         bbtext = curs.fetchall()
-        
+
         #parse the text to get the pair of tupples
         bbtext = bbtext[0][0]  #slice the piece you need
-        
-        if bbtext == 'GEOMETRYCOLLECTION EMPTY' or bbtext == None:
+
+        if bbtext == 'GEOMETRYCOLLECTION EMPTY' or bbtext == 'POLYGON EMPTY' or bbtext == None:
             ullr = 0
          
         else:#clockwise
@@ -751,7 +779,7 @@ class Database:
 
             #ullr = (ulx, uly), (lrx, lry)
             ullr  = (urx, ury), (llx, lly)
-            
+        
         return ullr
 
     def qryMaskZone(self, granule, roi, srid, inst, metaTable):
@@ -787,20 +815,24 @@ class Database:
         dimgname = str(curs.fetchone()[0])
         
         #line below removes a dash due to lack of in earlier naming convention
-        param = {'srid': srid, 'granule': granule, 'inst': inst, 'dimgname' : dimgname + '%'}
+        param = {'srid': int(srid), 'granule': granule, 'inst': inst, 'dimgname' : dimgname } #+ '%'}
+        
         #make table selected from unhardcoded
-        
         sql = '''SELECT ST_AsText(ST_Transform('''+roi+'''.geom, %(srid)s))
-        FROM '''+roi+''' WHERE ogc_fid = %(inst)s AND %(dimgname)s LIKE imgref'''
+        FROM '''+roi+''' WHERE inst = %(inst)s AND %(dimgname)s LIKE imgref'''
         
-        
-        curs.execute(sql, param)
-        polytext = curs.fetchall()[0][0]
-    
-        if polytext == 'GEOMETRYCOLLECTION EMPTY':
+        polytext = curs.fetchall()
+        if len(polytext) > 0:
+            return polytext[0][0]
+        elif polytext == 'GEOMETRYCOLLECTION EMPTY':
             polytext = 0
+        else: #this should not be the case
+            self.logger.debug("Query did not execute, no masking performed")
+            polytext = 0
+        curs.close()
         return polytext
 
+    #UTIL FUNCTION
     def imgData2db(self, imgData, bandName, inst, dimgname, granule):
         """
         Upload image data as an array to a new database table
@@ -839,6 +871,13 @@ class Database:
             'skew' : str(stats.skew(polyData, None)),
             'kurtosis' : str(stats.kurtosis(polyData, None))
             }
+            
+            
+        #If table isn't created
+        '''
+        create table tblbanddata (granule varchar(100), bandname varchar(100), inst int, dimgname varchar(100), mean varchar(25), var varchar(25),
+        maxdata varchar(25), mindata varchar(25), median varchar(25), quart1 varchar (25), quart3 varchar(25), skew varchar (25), kurtosis varchar (25))
+        '''        
         
         #First, look to see if primary key exists, if so, overwrite record
         sqlDel = '''DELETE FROM tblbanddata WHERE bandname = %(bandname)s 
@@ -867,12 +906,13 @@ class Database:
         
         try:
             curs.execute(sqlIns, upload)
-        except Exception, e:
+        except Exception as e:
             self.logger.error(e)
             return
         self.connection.commit()
         self.logger.info('Image ' + granule + ' data uploaded to database')        
-        
+
+    #OBSOLETE    
     def numpy2sql(self, numpyArray, dims):
         """
         Converts a 1- or 2-D numpy array to an sql friendly array
@@ -911,6 +951,7 @@ class Database:
         array_sql += "}"
         return array_sql        
     
+    #OBSOLETE
     def sql2numpy(self, sqlArray, dtype='float32'):
         """
         Coming from SQL queries, arrays are stored as a list (or list of lists)
@@ -930,6 +971,7 @@ class Database:
         list = numpy.asarray(sqlArray, dtype=dtype) 
         return list
 
+    #OBSOLETE
     def exportToCSV(self, qryOutput, outputName):
         """
         Given a dictionary of results from the database and a filename puts all the results
@@ -950,6 +992,76 @@ class Database:
                     tmp[col] =stripped
         tmp.to_csv(outputName, index=False)
 
+    #DATABASE?    
+    def findInstances(self, roi):
+        """
+        Scans metadata table to determine if any images
+        intersect the given roi
+        
+        **Parameters**
+            
+            *roi*  : roi table name           
+        """
+        
+        meta = self.table_to_query
+        
+        qry = """SELECT """+ meta+""".dimgname, """+roi+""".inst""" +\
+        """ FROM """+meta+ """, """+roi+ \
+        """ WHERE ST_Intersects(ST_Transform("""+self.table_to_query+""".geom, 96718), 
+        ST_Transform("""+roi+""".geom, 96718)) """ +\
+        """AND """+meta+""".acdatetime BETWEEN """+roi+""".fromdate AND """+roi+""".todate"""
+        
+        curs = self.connection.cursor()
+        
+        curs.execute(qry)
+        self.connection.commit()
+        instances = curs.fetchall()
+        for instance in instances:
+            img = instance[0]
+            inst = instance[1]
+            qry2 = """SELECT imgref FROM """+roi+""" WHERE inst = '"""+inst+"""'"""
+            curs.execute(qry2)
+            self.connection.commit()
+            imgref = curs.fetchall()[0]
+
+            if imgref[0] is None:
+                sqlAdd = """UPDATE """+roi+""" SET imgref = '"""+img+\
+                         """' WHERE inst = '"""+inst+"""'"""
+                curs.execute(sqlAdd)
+                self.connection.commit()
+            elif imgref[0] == img:
+                pass
+            else:
+                n = len(inst)
+                qry_inst = """SELECT inst FROM """+roi+""" WHERE inst LIKE '"""+inst[:n-3]+"""%' """ +\
+                           """AND LENGTH(inst) = """ + str(n)
+                curs.execute(qry_inst)
+                self.connection.commit()
+                last_inst = numpy.max([int(x[0]) for x in curs.fetchall()])
+                
+                sqlCOL = """SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS """+\
+                         """WHERE TABLE_NAME = '"""+roi+"""'"""
+                
+                curs.execute(sqlCOL)
+                self.connection.commit()
+                cols = [col[0] for col in curs.fetchall()]
+                
+                keep_col = [col for col in cols if col != "imgref" and col != "inst" and col != "ogc_fid"]
+                keep_col = ", ".join(keep_col)
+                new_inst = str(last_inst + 1)
+                sqlINS = """INSERT INTO """+roi+""" ("""+", ".join(cols)+ \
+                         """) SELECT '"""+new_inst+"""', """+keep_col+""", '"""+img+"""', '"""+new_inst+ \
+                         """' FROM """+roi+""" WHERE inst = '"""+inst+"""'"""
+                         
+                curs.execute(sqlINS)
+                self.connection.commit()
+                
+    def stats2db(stats, inst, granule, roi):
+        #function to upload stats generated in Quantitative mode to a database table
+        pass            
+        
+        
+    #POLARIMETRIC SPECIFIC
     def beaconShapefilesToTables(self, dirName):
         """
         Takes a directory containing beacon shape files and converts them to tables and 
@@ -983,7 +1095,8 @@ class Database:
                     self.logger.error("Problem with shapefile %s." % shpname)                  
             except:
                 self.logger.error("Problem with shapefile %s." % shpname)           
-        
+
+    #OBSOLETE    
     def convertGPSTime(self, shpTable):
         """
         Takes a shape file and converts the gps_time from character type to timestamp time.
@@ -1000,7 +1113,8 @@ class Database:
         curs = self.connection.cursor()
         curs.execute(query) 
         self.connection.commit()
-        
+
+    #POLARIMETRIC SPECIFIC    
     def beaconIntersections(self, beacontable, granule):
         """
         Get id, lat and long of beacons that intersect the image within a ninty minutes of the image data being collected
@@ -1032,17 +1146,17 @@ class Database:
 
         try:
             curs.execute(sql,param)
-        except psycopg2.ProgrammingError, e:
+        except psycopg2.ProgrammingError as e:
             self.logger.error('ERROR(programming): Confirm the SQL statement is valid--> ' +str(e))
-            print str(e)
             return
             
         self.connection.commit()
         
         rows = curs.fetchall()
-        print len(rows)
+
         return rows
-        
+
+    #POLARIMETRIC SPECIFIC    
     def polarimetricDonuts(self, granule, beaconid):
         '''
         **Parameters**
@@ -1074,7 +1188,8 @@ class Database:
         try:
             curs.execute(sql2, param)
         except Exception as e:
-            print e
+            self.logger.error(e)
+            return []
         result = str(curs.fetchone()[0])
         if result == 'GEOMETRYCOLLECTION EMPTY':
             return []
@@ -1083,14 +1198,19 @@ class Database:
         sql3 =  """SELECT ST_AsText(ST_Transform(ST_Multi(ST_Difference(ST_Buffer(ii_polygons.geom, 400), ST_Buffer(ii_polygons.geom, 30))), 4326)) """ +\
         """FROM ii_polygons WHERE ii_polygons.beaconid = %(beacnid)s AND %(dimgname)s LIKE ii_polygons.imgref"""
         
-        curs.execute(sql3, param)
+        try:
+            curs.execute(sql3, param)
+        except Exception as e:
+            self.logger.error(e)
+            return []
         result = str(curs.fetchone()[0])
         if result == 'GEOMETRYCOLLECTION EMPTY':
             return []
         results.append(result)
         
         return results
-        
+
+    #KEEP    
     def removeHandler(self):
         self.logger.handlers = []
         

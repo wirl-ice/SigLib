@@ -32,7 +32,10 @@ from osgeo import gdal
 from osgeo import osr
 from osgeo.gdalconst import *
 
+from future.utils import iteritems
+
 import Util
+import pdb
 
 D2R = math.pi / 180.0
 R2D = 180.0 / math.pi
@@ -245,11 +248,12 @@ class Metadata(object):
         self.notes = []
         self.dimgname = imgname   # update dimgname after accessing meta
         self.status = "ok"
-
-
+        self.fname = None
+        
+        #pdb.set_trace()
         # now... image, describe thyself!
         result = self.getgdalmeta()     #result = None if test ok, otherwise its an error
-
+        
         if (result == "gdalerror"):
             self.status = "gdalerror"
             return
@@ -257,10 +261,10 @@ class Metadata(object):
         if self.sattype == 'ASF_CEOS' or self.sattype == 'CDPF':
             self.getCEOSmetafile()
             ceos_meta = self.get_ceos_metadata()
-
+            
             if self.sattype == 'CDPF':
                 result = self.clean_metaCDPF(ceos_meta)
-
+                
                 if (result == "gdalerror"):
                     self.status = "gdalerror"
                     return
@@ -275,6 +279,11 @@ class Metadata(object):
         elif self.sattype == 'RS2':
             self.getCornerPoints()
             self.getRS2metadata()
+            
+        elif self.sattype == "SEN-1":
+            self.getCornerPoints()
+            self.getS1metadata()
+            
         else:
             pass # trap error here?
             
@@ -305,12 +314,12 @@ class Metadata(object):
         if self.sattype == "SEN-1":
             imgname = 'manifest.safe'
 
-	### register all drivers at once ... works for reading data but not for creating data sets
+	    ### register all drivers at once ... works for reading data but not for creating data sets
         gdal.AllRegister() # for all purposes
-        fname = os.path.join(self.path, imgname)
-
-	### now that the driver has been registered, use the stand-alone Open method to return a Dataset object
-        ds = gdal.Open(fname, GA_ReadOnly)
+        self.fname = os.path.join(self.path, imgname)
+        
+	    ### now that the driver has been registered, use the stand-alone Open method to return a Dataset object
+        ds = gdal.Open(self.fname, GA_ReadOnly)
 
         #TODO, more info here
 
@@ -326,7 +335,7 @@ class Metadata(object):
 
         #If the n_rows is not zero extract the GCPs through the dataset
         if(self.n_rows > 0):
-            self.geopts = ds.GetGCPs()              ### Getting the 15 GCPs
+            self.geopts = ds.GetGCPs()              ### Getting the GCPs
             self.n_geopts = ds.GetGCPCount()
 
         #Otherwise extract them manually through the .img file
@@ -341,7 +350,6 @@ class Metadata(object):
         if self.sattype == "CDPF":
             self.geopts = self.extractGCPs(50)
 
-
         self.geoptsGCS = ds.GetGCPProjection()
         proj = ds.GetProjectionRef()
 
@@ -353,12 +361,11 @@ class Metadata(object):
         self.logger.info('Img has: ' + str(self.n_cols) + ' columns, ' + \
         str(self.n_rows) + ' rows & ' + str(self.n_bands) + ' band(s)')
             
-
         # All gdal_meta
         gdal_meta = ds.GetMetadata_List()
         
         ds = None
-
+        
         return gdal_meta
 
     def getCornerPoints(self):
@@ -386,7 +393,7 @@ class Metadata(object):
             return "gdalerror"
 
         # check to see if the gcps cover the corners
-        if self.sattype == 'RS2': # these ones are not in the middle of the pixel
+        if self.sattype == 'RS2' or self.sattype == "SEN-1": # these ones are not in the middle of the pixel
             offset = 0.5
         else:
             offset = 0
@@ -482,6 +489,7 @@ class Metadata(object):
 
         self.geom = 'POLYGON(('+ul+', '+ur+', '+lr+', '+ll+', '+ul+'))'
 
+    #OBSOLETE
     def getMoreGCPs(self, n_gcps):
         """
         If you have a CDPF RSat1 image, gdal only has 15 GCPs
@@ -604,14 +612,13 @@ class Metadata(object):
         #TODO: MAKE THIS AN XML FILE
         meta = self.createMetaDict()
         fout = open(os.path.join(dir, self.dimgname+".met"), 'w')
-
-        for field, value in sorted(meta.iteritems()):
+        for field, value in sorted(iteritems(meta)):
                     fout.write(field +'\t'+ str(value))
                     fout.write('\n')
 
         fout.close()
-#        doc = xml.dom.minidom.Document()
-#        dimgname = doc.createElementNS(self.dimgname, "dimgname")
+        #doc = xml.dom.minidom.Document()
+        #dimgname = doc.createElementNS(self.dimgname, "dimgname")
     
     def createMetaDict(self):   
         """
@@ -625,7 +632,7 @@ class Metadata(object):
 
         #make a dictionary of all the meta.attributes
         metaDict = {}
-        for attr, value in self.__dict__.iteritems():
+        for attr, value in iteritems(self.__dict__):
             ###tblmetadata is filled with this dict
 
             if attr != 'geopts' and attr != 'noise' and attr != 'calgain' and \
@@ -634,7 +641,10 @@ class Metadata(object):
                     if type(value) == type(self.calgain):
                         metaDict[attr] = value.tolist()
                     else:
-                        metaDict[attr] = value
+                        if is_it_int(value):
+                            metaDict[attr] = int(float(value))
+                        else:
+                            metaDict[attr] = value
                 except AttributeError:
                     metaDict[attr] = value
         return metaDict
@@ -669,27 +679,26 @@ class Metadata(object):
         if len(file_names) == 0:
             file_names = self.metafile
 
-#        file_names.append =''
+        #        file_names.append =''
 
-#        if len(file_names) == 1:
-#                file_names = [file_names[0]
-#        else:
-#                file_names = (file_names,)
-        # Build record index
+        #        if len(file_names) == 1:
+        #                file_names = [file_names[0]
+        #        else:
+        #                file_names = (file_names,)
+                # Build record index
 
         record_index = {}
         for field in rsat_fields:
-            if record_index.has_key(field[0]):
+            if field[0] in record_index:
                 record_index[field[0]].append(field)
             else:
                 record_index[field[0]] = [field]
 
-
         # Extract from files
         result = {}
         for file_name in file_names:#
-
-            fp = open(file_name)
+        
+            fp = open(file_name, 'rb')
 
 
             # Get file size
@@ -712,13 +721,13 @@ class Metadata(object):
 
                 # read the record length from CEOS data
                 record_length = byte2int(header_data[8:12])
-                if rsat_records.has_key(record_key):
+                if record_key in rsat_records:
                     record_name = rsat_records[record_key]
                 else:
                     record_name = "Unknown Record"
 
                 # if we are looking for this record, then get data in record
-                if record_index.has_key(record_key):
+                if record_key in record_index:
 
                     # read in the data in native format
                     record_data = get_data_block(fp, record_offset, record_length)
@@ -743,11 +752,11 @@ class Metadata(object):
                         # if the values don't repeat - single values
                         else:
                             field_result = get_field_value(record_data,field[2],field[3],field[4]-1)
-
-                        result[field[1]] = field_result  # add data to result dictionary
+                        if type(field_result) == type(b''):
+                            field_result = debyte(field_result)
+                        result[field[1]] = str(field_result)  # add data to result dictionary
 
                 record_offset = record_offset + record_length
-
         return result
 
     def extractGCPs(self, interval):
@@ -765,7 +774,7 @@ class Metadata(object):
 
         file_name = self.image
 
-        fp = open(file_name)
+        fp = open(file_name, 'rb')
 
 
         # Get file size
@@ -801,7 +810,7 @@ class Metadata(object):
                 coords_bin = fp.read(24)
 
                 coords_int = struct.unpack('>llllll', coords_bin)
-
+                
                 first.append((coords_int[3]/1e6, coords_int[0]/1e6))
                 mid.append((coords_int[4]/1e6, coords_int[1]/1e6))
                 last.append((coords_int[5]/1e6, coords_int[2]/1e6))
@@ -809,7 +818,7 @@ class Metadata(object):
 
             record_offset = (record_offset) + record_length
 
-        lines = range(0, line_num, interval)        ### Take every nth line (nth = interval)
+        lines = list(range(0, line_num, interval))        ### Take every nth line (nth = interval)
 
         # Make sure to extract the pixels from the last line
         if line_num - 1 not in lines:
@@ -852,6 +861,51 @@ class Metadata(object):
 
         return tuple(gcps)
 
+    #CAMERON - This function is the one that needs work mostly. 
+    def getS1metadata(self):         #Get a better description for this function, summarize fields, don't list all
+        """
+        Open a S1 and get all the required metadata
+        """
+
+        #Option 1 - get metadata from manifest.... 
+        xmldoc = minidom.parse(self.fname)
+        
+        #Option 2 - find metadata in here.... 
+        dataset = gdal.Open(self.fname)
+        geotrans = dataset.GetGeoTransform()
+        
+        #These are priority fields
+        self.beam = xmldoc.getElementsByTagName('s1sarl1:mode')[0].firstChild.data
+        self.polarization = []
+        self.n_bands = len(xmldoc.getElementsByTagName('s1sarl1:transmitterReceiverPolarisation'))
+        for i in range(self.n_bands):
+            self.polarization.append(xmldoc.getElementsByTagName('s1sarl1:transmitterReceiverPolarisation')[i].firstChild.data)
+        self.acDateTime =  xmldoc.getElementsByTagName('safe:startTime')[0].firstChild.data
+        self.acDateTime = readdate(self.acDateTime, self.sattype)
+        self.acDOY = date2doy(self.acDateTime, float=True)
+        self.bitsPerSample = 16 #hard coded for now
+        self.n_cols = dataset.RasterXSize
+        self.n_rows = dataset.RasterYSize
+        self.pixelSpacing = geotrans[1]
+        self.lineSpacing = -geotrans[5]
+        self.passDirection = xmldoc.getElementsByTagName('s1:pass')[0].firstChild.data
+
+        #Low priority fields - can be ignored for now... 
+        #self.antennaPointing = xmldoc.getElementsByTagName('antennaPointing')[0].firstChild.data
+        #self.lutApplied = xmldoc.getElementsByTagName('lutApplied')[0].firstChild.data
+        #self.looks_Rg = int(xmldoc.getElementsByTagName('numberOfRangeLooks')[0].firstChild.data)
+        #self.looks_Az = int(xmldoc.getElementsByTagName('numberOfAzimuthLooks')[0].firstChild.data)
+        #self.theta_near = None
+        #self.theta_far = None
+        #self.orbit = None
+        #self.sat_heading = None 
+        
+        self.satellite = xmldoc.getElementsByTagName('safe:familyName')[0].firstChild.data + xmldoc.getElementsByTagName('safe:number')[0].firstChild.data
+        self.copyright = "ESA"     #hardcoded
+
+        xmldoc.unlink()
+        self.getDimgname()   #CHECK TO SEE IF THIS WORKS
+        
 
     def getRS2metadata(self):         #Get a better description for this function, summarize fields, don't list all
         """
@@ -900,15 +954,33 @@ class Metadata(object):
         self.satellite = 'Radarsat-2'
         self.copyright = xmldoc.getElementsByTagName('product')[0].attributes["copyright"].value
 
+        #values for terrain correction with known height
+        self.acquisitionType = xmldoc.getElementsByTagName('acquisitionType')[0].firstChild.data
+        self.h_proc = float(xmldoc.getElementsByTagName('geodeticTerrainHeight')[0].firstChild.data)
+        self.near_range = float(xmldoc.getElementsByTagName('slantRangeNearEdge')[0].firstChild.data)
+        #self.t_first = xmldoc.getElementsByTagName('zeroDopplerTimeFirstLine')[0].firstChild.data
+        #self.t_last = xmldoc.getElementsByTagName('zeroDopplerTimeLastLine')[0].firstChild.data
+        self.tie_points = {
+                        'pixel': [],
+                        'line': [],
+                        'longitude': [],
+                        'latitude': [],
+                        'height': []
+                    }
+        for key,val in self.tie_points.items():
+            for node in xmldoc.getElementsByTagName(key):
+                val.append(float(node.firstChild.data))
+            val = numpy.array(val)
+
         #INCIDENCE ANGLE (THETA)
         # get the ground to slant range inputs (from first set of data only)
         sr2gr = xmldoc.getElementsByTagName('slantRangeToGroundRange')[0]
-        gr0 = float(sr2gr.getElementsByTagName('groundRangeOrigin')[0].firstChild.data)
+        self.gr0 = float(sr2gr.getElementsByTagName('groundRangeOrigin')[0].firstChild.data)
         gsr = sr2gr.getElementsByTagName('groundToSlantRangeCoefficients')[0].firstChild.data
         gsr = gsr.split()
         for i in range(len(gsr)):
                 gsr[i] = float(gsr[i])
-
+        self.gsr = gsr
         self.order_Az = xmldoc.getElementsByTagName('lineTimeOrdering')[0].firstChild.data
         self.order_Rg = xmldoc.getElementsByTagName('pixelTimeOrdering')[0].firstChild.data
 
@@ -927,20 +999,20 @@ class Metadata(object):
             self.notes.append('Warning SRGR coefficient issue, image duration is '+ str(duration.seconds))
 
 
-        slantRange = getSlantRange(gsr, self.pixelSpacing, self.n_cols, self.order_Rg, gr0)
+        slantRange = getSlantRange(gsr, self.pixelSpacing, self.n_cols, self.order_Rg, self.gr0)
 
-        ellip_maj = float(xmldoc.getElementsByTagName('semiMajorAxis')[0].firstChild.data)
-        ellip_min = float(xmldoc.getElementsByTagName('semiMinorAxis')[0].firstChild.data)
-        sat_alt = float(xmldoc.getElementsByTagName('satelliteHeight')[0].firstChild.data)
+        self.ellip_maj = float(xmldoc.getElementsByTagName('semiMajorAxis')[0].firstChild.data)
+        self.ellip_min = float(xmldoc.getElementsByTagName('semiMinorAxis')[0].firstChild.data)
+        self.sat_alt = float(xmldoc.getElementsByTagName('satelliteHeight')[0].firstChild.data)
         plat_lat = float(xmldoc.getElementsByTagName('latitudeOffset')[0].firstChild.data)
 
-        radius = getEarthRadius(ellip_maj, ellip_min, plat_lat)
+        radius = getEarthRadius(self.ellip_maj, self.ellip_min, plat_lat)
 
-        self.theta = getThetaVector(self.n_cols, slantRange, radius, sat_alt)*R2D # now in degrees
+        self.theta = getThetaVector(self.n_cols, slantRange, radius, self.sat_alt)*R2D # now in degrees
 
         self.productType = xmldoc.getElementsByTagName('productType')[0].firstChild.data
         if self.productType == 'SLC': # then you might want groundRange
-            groundRange = getGroundRange(slantRange, radius, sat_alt)
+            groundRange = getGroundRange(slantRange, radius, self.sat_alt)
 
         #NOISE VECTOR
         noise = xmldoc.getElementsByTagName('referenceNoiseLevel')
@@ -1004,22 +1076,23 @@ class Metadata(object):
             *result* : A dictonary of metadata
         """
 
-        if result.has_key('act_ing_start'): #try this first
+        if 'act_ing_start' in result: #try this first
             self.acDateTime = readdate(result['act_ing_start'], self.sattype)
-        elif result.has_key('state_time'):
+        elif 'act_img_start' in result: #is above typo?
+            self.acDateTime = readdate(result['act_img_start'], self.sattype)
+        elif 'state_time' in result:
             self.acDateTime = readdate(result['state_time'], self.sattype)
         else:
             self.logger.error('No date field retrieved in metadata')
             #error handler
-
         self.satellite = result['sensor_id'][0:6]
         # scen_id describes the product type an not the beam mode
         ###self.beam = result['scene_id'].strip()
         ###self.beam = self.beam[-3:len(result['scene_id'])]
 
         self.n_bands = 1  # since we have HH
-        self.lineSpacing = result['line_spacing']
-        self.pixelSpacing = result['pix_spacing']
+        self.lineSpacing = float(result['line_spacing'])
+        self.pixelSpacing = float(result['pix_spacing'])
         assert self.lineSpacing > 0 and type(self.lineSpacing) == type(1.2)
         assert self.pixelSpacing > 0 and type(self.pixelSpacing) == type(1.2)
 
@@ -1052,17 +1125,15 @@ class Metadata(object):
         if 'S' in result['beam_type1'].strip() and result['beam_type2'].strip() == '':
             self.beam = "STND"
 
-
         self.beam = self.beam + '_____'  # this will pad the beam name
         self.beam = self.beam[0:5] # keep this to 5 chars
 
-        if result.has_key('nbit'):
+        if 'nbit' in result:
             self.bitsPerSample = result['nbit']
         else:
             self.bitsPerSample = 8  # A BIG ASSUMPTION HERE!!! COULD BE TROUBLE
-
         self.copyright = 'Copyright CSA ' + self.acDateTime.strftime('%Y')
-        self.freqSAR = 0.29979e9/result['wave_length'] # in Hz
+        self.freqSAR = 0.29979e9/float(result['wave_length']) # in Hz
         self.looks_Az = result['n_azilok']
         self.looks_Rg = result['n_rnglok']
         self.n_beams = result['n_beams']
@@ -1088,17 +1159,23 @@ class Metadata(object):
         #sometimes eph_orb_data is missing...
         if result['eph_orb_data'] == None: #quick check to see
             result['eph_orb_data'] = 7.167055e6 # in metres
-        sat_alt = result['eph_orb_data'] - getEarthRadius(result['ellip_maj'], \
-                result['ellip_min'], result['plat_lat'])
+        if result['eph_orb_data'] != "None":
+            self.sat_alt = result['eph_orb_data'] - getEarthRadius(result['ellip_maj'], \
+                        result['ellip_min'], result['plat_lat'])
+        else:
+            self.logger.debug("Warning! could not determine satellite altitude (line 1160 metadata.py)")
 
         #Save these to check the projections
         self.ellip_maj = result['ellip_maj']
         self.ellip_min = result['ellip_min']
 
-
         self.lutApplied = None
         self.order_Az = result["time_dir_lin"]
         self.order_Rg = result["time_dir_pix"]
+        
+        calgain = result["lookup_tab"].split("   ")       
+        self.calgain = [float(g) for g in calgain if g != '']
+        
 
         #Product type too long at the moment so default to none
         self.productType = None
@@ -1106,10 +1183,10 @@ class Metadata(object):
         self.theta_near = None
         self.theta = ()
         self.noise = ()
-        self.calgain = ()
+        #self.calgain = ()
         self.getDimgname()
 
-    #Too long at the moment
+        #Too long at the moment
     def getASFProductType(self, ASFName):
         """
         Description needed!
@@ -1233,7 +1310,7 @@ class Metadata(object):
         self.theta_near = None
 
 
-        if result.has_key('inp_sctim'):
+        if 'inp_sctim' in result:
             self.acDateTime = readdate(result['inp_sctim'], self.sattype)
         else:
             self.logger.error('No date field retrieved in metadata')
@@ -1256,7 +1333,7 @@ class Metadata(object):
         self.beams = result['beam_type1']+result['beam_type2']+result['beam_type3']+result['beam_type4']
         self.beams = self.beams.strip()
 
-        if result.has_key('nbit'):
+        if 'nbit' in result:
             self.bitsPerSample = result['nbit']
         else:
             self.bitsPerSample = None
@@ -1314,6 +1391,10 @@ class Metadata(object):
 
         if self.sattype == 'RS2':
             sat = "r2"
+        
+        if self.sattype == "SEN-1":
+            sat = 's1'
+        
         if self.sattype == 'ASF_CEOS' or self.sattype == 'CDPF':
             if self.satellite == "ERS-1-":
                 sat = 'e1'
@@ -1321,8 +1402,8 @@ class Metadata(object):
                 sat = "r1"
             if self.satellite == "JERS-1":
                 sat = "j1"
-
-        # NB: the time is truncated here NOT rounded to second
+        
+		# NB: the time is truncated here NOT rounded to second
 
         self.dimgname = self.acDateTime.strftime('%Y%m%d_%H%M%S')+ sep + \
              sat + sep + self.beam.lower() + sep + pol
@@ -1338,8 +1419,11 @@ def byte2int(byte):
     """
     Reads a byte and converts to an integer
     """
-    
-    return int(binascii.b2a_hex(byte),16)
+    if type(byte) == type(1): # check just in case int already sent
+        val = byte
+    else:
+        val = int(binascii.b2a_hex(byte),16)
+    return val
 
 def get_data_block(fp, offset, length):
     """
@@ -1434,6 +1518,13 @@ def readdate(date, sattype):
             datepart[i] = int(datepart[i])
         return datetime.datetime(datepart[0], datepart[1], datepart[2], datepart[3], datepart[4], datepart[5], datepart[6])
 
+    if sattype == "SEN-1":   #CAMERON CHECK THIS TO SEE IF IT WORKS WITH SEN-1
+        datepart = [date[0:4], date[5:7], date[8:10], date[11:13], date[14:16], date[17:19], date[20:-1]]
+        for i in range(len(datepart)):
+            datepart[i] = int(datepart[i])
+        return datetime.datetime(datepart[0], datepart[1], datepart[2], datepart[3], datepart[4], datepart[5], datepart[6])
+
+
 def date2doy(date, string=False, float=False):
     """
     Provide a python datetime object and get an integer or string (if string=True) doy, fractional DayOfYear(doy) returned if float=True
@@ -1474,7 +1565,6 @@ def doy2date(year, doy):
     
         Date in python datetime convension
     """
-
     if type(doy) == type(''):
         doy = float(doy)
     if type(year) == type(''):
@@ -1484,6 +1574,7 @@ def doy2date(year, doy):
         logger.error('Result might be invalid : year coerced to integer')
     return datetime.datetime(year, 1, 1) + datetime.timedelta(doy - 1)
 
+#OBSOLETE
 def datetime2iso(datetimeobj):
     """
     Return iso string from a python datetime
@@ -1495,7 +1586,9 @@ def getEarthRadius( ellip_maj, ellip_min, plat_lat):
     """
     Calculates the earth radius at the latitude of the satellite from the ellipsoid params
     """
-
+    ellip_maj = float(ellip_maj)
+    ellip_min = float(ellip_min)
+    plat_lat = float(plat_lat)
     r =  ellip_min * ( \
           math.sqrt( 1 + math.tan( plat_lat*D2R )**2 ) / \
           math.sqrt( ((ellip_min**2) / (ellip_maj**2)) + math.tan( plat_lat*D2R )**2 ))
@@ -1558,3 +1651,23 @@ def getThetaVector(n_cols, slantRange, radius, sat_alt):
     for j in range(len(thetaVector)):
         thetaVector[j] = getThetaPixel(slantRange[j], radius, sat_alt)
     return thetaVector
+    
+def debyte(bb):
+    """
+    Convert a byte into int, float, or string
+    """
+    val = bb.decode('utf-8')
+    types = [int, float, str]
+    for typ in types:
+        if is_it_int(val):
+            return int(float(val)) #handles strings of form '2.0'
+        else:
+            try:
+                return typ(val)
+            except ValueError:
+                pass
+            
+def is_it_int(num):
+    import re
+    s = str(num)
+    return re.match('^(-?\d+)(\.[0]*)?$',s) is not None

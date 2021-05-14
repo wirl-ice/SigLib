@@ -24,7 +24,8 @@ from osgeo import osr
 from osgeo import ogr
 import shlex
 import numpy      
-    
+
+#KEEP    
 def getFilename(zipname, unzipdir, loghandler=None):
     """
     Given the name of a zipfile, return the name of the image,
@@ -55,13 +56,15 @@ def getFilename(zipname, unzipdir, loghandler=None):
         logger = logging.getLogger(__name__)                        
         logger.setLevel(logging.DEBUG)
         logger.addHandler(logging.StreamHandler())
-    
+        
     dirlist = os.listdir(unzipdir)      # List of all the files in zip_file to be used as the loop iterative element
     countdown = len(dirlist)            # Number of files in zip_file to be used as a counter inside the loop
-
+    
     for file in dirlist:
+        if "." not in file:
+            continue
         imgname, imgext = os.path.splitext(file)
-
+        
         # Here is a RSAT-2
         if imgext == ".xml":
             fname = "product.xml"
@@ -74,7 +77,6 @@ def getFilename(zipname, unzipdir, loghandler=None):
         elif imgext == ".sarl" or imgext == ".sart" or imgext == ".nvol" or imgext == ".vol":
             fname = imgname+".img"
             sattype = "CDPF"
-
             # Look for leader file, then deal with *.trl and *.img
             if os.path.isfile(os.path.join(unzipdir,imgname+".sarl")):
                 os.rename(os.path.join(unzipdir,imgname+".sarl"), os.path.join(unzipdir,imgname+".led"))
@@ -109,13 +111,13 @@ def getFilename(zipname, unzipdir, loghandler=None):
             sattype = "ASF_CEOS"
 
             break
-        #We have Sentinel-1
+        
         elif imgext == ".safe":
             fname = 'manifest.safe'
             sattype = "SEN-1"
             imgname, imgext = os.path.splitext(fname)
-            
             break
+
         else:
             countdown-1
 
@@ -128,9 +130,10 @@ def getFilename(zipname, unzipdir, loghandler=None):
             logger.handlers = []
         except:
             pass
+            
         return fname, imgname, sattype
 
-
+#KEEP
 def getZipRoot(zip_file, tmpDir):
     """
     Looks into a zipfile and determines if the contents will unzip into a subdirectory
@@ -159,20 +162,21 @@ def getZipRoot(zip_file, tmpDir):
     zipname, ext = os.path.splitext(zipfname)   # Seperate the extension and the name
 
     os.chdir(path)      # Change the working directory to path
-
     zip = zipfile.ZipFile(zip_file)     # Open the zip_file as an object
+
     dirlist = zip.namelist()            # List of all the files in zip_file to be used as the loop iterative element
     countdown = len(dirlist)            # Number of files in zip_file to be used as a counter inside the loop
-
+    granule = None                      # in case granule is not same as zip directory
     for f in dirlist:
         fsplit = f.split("/")       # Seperate the directories if any
-
         if len(fsplit) > 1 and fsplit[0] == zipname:        # Files are in a directory
             unzipdir = tmpDir       # Unzipdir will be their own subdirectory
-
             if fsplit[1] == zipname:    # Takes care of new CIS data for CI2D3 with nested subdirectories
                 nesteddir = 1       # Determines if the unzipdir has sub sub dirs
             else:
+                temp = dirlist[1].split("/")
+                if len(temp) > 1 and 'sarl' in temp[1]:
+                    granule = temp[1].split(".")[0]
                 nesteddir = 0
             break
 
@@ -187,23 +191,26 @@ def getZipRoot(zip_file, tmpDir):
             unzipdir = tmpDir       # Unzipdir will be their own subdirectory
             nesteddir = 0
             break
-        
-        elif fsplit[0].split('.')[1] == 'SAFE': #Sentinel-1 zipfile, subdirectory with different name
+
+        elif len(fsplit[0].split('.')) > 1 and fsplit[0].split('.')[1] == 'SAFE':
             zipname = fsplit[0]
             unzipdir = tmpDir
             nesteddir = 0
-            break
-        
+            break            
+            
         else:
             countdown = countdown -1
 
     if countdown == 0:      # Files are not in a directory
         unzipdir = os.path.join(tmpDir, zipname)        # Unzipdir will be a new directory
         nesteddir = 0
+        
+    if granule is None:
+        granule = zipname
+        
+    return unzipdir, zipname, nesteddir, granule
 
-    return unzipdir, zipname, nesteddir
-
-
+#KEEP
 def unZip(zip_file, unzipdir, ext='all'):
     """
     Unzips the zip_file to unzipdir with python's zipfile module.
@@ -222,12 +229,10 @@ def unZip(zip_file, unzipdir, ext='all'):
 
         *ext*      : 'all' or a specific ext as required
     """
-
     zip = zipfile.ZipFile(zip_file)     # Open the zip_file as an object
 
     if ext == 'all':        # Unzip all the files
         zip.extractall(path=unzipdir)       # Unzip/extract everything in zip_file to unzipdir
-
     else:       # Unzip only the files with the specified extension
         zippedfiles = zip.namelist()        # List of all the files in zip_file
 
@@ -236,7 +241,8 @@ def unZip(zip_file, unzipdir, ext='all'):
                 zip.extract(filename, path=unzipdir)        # Unzip/extract it to unzipdir
 
     zip.close()
-    
+
+#KEEP    
 def wktpoly2pts(wkt, bbox=False):
     """
     Converts a Well-known Text string for a polygon into a series of tuples that
@@ -280,6 +286,7 @@ def wktpoly2pts(wkt, bbox=False):
      
     return ul, ur, lr, ll
 
+#OBSOLETE; Keep anyway?
 def llur2ullr(llur):
     """
     a function that returns:
@@ -302,6 +309,7 @@ def llur2ullr(llur):
 
     return ul,lr
 
+#KEEP
 def ullr2llur(ullr):
     """
     a function that returns:
@@ -324,6 +332,7 @@ def ullr2llur(ullr):
 
     return ll,ur    
 
+#OBSOLETE
 def reprojSHP(in_shp, vectdir, proj, projdir):
     """
     Opens a shapefile, saves it as a new shapefile in the same directory
@@ -392,6 +401,7 @@ def reprojSHP(in_shp, vectdir, proj, projdir):
 
     return out_shp  # return the name of the proper shapefile
 
+#OBSOLETE
 def getdBScale(power):
     """
     Convert a SAR backscatter value from the linear power scale to the log dB scale
@@ -410,6 +420,7 @@ def getdBScale(power):
     dB = 10 * numpy.log10(power)
     return dB
 
+#KEEP
 def getPowerScale(dB):
     """
     Convert a SAR backscatter value from the log dB scale to the linear power scale
@@ -428,6 +439,7 @@ def getPowerScale(dB):
     power = pow(10.0, dB/10.0)
     return power
 
+#OBSOLETE
 def az(pt1,pt2):
     """
     Calculates the great circle initial azimuth between two points
@@ -453,8 +465,8 @@ def az(pt1,pt2):
         raise TypeError("Only tuples are supported as arguments")
 
     #convert to radians
-    pt1 = map(math.radians, pt1)
-    pt2 = map(math.radians, pt2)
+    pt1 = list(map(math.radians, pt1))
+    pt2 = list(map(math.radians, pt2))
     
     deltaLon = pt2[0]-pt1[0]
     
@@ -462,7 +474,7 @@ def az(pt1,pt2):
     az =  math.degrees(math.atan2(math.sin(deltaLon),x))
     return (az+360) % 360
 
-
+#KEEP
 def wkt2shp(shpname, vectdir, proj, projdir, wkt):
     """
     Takes a polygon defined by well-known-text and a projection name and outputs
@@ -485,11 +497,14 @@ def wkt2shp(shpname, vectdir, proj, projdir, wkt):
         return -1
 
     spatialReference = osr.SpatialReference()
+    
     fname = os.path.join(projdir, proj+'.wkt')
     fwkt = open(fname, 'r')
     projwkt = fwkt.read()
+    
     spatialReference.ImportFromWkt(projwkt)
-
+    
+    #spatialReference.SetWellKnownGeogCS('WGS84')
     driver = ogr.GetDriverByName('ESRI Shapefile')
 
     extlist = ['.shp', '.dbf','.prj','.shx']
@@ -504,7 +519,7 @@ def wkt2shp(shpname, vectdir, proj, projdir, wkt):
     fout = shpname+'.shp'
 
     datasource = driver.CreateDataSource(os.path.join(vectdir, fout))
-    layer = datasource.CreateLayer(shpname, geom_type=ogr.wkbPolygon, srs=spatialReference)
+    layer = datasource.CreateLayer('layer', spatialReference, geom_type=ogr.wkbPolygon)
     feature = ogr.Feature(layer.GetLayerDefn())
     poly  = ogr.CreateGeometryFromWkt(wkt)
     # Set geometry
@@ -516,7 +531,7 @@ def wkt2shp(shpname, vectdir, proj, projdir, wkt):
     datasource.Destroy()
     del fout
 
-    
+#OBSOLETE    
 def copyfiles(self, copylist, wrkdir, fname=None, export=False, loghandler=None):   
     """
     Copies files from a local archive. If file could not be found, check that the 
@@ -565,3 +580,118 @@ def copyfiles(self, copylist, wrkdir, fname=None, export=False, loghandler=None)
     
         fout.close() 
 
+#OBSOLETE
+def interpolate_bilinear_matrix(Q, x, y):
+    """
+    Peforms a bilinear interpolation of matrix Q at the specified x (length M), y (length N) points and
+    returns an M x N array of the interpolated values
+    
+    **Parameters**
+        
+        *Q*        : 2x2 array of known values located at the corners of x and y     
+
+        *x*        : x points at which to interpolate Q-value
+        
+        *y*        : y points at which to interpolate Q-value
+        
+    """
+
+    Q = numpy.matrix(Q)
+
+    normalization_factor = 1/((x[-1]-x[0])*(y[-1]-y[0]))
+
+    Y = numpy.asarray([[y[-1]-y],[y-y[0]]])
+    X = numpy.asarray([x[-1]-x, x-x[0]])
+
+    interp_y = Q*Y
+
+    interp = normalization_factor*(X.transpose()*interp_y)
+    
+    return numpy.asarray(interp)
+
+#KEEP
+def interpolate_biquadratic(P_corr, Pixels, Lines, x_matrix, y_matrix, z_matrix):
+    x, y, z = numpy.empty(P_corr.shape), numpy.empty(P_corr.shape), numpy.empty(P_corr.shape)
+    N,M = P_corr.shape
+    for l in range(N):
+        if l < 0.5:
+            v = 1
+        elif l >= N-1.5:
+            v = N - 2
+        else:
+            v = l
+        for p in range(M):
+            if p < 0.5:
+                u = 1
+            elif p >= M-1.5:
+                u = M-2
+            else:
+                u = p
+
+            P = numpy.matrix([[P_corr[l][p]**2], [P_corr[l][p]], [1]])
+            L = numpy.matrix([[Lines[l][p]**2], [Lines[l][p]], [1]])
+            U = numpy.matrix([[(u-1)**2, u-1, 1],[u**2, u , 1],[(u+1)**2, u+1 , 1]])
+            V = numpy.matrix([[(v-1)**2, v-1, 1],[v**2, v , 1],[(v+1)**2, v+1 , 1]])
+            X = numpy.matrix([
+                    [x_matrix[v-1][u-1], x_matrix[v-1][u], x_matrix[v-1][u+1]],
+                    [x_matrix[v][u-1], x_matrix[v][u], x_matrix[v][u+1]],
+                    [x_matrix[v+1][u-1], x_matrix[v+1][u], x_matrix[v+1][u+1]]])
+            Y = numpy.matrix([
+                    [y_matrix[v-1][u-1], y_matrix[v-1][u], y_matrix[v-1][u+1]],
+                    [y_matrix[v][u-1], y_matrix[v][u], y_matrix[v][u+1]],
+                    [y_matrix[v+1][u-1], y_matrix[v+1][u], y_matrix[v+1][u+1]]])
+            Z = numpy.matrix([
+                    [z_matrix[v-1][u-1], z_matrix[v-1][u], z_matrix[v-1][u+1]],
+                    [z_matrix[v][u-1], z_matrix[v][u], z_matrix[v][u+1]],
+                    [z_matrix[v+1][u-1], z_matrix[v+1][u], z_matrix[v+1][u+1]]])
+            x[l][p] = numpy.transpose(L) * numpy.linalg.inv(V) * X * numpy.transpose(numpy.linalg.inv(U)) * P
+            y[l][p] = numpy.transpose(L) * numpy.linalg.inv(V) * Y * numpy.transpose(numpy.linalg.inv(U)) * P
+            z[l][p] = numpy.transpose(L) * numpy.linalg.inv(V) * Z * numpy.transpose(numpy.linalg.inv(U)) * P
+    return x, y, z
+
+#KEEP
+def geographic_to_cartesian(lat, lng, a, b):
+    """
+    transforms geographic latitude and longitude to cartesian space.
+    
+    **Parameters**
+        
+        *lat*        : latitude values to be transformed (can be single value, an array, or M x N matrix)
+
+        *lng*        : longitude values to be transformed (can be single value, an array, or M x N matrix)
+        
+        *a*        : semi major axis of reference ellipse (float)
+        
+        *b*        : semi minor axis of reference ellipse (float)
+        
+    """
+
+    normalization_factor = numpy.sqrt((a**2)*(numpy.cos(lat)**2)+ \
+                                   (b**2)*(numpy.sin(lat)**2))
+    x = (a**2)*numpy.cos(lat)*numpy.cos(lng)/normalization_factor
+    y = (a**2)*numpy.cos(lat)*numpy.sin(lng)/normalization_factor
+    z = (b**2)*numpy.sin(lat)/normalization_factor
+
+    return x, y, z
+
+#KEEP
+def cartesian_to_geographic(x, y, z, a, b):
+    """
+    transforms cartesian space to geographic latitude and longitude
+    
+    **Parameters**
+        
+        *x*        : x values to be transformed (can be single value, an array, or M x N matrix)
+
+        *y*        : y values to be transformed (can be single value, an array, or M x N matrix)
+
+        *z*        : z values to be transformed (can be single value, an array, or M x N matrix)
+        
+        *a*        : semi major axis of reference ellipse (float)
+        
+        *b*        : semi minor axis of reference ellipse (float)
+        
+    """
+    lat = numpy.arctan((a*z)/(b*numpy.sqrt(b**2-z**2)))
+    lng = numpy.arctan2(y,x)
+    return numpy.degrees(lat), numpy.degrees(lng)
