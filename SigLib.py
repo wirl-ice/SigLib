@@ -507,7 +507,7 @@ class SigLib:
         
         # Process the image
         sar_img = Image(fname, unzipdir, sar_meta, self.imgType, self.imgFormat, zipname, self.imgDir, newTmp, self.loghandler)
-        print("created img")
+
         if sar_img.status == "error":
             self.logger.error("Image could not be opened or manipulated, moving to next image")
             os.remove(sar_img.tifname)
@@ -518,15 +518,15 @@ class SigLib:
             self.logger.debug('Image read ok')  
     
         instances = db.qryGetInstances(granule, self.roi, self.table_to_query)
-        print(instances)
+
         if instances == -1:
             self.logger.error('No instances!')
             return
-        print("found {} instances".format(instances))
+
         sar_img.tmpFiles = sar_img.FileNames
 
         for i, inst in enumerate(instances):
-            print(i,inst)
+
             sar_img.FileNames = sar_img.tmpFiles   #reset list of filenames within Image.py each loop
 
             #Crop!
@@ -537,7 +537,7 @@ class SigLib:
                 ok = sar_img.projectImg(self.proj, self.projDir, resample='bilinear')
             else:  # no smoothing for quantitative_mode images
                 ok = sar_img.projectImg(self.proj, self.projDir, resample='near')
-            print("ok, ", ok)
+
             if ok != 0: # trap errors here 
                 self.logger.error('ERROR: Issue with projection... will stop processing this img')
                 sar_img.cleanFiles(levels=['nil','proj']) 

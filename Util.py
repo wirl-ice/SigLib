@@ -156,19 +156,17 @@ def getZipRoot(zip_file, tmpDir):
 
         *zipname*  : basename of the zip file AND/OR the name of the folder where the image files are  
     """
-    print("here")
+
     path = os.path.dirname(zip_file)            # Directory of zip_file
     zipfname = os.path.basename(zip_file)       # File name of zip_file
     zipname, ext = os.path.splitext(zipfname)   # Seperate the extension and the name
-    print(zipname)
+
     os.chdir(path)      # Change the working directory to path
-    print(zip_file)
     zip = zipfile.ZipFile(zip_file)     # Open the zip_file as an object
-    print(zip)
+
     dirlist = zip.namelist()            # List of all the files in zip_file to be used as the loop iterative element
     countdown = len(dirlist)            # Number of files in zip_file to be used as a counter inside the loop
-    granule = None  
-    print(dirlist)                    # in case granule is not same as zip directory
+    granule = None                      # in case granule is not same as zip directory
     for f in dirlist:
         fsplit = f.split("/")       # Seperate the directories if any
         if len(fsplit) > 1 and fsplit[0] == zipname:        # Files are in a directory

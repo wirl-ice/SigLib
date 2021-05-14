@@ -749,17 +749,14 @@ class Database:
         sql3 = " WHERE inst = '%(inst)s'))))"
     
         sql = sql1+ roi +sql2+ roi +sql3
-        print(sql%param)
         
         curs = self.connection.cursor()
-        print(curs)
         curs.execute(sql, param)
-        print("executed")
         bbtext = curs.fetchall()
-        print(747)
+
         #parse the text to get the pair of tupples
         bbtext = bbtext[0][0]  #slice the piece you need
-        print(bbtext)
+
         if bbtext == 'GEOMETRYCOLLECTION EMPTY' or bbtext == 'POLYGON EMPTY' or bbtext == None:
             ullr = 0
          

@@ -391,7 +391,7 @@ class Image(object):
 
         **Note** The pixel IS NOT prescribed (it will be the smallest possible)
         """
-        print("projecting img")
+
         if format == None:
             imgFormat = 'VRT'
             ext = '.vrt'
@@ -443,7 +443,7 @@ class Image(object):
             self.FileNames.append(outname)
         else:
             self.logger.error('Image projection failed')
-        print("finished projection")
+
         return ok
 
 
@@ -517,15 +517,13 @@ class Image(object):
 
             *subscene* : the name of a subscene
         """
-        print("Start Crop")
+
         if ullr == 0:
             return -1
-        print(ullr)    
+
         if self.sattype == 'SEN-1' or self.sattype == 'SEN-2':
             #project sentinel using terrain correction
-            print(ullr)
-            print(subscene)
-            ok = self.snapCrop(ullr, subscene)
+            ok = self.snapCrop(subscene, ullr)
         ok = self.cropSmall(ullr, subscene)
         if ok != 0:
             llur = Util.ullr2llur(ullr) 
@@ -1249,32 +1247,7 @@ class Image(object):
         target = GPF.createProduct("Calibration", parameters, sat)
         ProductIO.writeProduct(target, output, 'BEAM-DIMAP') 
         
-        """
-        if self.sattype == 'SEN-1':  ### This was written to work with Scientific and Data2Img  
-            snapSubset()
-            parameters = self.HashMap()
-            parameters.put('demResamplingMethod', 'NEAREST_NEIGHBOUR')
-            parameters.put('imgResamplingMethod', 'NEAREST_NEIGHBOUR')
-            parameters.put('demName', 'GETASSE30')
-            #   parameters.put('pixelSpacingInMeter', 50.0)
-            parameters.put('sourceBands', 'Sigma0_HH') ### TODO: process other polarizations
-            
-            print("Processing Sentinel-1 {} image (HH) with snappy (this may take a few minutes)...".format(self.imgType))
-            output_2 = os.path.join(self.tmpDir, outname)
-            out = ProductIO.readProduct(output+'.dim')
-            target_2 = GPF.createProduct("Terrain-Correction", parameters, out)
-            ProductIO.writeProduct(target_2, output_2, 'BEAM-DIMAP') 
-            
-            self.FileNames.append(outname+'.tif')
-        """
-        #elif self.sattype == 'RSAT1': ### This was written to work with Polarimetric Mode
         self.FileNames.append(outname+'.dim')
-        
-        
-        #else:
-        #    print("Warning! {} images not supported for {} in this mode!".format(self.imgType, self.sattype))
-        #    print("Terminating program...")
-        #    sys.exit()
         
     def snapCrop(self, subscene, ullr=None):
         '''
@@ -1286,50 +1259,40 @@ class Image(object):
         
         **parameters**
         
-            *idNum* : id # of subset region (for filenames, each subset region should have unique id)
-            
-            *lat* : latitiude of beacon at centre of subset (Optional)
-            
-            *longt* : longitude of beacon at centre of subset (Optional)
-            
-            *dir* : location output will be stored
+            *subscene* : id # of subset region (for filenames, each subset region should have unique id)
             
             *ullr* : Coordinates of ul and lr corners of bounding box to subset to (Optional)
             
         '''  
-        idNum = 5        
-        print("Starting snapCrop")
-        print(self.FileNames)
+
         inname = os.path.join(self.imgDir, self.FileNames[-1])
-        output = os.path.join(dir, os.path.splitext(self.FileNames[-1])[0] + '__' + str(idNum) + '_subset')
-        print(inname)
-        print(output)
+        output = os.path.join(dir, os.path.splitext(self.FileNames[-1])[0] + '__' + str(subscene) + '_subset')
+
         sat = ProductIO.readProduct(inname)
         info = sat.getSceneGeoCoding()
         
         geoPosOP = snappy.jpy.get_type('org.esa.snap.core.datamodel.PixelPos')
-        print(1309)
+
         #We are in Scientific mode/a normal crop, bounding box provided
         pixel_posUL = info.getPixelPos(GeoPos(ullr[0][1], ullr[0][0]), geoPosOP())
         pixel_posLR = info.getPixelPos(GeoPos(ullr[1][1], ullr[1][0]), geoPosOP())
-        print(1313)    
+
         topL_x = int(round(pixel_posUL.x))
         topL_y = int(round(pixel_posUL.y))
         x_LR = int(round(pixel_posLR.x))
         y_LR = int(round(pixel_posLR.y))
-        print(1318)
+
         width = x_LR - topL_x
         height = y_LR - topL_y
-        print(1321)
+
         parameters = self.HashMap()  
-        print(1323)
+
         parameters.put('region', "%s,%s,%s,%s" % (topL_x, topL_y, width, height))       
         target = GPF.createProduct('Subset', parameters, rsat) 
         ProductIO.writeProduct(target, output, 'BEAM-DIMAP')
-        print(1327)
+
         self.logger.debug("Subset complete on " + self.zipname + " for id " + str(idNum))
         self.FileNames.append(output+'.dim')
-        print("Finished Crop")
         
 
     def snapSubset(self, idNum, lat, longt, dir, ullr=None):
