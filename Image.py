@@ -127,7 +127,7 @@ class Image(object):
         self.bitsPerSample = self.meta.bitsPerSample
         
         self.imgDir = imgDir
-        self.tmpDir = tmpDir#+".SAFE" #FIXME
+        self.tmpDir = tmpDir+".SAFE" #FIXME
         self.zipname = zipname
         
         if self.imgType == 'noise' or self.imgType == 'theta':
@@ -333,7 +333,7 @@ class Image(object):
         
         outds = None         # release the dataset so it can be closed
 
-
+    #OBSOLETE
     def reduceImg(self, xfactor, yfactor):
         """
         Uses gdal to reduce the image by a given factor in x and y(i.e, factor 2 is 50%
@@ -372,7 +372,7 @@ class Image(object):
         else:
             self.logger.error('Could not reduce image')
         return ok
-
+    
     def projectImg(self, projout, projdir, format=None, resample='bilinear', clobber=True):
         """
         Looks for a file, already created and projects it to a vrt file.
@@ -1331,7 +1331,7 @@ class Image(object):
         self.logger.debug("Subset complete on " + self.zipname + " for id " + str(idNum))
         self.FileNames.append(output+'.dim')
         
-               
+    #POLARIMETRIC SPECIFIC?           
     def matrix_generation(self, matrix):
         '''
         Generate chosen matrix for calibrated quad-pol product
@@ -1368,7 +1368,7 @@ class Image(object):
         
         self.FileNames.append(output+'.dim')        
 
-        
+    #POLARIMETRIC SPECIFIC    
     def polarFilter(self):
         '''
         Apply a speckle filter on a fully polarimetric product
@@ -1400,7 +1400,7 @@ class Image(object):
         
         self.FileNames.append(output +'.dim')
                 
-        
+    #POLARIMETRIC SPECIFIC    
     def decomposition_generation(self, decomposition, outputType=0, amp = False):
         '''
         Generate chosen decomposition on a fully polarimetric product, if looking to create an amplitude image with quad-pol data, set amp to True
@@ -1479,7 +1479,7 @@ class Image(object):
             
             self.logger.debug(decomposition + ' generated sucessfully')
                 
-    
+    #POSSIBLY DUPLICATE OF NEW CODE IN snapCalibration. NEED TO CONSOLODATE 
     def snapTC(self, proj, projDir, smooth = True, outFormat = 'BEAM-DIMAP'):
         '''
         Perform an Ellipsoid-Correction using snap. This function also projects the product
@@ -1552,7 +1552,7 @@ class Image(object):
         
         self.FileNames.append(outname+ext)          
     
-        
+    #OBSOLETE, keep?    
     def makeAmp(self, newFile=True, save=True):
         '''
         Use snap bandMaths to create amplitude band for SLC products

@@ -24,7 +24,8 @@ from osgeo import osr
 from osgeo import ogr
 import shlex
 import numpy      
-    
+
+#KEEP    
 def getFilename(zipname, unzipdir, loghandler=None):
     """
     Given the name of a zipfile, return the name of the image,
@@ -132,7 +133,7 @@ def getFilename(zipname, unzipdir, loghandler=None):
             
         return fname, imgname, sattype
 
-
+#KEEP
 def getZipRoot(zip_file, tmpDir):
     """
     Looks into a zipfile and determines if the contents will unzip into a subdirectory
@@ -155,17 +156,19 @@ def getZipRoot(zip_file, tmpDir):
 
         *zipname*  : basename of the zip file AND/OR the name of the folder where the image files are  
     """
-
+    print("here")
     path = os.path.dirname(zip_file)            # Directory of zip_file
     zipfname = os.path.basename(zip_file)       # File name of zip_file
     zipname, ext = os.path.splitext(zipfname)   # Seperate the extension and the name
-
+    print(zipname)
     os.chdir(path)      # Change the working directory to path
-
+    print(zip_file)
     zip = zipfile.ZipFile(zip_file)     # Open the zip_file as an object
+    print(zip)
     dirlist = zip.namelist()            # List of all the files in zip_file to be used as the loop iterative element
     countdown = len(dirlist)            # Number of files in zip_file to be used as a counter inside the loop
-    granule = None                      # in case granule is not same as zip directory
+    granule = None  
+    print(dirlist)                    # in case granule is not same as zip directory
     for f in dirlist:
         fsplit = f.split("/")       # Seperate the directories if any
         if len(fsplit) > 1 and fsplit[0] == zipname:        # Files are in a directory
@@ -209,7 +212,7 @@ def getZipRoot(zip_file, tmpDir):
         
     return unzipdir, zipname, nesteddir, granule
 
-
+#KEEP
 def unZip(zip_file, unzipdir, ext='all'):
     """
     Unzips the zip_file to unzipdir with python's zipfile module.
@@ -240,7 +243,8 @@ def unZip(zip_file, unzipdir, ext='all'):
                 zip.extract(filename, path=unzipdir)        # Unzip/extract it to unzipdir
 
     zip.close()
-    
+
+#KEEP    
 def wktpoly2pts(wkt, bbox=False):
     """
     Converts a Well-known Text string for a polygon into a series of tuples that
@@ -284,6 +288,7 @@ def wktpoly2pts(wkt, bbox=False):
      
     return ul, ur, lr, ll
 
+#OBSOLETE; Keep anyway?
 def llur2ullr(llur):
     """
     a function that returns:
@@ -306,6 +311,7 @@ def llur2ullr(llur):
 
     return ul,lr
 
+#KEEP
 def ullr2llur(ullr):
     """
     a function that returns:
@@ -328,6 +334,7 @@ def ullr2llur(ullr):
 
     return ll,ur    
 
+#OBSOLETE
 def reprojSHP(in_shp, vectdir, proj, projdir):
     """
     Opens a shapefile, saves it as a new shapefile in the same directory
@@ -396,6 +403,7 @@ def reprojSHP(in_shp, vectdir, proj, projdir):
 
     return out_shp  # return the name of the proper shapefile
 
+#OBSOLETE
 def getdBScale(power):
     """
     Convert a SAR backscatter value from the linear power scale to the log dB scale
@@ -414,6 +422,7 @@ def getdBScale(power):
     dB = 10 * numpy.log10(power)
     return dB
 
+#KEEP
 def getPowerScale(dB):
     """
     Convert a SAR backscatter value from the log dB scale to the linear power scale
@@ -432,6 +441,7 @@ def getPowerScale(dB):
     power = pow(10.0, dB/10.0)
     return power
 
+#OBSOLETE
 def az(pt1,pt2):
     """
     Calculates the great circle initial azimuth between two points
@@ -466,7 +476,7 @@ def az(pt1,pt2):
     az =  math.degrees(math.atan2(math.sin(deltaLon),x))
     return (az+360) % 360
 
-
+#KEEP
 def wkt2shp(shpname, vectdir, proj, projdir, wkt):
     """
     Takes a polygon defined by well-known-text and a projection name and outputs
@@ -523,7 +533,7 @@ def wkt2shp(shpname, vectdir, proj, projdir, wkt):
     datasource.Destroy()
     del fout
 
-    
+#OBSOLETE    
 def copyfiles(self, copylist, wrkdir, fname=None, export=False, loghandler=None):   
     """
     Copies files from a local archive. If file could not be found, check that the 
@@ -572,6 +582,7 @@ def copyfiles(self, copylist, wrkdir, fname=None, export=False, loghandler=None)
     
         fout.close() 
 
+#OBSOLETE
 def interpolate_bilinear_matrix(Q, x, y):
     """
     Peforms a bilinear interpolation of matrix Q at the specified x (length M), y (length N) points and
@@ -600,6 +611,7 @@ def interpolate_bilinear_matrix(Q, x, y):
     
     return numpy.asarray(interp)
 
+#KEEP
 def interpolate_biquadratic(P_corr, Pixels, Lines, x_matrix, y_matrix, z_matrix):
     x, y, z = numpy.empty(P_corr.shape), numpy.empty(P_corr.shape), numpy.empty(P_corr.shape)
     N,M = P_corr.shape
@@ -639,6 +651,7 @@ def interpolate_biquadratic(P_corr, Pixels, Lines, x_matrix, y_matrix, z_matrix)
             z[l][p] = numpy.transpose(L) * numpy.linalg.inv(V) * Z * numpy.transpose(numpy.linalg.inv(U)) * P
     return x, y, z
 
+#KEEP
 def geographic_to_cartesian(lat, lng, a, b):
     """
     transforms geographic latitude and longitude to cartesian space.
@@ -663,6 +676,7 @@ def geographic_to_cartesian(lat, lng, a, b):
 
     return x, y, z
 
+#KEEP
 def cartesian_to_geographic(x, y, z, a, b):
     """
     transforms cartesian space to geographic latitude and longitude

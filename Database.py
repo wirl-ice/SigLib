@@ -87,6 +87,7 @@ class Database:
         self.connection = psycopg2.connect(connectionSetUp)
         self.logger.info("Connection successful")
     
+    #DATABASE UTILITY FUNCTION 
     def meta2db(self, metaDict, overwrite=False):
         """
         Uploads image metadata to the database as discovered by the meta module.
@@ -159,7 +160,8 @@ class Database:
         
         self.logger.info("dimgname:    " + metaDict['dimgname'] )
         self.logger.info("[Succesfuly added "+ metaDict['dimgname'] + " metadata into " + self.table_to_query + ".]" )
-        
+
+    #DATABASE UTILITY FUNCTION    
     def createTblMetadata(self):
         """
         Creates a metadata table of name specified in the cfg file under Table. It overwrites if that table name already exist, be careful!
@@ -218,7 +220,8 @@ class Database:
         self.connection.commit()
 
         self.logger.info(self.table_to_query + " created")
-        
+
+    #CALL FROM QUERY    
     def updateFromArchive(self, archDir):
         """
         Goes to CIS Archive metadata shapefiles and (re)creates and updates tblArchive in the connected database
@@ -281,7 +284,8 @@ class Database:
         curs.execute(qryCountAllImgs)
         n_imgs = curs.fetchall()
         self.logger.info("tblArchive updated with " + str(n_imgs[0][0]) + " SAR images")     
-        
+
+    #CALL FROM QUERY    
     def qryGetInstances(self, granule, roi, metaTable):   
         """
         Writes a query to fetch the instance names that are
@@ -323,7 +327,8 @@ class Database:
         for i in range(len(result)):
             instances.append(result[i][0])
         return instances
-        
+
+    #OBSOLETE    
     def nameRelationTable(self, roi, spatialrel):
         """
         Automatically gives a name to a relational table in the format: "trel" + roi + "img" + _int or _con (in reference to spatialrel)
@@ -347,7 +352,8 @@ class Database:
         name = 'trel'+roi+'img'+spat
         
         return name
-        
+
+    #DATABASE UTILITY FUNCTION   
     def updateROI(self, inFile, srid, wdir, ogr=False): 
         """
         This function will update an ROI (Region Of Interest) table in the database. It has a prescribed format
@@ -455,7 +461,7 @@ class Database:
         
         self.logger.info("Database updated with " + str(n_rows[0][0]) + " ROI polygons")
         
-        
+    #POSSIBLY OBSOLETE    
     def qryFromText(self, sql, output=False):
         """
         Runs a query in the current databse by sending an sql string  
@@ -501,7 +507,8 @@ class Database:
             self.logger.debug('Query sent successfully')
             if output:
                 return(numpy.asarray(rows), colnames)       
-        
+
+    #OBSOLETE    
     def qryFromFile(self, fname, path, output=False):
         """
         Runs a query in the current databse by opening a file - adds the path and 
@@ -526,7 +533,8 @@ class Database:
         data = self.qryFromText(sql, output)
         if output:
             return(data)       
-            
+
+    #OBSOLETE        
     def qrySelectFromAvailable(self, roi, selectFrom, spatialrel, srid):
         """
         Given a roi table name (with polygons, from/todates), determine the scenes that cover the area
@@ -641,6 +649,7 @@ class Database:
         
         return copylist, instimg
 
+    #OBSOLETE
     def relations2db(self, roi, spatialrel, instimg, fname=None, mode='refresh', export=False):
         """
         A function to add or update relational tables that contain the name of an image
@@ -705,7 +714,7 @@ class Database:
                 if tmp[col].dtype == 'O' or tmp[col].dtype == 'S':
                     tmp[col] = tmp[col].str.rstrip()  # somehow there are plenty of spaces in some cols
             tmp.to_csv(fname,index=False)    
-        
+
     def qryCropZone(self, granule, roi, spatialrel, inst, metaTable, srid=4326):
         """
         Writes a query to fetch the bounding box of the area that the inst polygon and
@@ -824,6 +833,7 @@ class Database:
         curs.close()
         return polytext
 
+    #UTIL FUNCTION
     def imgData2db(self, imgData, bandName, inst, dimgname, granule):
         """
         Upload image data as an array to a new database table
@@ -902,7 +912,8 @@ class Database:
             return
         self.connection.commit()
         self.logger.info('Image ' + granule + ' data uploaded to database')        
-        
+
+    #OBSOLETE    
     def numpy2sql(self, numpyArray, dims):
         """
         Converts a 1- or 2-D numpy array to an sql friendly array
@@ -941,6 +952,7 @@ class Database:
         array_sql += "}"
         return array_sql        
     
+    #OBSOLETE
     def sql2numpy(self, sqlArray, dtype='float32'):
         """
         Coming from SQL queries, arrays are stored as a list (or list of lists)
@@ -960,6 +972,7 @@ class Database:
         list = numpy.asarray(sqlArray, dtype=dtype) 
         return list
 
+    #OBSOLETE
     def exportToCSV(self, qryOutput, outputName):
         """
         Given a dictionary of results from the database and a filename puts all the results
@@ -979,7 +992,8 @@ class Database:
                 if not stripped.isnull().all():  #sometimes this goes horribly wrong (datetimes)
                     tmp[col] =stripped
         tmp.to_csv(outputName, index=False)
-        
+
+    #DATABASE?    
     def findInstances(self, roi):
         """
         Scans metadata table to determine if any images
@@ -1044,10 +1058,11 @@ class Database:
                 self.connection.commit()
                 
     def stats2db(stats, inst, granule, roi):
+        #function to upload stats generated in Quantitative mode to a database table
         pass            
         
         
-
+    #POLARIMETRIC SPECIFIC
     def beaconShapefilesToTables(self, dirName):
         """
         Takes a directory containing beacon shape files and converts them to tables and 
@@ -1081,7 +1096,8 @@ class Database:
                     self.logger.error("Problem with shapefile %s." % shpname)                  
             except:
                 self.logger.error("Problem with shapefile %s." % shpname)           
-        
+
+    #OBSOLETE    
     def convertGPSTime(self, shpTable):
         """
         Takes a shape file and converts the gps_time from character type to timestamp time.
@@ -1098,7 +1114,8 @@ class Database:
         curs = self.connection.cursor()
         curs.execute(query) 
         self.connection.commit()
-        
+
+    #POLARIMETRIC SPECIFIC    
     def beaconIntersections(self, beacontable, granule):
         """
         Get id, lat and long of beacons that intersect the image within a ninty minutes of the image data being collected
@@ -1139,7 +1156,8 @@ class Database:
         rows = curs.fetchall()
 
         return rows
-        
+
+    #POLARIMETRIC SPECIFIC    
     def polarimetricDonuts(self, granule, beaconid):
         '''
         **Parameters**
@@ -1192,7 +1210,8 @@ class Database:
         results.append(result)
         
         return results
-        
+
+    #KEEP    
     def removeHandler(self):
         self.logger.handlers = []
         

@@ -6,7 +6,7 @@ This script is thr margin that brings together all the SigLib modules with a con
 
 
 **Created on** Mon Oct  7 20:27:19 2013 **@author:** Sougal Bouh Ali
-**Modified on** Wed May  23 11:37:40 2018 **@reason:** Sent instance of Metadata to data2img instead of calling Metadata again **@author:** Cameron Fitzpatrick
+**Modified on** Wed May  23 11:37:40 2018 **@reason:** Sent instance of Metadata to qualitative_mode instead of calling Metadata again **@author:** Cameron Fitzpatrick
 
 
 Common Parameters of this Module:
@@ -36,6 +36,7 @@ from glob import glob
 from Database import Database
 from Metadata import Metadata
 from Image import Image
+from Query import Query
 import Util
 
 class SigLib:
@@ -66,9 +67,10 @@ class SigLib:
         self.uploadData = str(config.get("Input", "uploadData"))
 
         self.processData2db = str(config.get("Process", "data2db"))
-        self.processData2img = str(config.get("Process", "data2img"))
-        self.scientificProcess = str(config.get("Process", "scientific"))
+        self.qualitativeProcess = str(config.get("Process", "data2img"))
+        self.quantitativeProcess = str(config.get("Process", "scientific"))
         self.polarimetricProcess = str(config.get("Process", "polarimetric"))
+        self.queryProcess = str(config.get("Process", "query"))
         
         self.proj = str(config.get('MISC',"proj"))
         self.projSRID = str(config.get('MISC', "projSRID"))
@@ -217,7 +219,7 @@ class SigLib:
             os.chdir(self.tmpDir)
             #os.system("rm -r " +os.path.splitext(os.path.basename(zipfile))[0])
             try:
-                shutil.rmtree(os.path.splitext(os.path.basename(tmpname))[0])#+'.SAFE')
+                shutil.rmtree(os.path.splitext(os.path.basename(tmpname))[0]+'.SAFE')
             except Exception as e:
                 self.logger.debug("Warning: could not remove file from temp directory; {}".format(e))
             self.logger.debug('cleaned zip dir')
@@ -257,7 +259,7 @@ class SigLib:
         ###Zipname set twice!
         #zipname, ext = os.path.splitext(os.path.basename(zipfile))
         if unzipdir == self.tmpDir:      # If files have been unzipped in their own subdirectory
-            unzipdir = os.path.join(self.tmpDir, zipname)#+".SAFE")    # Then correct the name of unzipdir
+            unzipdir = os.path.join(self.tmpDir, zipname+".SAFE")    # Then correct the name of unzipdir
             #unzipdir = os.path.join(self.tmpDir, zipname)
             if nested == 1:   # If zipfile has nested directories
                 unzipdir = os.path.join(unzipdir, zipname)    # Then correct the name of unzipdir
@@ -295,19 +297,20 @@ class SigLib:
                 self.loghandler.setFormatter(formatter)
 
             sar_meta.saveMetaFile(self.imgDir)
-                        
+
+            #"Utility" function, to be replaced by Query            
             if self.processData2db == "1":
                 db = Database(self.table_to_query, self.dbName, loghandler=self.loghandler, host=self.dbHost)  # Connect to the database
                 self.data2db(sar_meta, db, zipfile)
                 db.removeHandler()
 
-            if self.processData2img == "1":
+            if self.qualitativeProcess == "1":
                 self.logger.debug("processing data to image")
-                self.data2img(fname, imgname, zipname, sattype, granule, zipfile, sar_meta, unzipdir)
+                self.qualitative_mode(fname, imgname, zipname, sattype, granule, zipfile, sar_meta, unzipdir)
                 
-            if self.scientificProcess == "1":
+            if self.quantitativeProcess == "1":
                 db = Database(self.table_to_query, self.dbName, loghandler=self.loghandler, host=self.dbHost)
-                self.scientific(db, fname, imgname, zipname, sattype, granule, zipfile, sar_meta, unzipdir)
+                self.quantitative_mode_mode(db, fname, imgname, zipname, sattype, granule, zipfile, sar_meta, unzipdir)
                 db.removeHandler()
                 
             if self.polarimetricProcess == '1':
@@ -319,7 +322,8 @@ class SigLib:
                 db.removeHandler()
                 
         return zipname #for temp folder cleanup
-            
+
+    #This will be moved to a utility? rather than a mode        
     def data2db(self, meta, db, zipfile):
         """
         Adds the image file metadata to tblmetadata table in the specified database.
@@ -343,9 +347,51 @@ class SigLib:
             self.bad_img += 1
             self.issueString += "\n\nERROR (Metadata): " + zipfile
         print("Data2db complete.")
+
+    def data2db(self, meta, db, zipfile):
+        """
+        Adds the image file metadata to tblmetadata table in the specified database.
+        Will create/overwrite the table tblmetadata if prompted (be carefull)
+
+        **Parameters**
+            
+            *meta* :   A metadata instance from Metadata.py
+
+            *db*   :   database connection            
+        """
+        #TODO: implement ROI filtering such that only images within the ROI
+        #are uploaded to tblmetadata
+        print("Starting data2db")
+        if meta.status == "ok":
+            meta_dict = meta.createMetaDict()  # Create dictionary of all the metadata fields
+            db.meta2db(meta_dict)       # Upload metadata to database
+          
+        else:
+            self.logger.error("Creating an instance of the meta class failed, moving to next file")
+            self.bad_img += 1
+            self.issueString += "\n\nERROR (Metadata): " + zipfile
+        print("Data2db complete.")
+
+    def query_mode(self, db, method = 'metadata'):
+        """
+        Searches for imagery through from a specified source, i.e cis archive, metadata tables,
+        or online APIs such as EODMS.
+
+        **Parameters**
+
+            *db*   :   database connection     
+            
+            *method* :   valid options are  '1:metadata', '2:cis', '3:EODMS'    
+
+        """
+
+
+        print(self.roi, self.roiProjSRID, self.vectDir)
+        #ROI needs to be in the Query Mode format.
+        query = Query(self.roi, self.roiProjSRID, self.vectDir, method)
             
 
-    def data2img(self, fname, imgname, zipname, sattype, granule, zipfile, sar_meta, unzipdir):
+    def qualitative_mode(self, fname, imgname, zipname, sattype, granule, zipfile, sar_meta, unzipdir):
         """
         Opens an image file and converts it to the format given in the config file
 
@@ -367,7 +413,7 @@ class SigLib:
 
             *unzipdir* : directory zipfiles were unzipped into     
         """
-        
+        print("Starting Qualitative Mode for:\n", fname)
         # Change working directories so that processed image can be stored in imgDir
         os.chdir(self.imgDir)
         
@@ -390,7 +436,7 @@ class SigLib:
             try:    
                 if self.imgType == 'amp':
                     ok = sar_img.projectImg(self.proj, self.projDir, resample='bilinear')
-                else:  # no smoothing for quantitative images
+                else:  # no smoothing for quantitative_mode images
                     ok = sar_img.projectImg(self.proj, self.projDir, resample='near')
             except:
                 self.logger.error('ERROR: Issue with projection... will stop projecting this img')
@@ -431,11 +477,12 @@ class SigLib:
             self.logger.debug('Intermediate file cleanup done')
             sar_img.removeHandler()
             sar_meta.removeHandler()
+        print("Quatlitative Mode Complete.")
     
                  
-    def scientific(self, db, fname, imgname, zipname, sattype, granule, zipfile, sar_meta, unzipdir):          
+    def quantitative_mode(self, db, fname, imgname, zipname, sattype, granule, zipfile, sar_meta, unzipdir):          
         """
-        Process images 'Scientifically', based on an ROI in the database, and per zipfile:
+        Process images quantitative_modely, based on an ROI in the database, and per zipfile:
             -Qry to find what polygons in the ROI overlap this image
             -Process one polygon at a time (Project, crop, and mask), saving each as its own img file OR uploading img data to database
             
@@ -457,7 +504,7 @@ class SigLib:
             
             *unzipdir* : directory zipfile was unzipped into                            
         """
-        print("Starting Scientific Mode...")
+        print("Starting Quantitative Mode for:\n", fname)
         os.chdir(self.imgDir)
         newTmp = os.path.join(self.tmpDir,zipname)
         
@@ -489,7 +536,7 @@ class SigLib:
             #PROJECT
             if self.imgType == 'amp':
                 ok = sar_img.projectImg(self.proj, self.projDir, resample='bilinear')
-            else:  # no smoothing for quantitative images
+            else:  # no smoothing for quantitative_mode images
                 ok = sar_img.projectImg(self.proj, self.projDir, resample='near')
             if ok != 0: # trap errors here 
                 self.logger.error('ERROR: Issue with projection... will stop processing this img')
@@ -530,9 +577,9 @@ class SigLib:
         sar_img.cleanFiles(levels=['nil']) 
         self.logger.debug('Intermediate file cleanup done')
         sar_img.removeHandler()
-        print("Scientific Mode Complete.")
+        print("Quantitative Mode Complete.")
   
-      
+    #TO BE REMOVED  
     def polarimetric(self, db, fname, imgname, zipname, sattype, granule, zipfile, sar_meta, unzipdir):
         """
         This function will take full FQ images and perform desired polarimetric matrix generation(s), speckle filtering, and decomposition(s). 
@@ -699,9 +746,18 @@ class SigLib:
         if self.uploadROI == "1":
             db = Database(self.table_to_query, self.dbName, self.loghandler, host=self.dbHost)
             db.updateROI(self.roi, self.roiProjSRID, self.vectDir)  #Refer to this function in documentation before running to confirm convension
-            ans = input("Create instances from {}? [Y/N]\t".format(self.table_to_query))
+            ans = input("Create image references from {}? [Y/N]\t".format(self.table_to_query))
             if ans.lower() == 'y':
                 db.findInstances(self.roi)
+        if self.queryProcess == "1": #note query mode is seperate from qualitative and quantitative
+            db = Database(self.table_to_query, self.dbName, self.loghandler, host=self.dbHost)
+            query_methods = {1: 'metadata', 2: 'cis', 3:'EODMS'}
+            print("Select which source to query imagery from:\n")
+            print("1: {}".format(self.table_to_query))
+            print("2: CIS Archive (WIRL users only)")
+            print("3: EODMS")
+            ans = input("Enter 1,2, or 3:\t")
+            self.query_mode(db, query_methods[ans])
         if self.scanPath == "1":
             self.proc_Dir(self.scanDir, self.scanFor)      # Scan by path pattern
         elif self.scanFile == "1":

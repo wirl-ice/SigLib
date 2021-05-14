@@ -489,6 +489,7 @@ class Metadata(object):
 
         self.geom = 'POLYGON(('+ul+', '+ur+', '+lr+', '+ll+', '+ul+'))'
 
+    #OBSOLETE
     def getMoreGCPs(self, n_gcps):
         """
         If you have a CDPF RSat1 image, gdal only has 15 GCPs
@@ -1573,6 +1574,7 @@ def doy2date(year, doy):
         logger.error('Result might be invalid : year coerced to integer')
     return datetime.datetime(year, 1, 1) + datetime.timedelta(doy - 1)
 
+#OBSOLETE
 def datetime2iso(datetimeobj):
     """
     Return iso string from a python datetime
