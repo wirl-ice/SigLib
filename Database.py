@@ -744,12 +744,12 @@ class Database:
 
         #TODO: Investigate error:
         #"could not form projection from 'srid=96718' to 'srid=4326"
-        sql1 = "SELECT ST_AsText(ST_Envelope(ST_Intersection((SELECT ST_Transform(" + self.table_to_query + ".geom, %(srid)s) FROM " + self.table_to_query + " WHERE granule = '%(granule)s'), (SELECT ST_Transform("
+        sql1 = "SELECT ST_AsText(ST_Envelope(ST_Intersection((SELECT ST_Transform(" + self.table_to_query + ".geom, %(srid)s) FROM " + self.table_to_query + " WHERE granule = %(granule)s), (SELECT ST_Transform("
         sql2 = ".geom, %(srid)s) FROM "
-        sql3 = " WHERE inst = '%(inst)s'))))"
+        sql3 = " WHERE inst = %(inst)s))))"
     
         sql = sql1+ roi +sql2+ roi +sql3
-        
+
         curs = self.connection.cursor()
         curs.execute(sql, param)
         bbtext = curs.fetchall()

@@ -307,7 +307,7 @@ class SigLib:
                 
             if self.quantitativeProcess == "1":
                 db = Database(self.table_to_query, self.dbName, loghandler=self.loghandler, host=self.dbHost)
-                self.quantitative_mode_mode(db, fname, imgname, zipname, sattype, granule, zipfile, sar_meta, unzipdir)
+                self.quantitative_mode(db, fname, imgname, zipname, sattype, granule, zipfile, sar_meta, unzipdir)
                 db.removeHandler()
                 
             if self.polarimetricProcess == '1':
@@ -408,7 +408,7 @@ class SigLib:
 
             *unzipdir* : directory zipfiles were unzipped into     
         """
-        print("Starting Qualitative Mode for:\n", fname)
+        print("Starting Qualitative Mode for:\n", zipname)
         # Change working directories so that processed image can be stored in imgDir
         os.chdir(self.imgDir)
         
@@ -499,7 +499,7 @@ class SigLib:
             
             *unzipdir* : directory zipfile was unzipped into                            
         """
-        print("Starting Quantitative Mode for:\n", fname)
+        print("Starting Quantitative Mode for:\n", zipname)
         os.chdir(self.imgDir)
         newTmp = os.path.join(self.tmpDir,zipname)
         
