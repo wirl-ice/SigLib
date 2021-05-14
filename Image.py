@@ -524,10 +524,11 @@ class Image(object):
         if self.sattype == 'SEN-1' or self.sattype == 'SEN-2':
             #project sentinel using terrain correction
             ok = self.snapCrop(subscene, ullr)
-        ok = self.cropSmall(ullr, subscene)
-        if ok != 0:
-            llur = Util.ullr2llur(ullr) 
-            ok = self.cropBig(llur, subscene)
+        else:
+            ok = self.cropSmall(ullr, subscene)
+            if ok != 0:
+                llur = Util.ullr2llur(ullr) 
+                ok = self.cropBig(llur, subscene)
 
         return ok
 
@@ -575,13 +576,12 @@ class Image(object):
 
             *subscene* : the name of a subscene
         """
-
+       
         imgFormat = 'vrt'
         ext = '.vrt'
-        inname = self.FileNames[-1] # this is potentially an issue here
+        inname = self.FileNames[-1] +ext # this is potentially an issue here
         outname = os.path.splitext(inname)[0] +'_'+str(subscene) +ext
-        
-        inname = self.FileNames[-1] # this is potentially an issue here
+
         self.fname_nosubest = inname
        
         sep = ' '
