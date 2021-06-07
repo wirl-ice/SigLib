@@ -6,19 +6,98 @@ Dependencies
 
 You will need a computer running Linux or Windows
 
--  Python 2 (not 3), along with several scientific libraries - numpy,
-   pandas, psycopg2, matplotlib, datetime... It's recommended you install the
-   *Anaconda Python Distribution* as it contains pretty well everything required.
-   www.anaconda.com
--  gdal/ogr libraries 
-   www.osgeo.org
--  snap (sentinel-1 toolbox): https://step.esa.int/main/download/snap-download/
-   Make sure when downloading to configure python api for snapPy!
--  PostrgreSQL/PostGIS (could be on another computer) 
-   www.postgresql.org / postgis.net 
--  It is highly recommended that you have access to QGIS or ArcGIS Pro to
-   manipulate shapefiles
+You will need a computer running linux or windows along with:
+- Python 2.x or 3.x (preferred).  It is recommended you install the [https://www.anaconda.com/ Python Anaconda package manager] as it contains pretty well everything you will need related to Python. 
+Python libraries - The following libraries may be installed individually using your preferred package manager (eg. pip, conda); alternatively, you can use the provided Requirements.txt file ([[SigLib#Setup|Setup]]) to install them all at once.
+**future
+**psycopg2
+**GDAL
+**numpy
+**scipy
+**ctypes_snappy
+**configparser
+* gdal/ogr libraries - (https://gdal.org/)
+* PostrgreSQL/PostGIS (could be on another computer) (https://www.postgresql.org/ and https://postgis.net/)
+* SNAP (Sentinel Application Platform from ESA) (https://step.esa.int/main/toolboxes/snap/) - installation will require you to know where your python.exe file is located, if you are using Anaconda, this can be found by entering <where anaconda> into the Anaconda Command Prompt.
+Note that it is possible to run the software without SNAP or PosgresSQL/PostGIS but functionality will be ''very'' limited.  
 
+Nice to haves:
+* It is highly recommended that you have access to QGIS or ArcGIS to manipulate shapefiles
+* You should have a good Python Integrated Development Environment (IDE) - for example: [https://www.spyder-ide.org/ Spyder] (can be installed via Anadonda) 
+* To work with ASF CEOS Files, you will need [https://www.asf.alaska.edu/software-tools/#mapready ASF MapReady]
+* If you want to take advantage of multiple cores on your ''linux'' machine to greatly enhance processing speed you will need [https://www.gnu.org/software/parallel/ GNU Parallel]
+
+Sorry, but details on how to install and set up these dependencies is out of scope for this manual.
+
+Setup
+-----
+
+Once all the dependencies are met you can set up the SigLib software
+* SigLib *
+Depending on your level of experience with coding and, in particular, Python, this portion of the the setup should take about an hour for those who are familiar with setting up code repositories. If you are a novice programmer you may want to set aside more time then that.
+- Download or clone the latest version of SigLib from Github (https://github.com/wirl-ice/SigLib - N.B. link is private to WIRL members for now)
+- Install Python Libraries - in your SigLib folder, there is a file named Requirements.txt that contains all the necessary Python Libraries. The libraries can be installed all at once by entering the following command in your terminal:
+ pip install -r /path/to/Requirements.txt
+- Setup Directories - you will need to create a set of directories (folders) that SigLib will access through the [[SigLib#Config File|config.cfg]] file. The contents of each folder will be explained later on, for now you just need to create empty folders. They should be named to reflect the associated variable in the config.cfg file, for example, create a folder named 'ScanDirectory' to link to the 'scanDir' variable.
+- Config File Setup - Enter the paths to the directories you just created into your config file in the [Directories] section. If you know the name and host of the database you would like to use, enter these now into the [Database] section. If you are creating a new database, then refer to the [[SigLib#Postgres/PostGIS|next section]].
+- You will need to add projections to the folder you created for the ''projDir''. Please refer to the following section on [[SigLib#A Note on Projections|Projections]] for more information. Adding at least one projection file into your projection directory is a necessary step in order to run SigLib functions that operate outside of a PostGIS database, such as when using Exploratory mode.
+
+* Postgres/PostGIS *
+Whether you are accessing an external or local PostGIS database, you will need to take steps to set up your PostGIS database in such a way that SigLib.py can connect to it. The following provides an overview on how to add new users, create a new database, and add new projections. For those who are familiar with PostGres/PostGIS this setup should only take about an hour; if you are new to PostGres/PostGIS you will likely want to set aside a few hours.
+*Setup/modify users in ***PGAdmin*** (Postgres GUI) or using ***psql*** (the command line utility)
+*Ideally, the username should be the same as your username (or another user) on that computer
+
+* PGAdmin * 
+- Enter the Login/Group Roles dialog under Server
+- Create a user that can login and create databases. Ideally, the username should be the same as the username on that computer.
+
+* psql *
+This method is for Linux users only, if you are using Windows see the above steps for adding new users in PGAdmin. 
+- At the command line type (where newuser is the new username) to create a user that can create databases: 
+ createuser -d newuser
+- Enter psql by specifying the database you want (use default database 'postgres' if you have not created one yet)
+ psql -d postgres
+- Give the user a password like so: 
+ \password username
+
+Once a user is set up, they can be automatically logged in when connecting to the Postgres server if you follow these steps (recommended). If not, the user will either have to type in credentials or store them hardcoded in the Python scripts (bad idea!). 
+
+* Windows *
+The PostgreSQL server needs to have access to the users password so that SigLib can access the database. This achieved through the pgpass.conf file, which you will need to create. 
+- Navigate to the Application data subdirectory
+ cd %APPDATA%
+- Create a directory called postgresql and enter it
+ mkdir postgresql
+ cd postgresql
+- Create a plain text file called pgpass.conf
+ notepad pgpass.conf
+- Enter the following information separated by colons --host:port:database:username:password -- for example the following gives user dmueller access to the postgres server on the localhost to all databases (*).  The port number 5432 is standard
+ localhost:5432:*:dmueller:password_dmueller
+- Save the file
+
+* Linux *
+- Make a file called .pgpass in your home directory and edit it to include host:port:database:username:password (see above for details and example)
+- Save the file then type the following to make this info private: 
+ chmod 600 .pgpass 
+
+* Permissions *
+
+If you are the first or only user on the postgres server then you can create databases and will have full permissions.  Otherwise you will have read access to the databases that you connect to (typically). To get full permissions (recommended for SigLib) to an existing database do the following (to give user 'username' full permissions on database 'databasename'): 
+
+- ***PGAdmin*** -- Under Tools, select Query tool, type the following and execute - lightning icon or F5:
+- ***psql*** -- At the pqsl prompt, type the following and press enter: 
+ GRANT ALL PRIVILEGES ON DATABASE databasename TO username;
+
+* Creating a New Database * 
+To create a new database you will need to have PostGIS installed on your machine. If you are using Windows it is recommended you install the PGAdmin GUI (this should be included with your installation of PostGIS).
+- Open a server in PGAdmin and create a new database. Set the '''db''' variable in the config file to the name of your new database. 
+- Set the *host* variable in the config file to the 'Owner' of the database, this is typically your username for a local database setup.
+- Check that the 'spatial_ref_sys' table has been automatically created under '''Schemas|Tables'''. This table contains thousands of default projections; additionally, you can add new [[SigLib#A Note on Projections|projections]]. If the table have to been created, you will have to add it manually. Under Tools, select Query Tool, type the following and execute:
+ CREATE EXTENSION postgis;
+- In the config file, set the *create_tblmetadata* variable to *1*
+- Save your config file with these changes and run SigLib.py
+ python /path_to_script/SigLib.py /path_to_file/config_file.cfg
+- You will be prompted in the terminal to create/overwrite **tblMetadata**. Select yes to create a new metadata table.
 
 Modules
 -------
@@ -34,9 +113,6 @@ functionality.
    storage and retrieval of information
 #. **Image.py** - used to manipulate images, project, calibrate, crop,
    etc.
-#. **LogConcat.py** - used to combine individual log files into one
-   master .txt file, and separate log files containing errors for
-   analysis (Mainly for use after large runs in parallel)
 
 **SigLib.py** is the front-end of the software. It calls the modules
 listed above and is, in turn controlled by a configuration file. To run,
@@ -44,81 +120,61 @@ simply edit the \*.cfg file with the paths and inputs you want and then
 run SigLib.py.
 
 However, you can also code your own script to access the functionality
-of the modules if you wish.
+of the modules if you wish. An examples of this are included:
+
+#. **Polarimetry.py** - An independant script used generate polarimetric variables for SAR imagery using SNAP-ESA (Work in Progress).
 
 Config File
 -----------
 
-The **\*.cfg** file is how you interface with SigLib. It needs to be
-edited properly so that the job you want done will happen! Leave entry
-blank if you are not sure. There are several categories of parameters:
+The '''*.cfg''' file is how you interface with siglib. It needs to be edited properly so that the job you want done will happen!  Leave entry blank if you are not sure. Leave entry blank if you are not sure. Do not add comments or any additional text to the config file as this will prevent the program from interpreting the contents. Only update the variables as suggested in their descriptions. There are several categories of parameters and these are: 
 
-*Directories*
+***Directories***
 
--  scanDir = path to where you want SigLib to look for SAR image zip
-   files to work with
--  tmpDir = a working directory to extract zip files to 
-   (A folder for temporary files that will only be used during the
-   running of the code, then deleted)
--  projDir = where projection definition files are found in well-known
-   text format (wkt)
--  vectDir = where vector layers are found (ROI shapefiles or masking
-   layers)
--  imgDir = a working directory for storing image processing
-   intermediate files and final output files
--  logDir = where logs are created
--  archDir = where CIS archive data are found
--  errorDir = where logConcat will send .log files with errors (for
-   proper review of bad zips at end of run)
+* scanDir = path to where you want siglib to look for SAR image zip files to work with
+* tmpDir = a working directory for extracting zip files to (Basically, a folder for temporary files that will only be used during the running of the code, then deleted, in scratch folder). 
+* projDir = where projection definition files are found in well-known text (.wkt) format (/tank/ice/data/proj). This folder should be populated with any projection files that you plan to use in your analysis.
+* vectDir = where vector layers are found (ROI shapefiles or masking layers)
+* imgDir = a working directory for storing image processing intermediate files and final output files, in scratch folder
+* logDir = where logs are placed
+* errorDir = Where logConcat will send .log files with errors (For proper review of bad zips at end of run)
 
-*Database*
+***Database***
 
--  db = the name of the database you want to connect to
--  host = database hostname
--  create_tblmetadata = 0 for append, = 1 for overwrite/create
-   a metadata table.
--  uploadROI = if the ROI file needs to be uploaded to the database. 0 if no, 1 if yes
--  table = name of table in database that Database.py will query
-   against to find imagery
+*db = the name of the database you want to connect to
+*host = hostname for PostGIS server
+*create_tblmetadata =  0 for append, 1 for overwrite/create. Must initially be set to 1 to initialize a new database.
+*uploadROI = 1 if ROI file listed should be uploaded to the database
+*table = database table containing image information that Database.py will query against
 
-*Input*
+***Input***
 
-**Note that path, query, and file are mutually exclusive options - sum of 'Input'
-options must = 1**
+'''''Note that these are mutually exclusive options - sum of 'Input' options must = 1'''''
+*path = 1 for scan a certain path and operate on all files within; 0 otherwise
+*query = 1 for scan over the results of a query and operate on all files returned; 0 otherwise
+*file = 1 for run process on a certain file, which is passed as a command line argument (note this enables parallelized code); 0 otherwise 
+*scanFor = a file pattern to search for (eg. *.zip)  - use when path=1
+*uploadData = 1 to upload descriptive statistics of subscenes generated by Scientific mode to database
 
--  path = 1 to scan a certain path and operate on all files within; 0
-   otherwise
--  query = 1 to scan over the results of a query and operate on all
-   files returned; 0 otherwise
--  file = 1 to run process on a certain file, which is passed as a
-   command line argument (*note* this must be enabled to parallelize SigLib); 0
-   otherwise
--  scanFor = a file pattern to search for (eg. \*.zip) - use when path=1
--  uploadData = 1 to upload descriptive statistics of subscenes generated in Scientific mode to the database 
+***Process***
 
-*Process*
+*data2db = 1 when you want to upload metadata to the metadata table in the database (Discovery Mode)
+*data2img = 1 when you want to manipulate images (as per specs below) (Exploratory Mode)
+*scientific = 1 when you want to do image manipulation involving the database (Scientific Mode)
+*polarimetric = 1 when you want to do sar polarimetry (Polarimetric Mode)
 
--  data2db = 1 when you want to upload metadata to the metadata table in
-   the database
--  data2img = 1 when you want to manipulate images (as per specs below)
--  scientific = 1 when image manipulation requires Database.py
--  polarimetric = 1 when you want to do SAR polarimetry
+***IMGMode***
 
-*MISC*
-
--  proj = basename of wkt projection file (eg. lcc) in the projDir
--  projSRID = SRID # of the wkt projection
--  imgtypes = types of images to process (*List these once finalized*)
--  imgformat = file format for output imagery (gdal convention)
--  roi = Region of Interest shapefile or database table
--  roiprojSRID = SRID # of projection roi is in
--  crop = leave blank for no cropping, or four space-delimited numbers,
-   upper-left and lower-right corners (in proj above) that denote a crop
-   area: ul_x ul_y lr_x lr_y
--  mask = a polygon shapefile (with only one feature) to mask image data with
--  spatialrel = ST_Contains (Search for images that fully contain the
-   roi polygon) or ST_Intersects (Search for images that merely
-   intersect with the roi)
+*proj = basename of wkt projection file (eg. lcc)
+*projSRID = SRID # of wkt projection file
+*imgtypes = types of images to process 
+*imgformat = File format for output imagery (gdal convention)
+*roi = name of ROI Shapefile for Discovery or Scientific modes, stored in your ''vectDir'' folder
+*roiprojSRID = Projection of ROI as an SRID for use by PostgreSQL (see '[[SigLib#A Note on Projections|A Note on Projections]]' for instructions on finding your SRID and ensuring it is available within your PostGIS database)
+*mask = a polygon shapefile (one feature) to mask image data with (eg. /tank/ice/data/vector/CIS_Vectors/coast_poly.shp)
+*crop = nothing for no cropping, or four space-delimited numbers, upper-left and lower-right corners (in proj above) that denote a crop area: ul_x ul_y lr_x lr_y 
+*spatialrel = ST_Contains (Search for images that fully contain the roi polygon) or ST_Intersects (Search for images that merely intersect with the roi)
+*elevationCorrection = the desired elevation (in meters) to georeference the tie-points. Enter an integer value (eg, 0, 100, 500). For example, when studying coastlines, the elevation of the study region is '''0'''. Leave blank to use the default georeferencing scheme (using average elevation of tie-points).
 
 Using a Config in an IDE
 ------------------------
