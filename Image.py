@@ -1220,7 +1220,6 @@ class Image(object):
         
         img = os.path.join(self.path, self.fname)
         sat = ProductIO.readProduct(img)
-        sat = ProductIO.readProduct(img)
         
         output = os.path.join(self.imgDir, outname)
         
@@ -1364,155 +1363,6 @@ class Image(object):
         
         self.logger.debug("Subset complete on " + self.zipname + " for id " + str(idNum))
         self.FileNames.append(output+'.dim')
-        
-    #POLARIMETRIC SPECIFIC?           
-    def matrix_generation(self, matrix):
-        '''
-        Generate chosen matrix for calibrated quad-pol product
-        
-        **Parameters**
-        
-            *matrix* : matrix to be generated. options include: C3, C4, T3, or T4
-            
-        **Returns**
-        
-            *output* : filename of new product        
-        '''
-         
-        output = os.path.splitext(self.FileNames[-1])[0] +  '_' + matrix
-        inname = self.FileNames[-1]
-        
-        rsat = ProductIO.readProduct(inname)
-        parameters = self.HashMap()
-        
-        parameters.put('matrix', matrix)
-        
-        target = GPF.createProduct('Polarimetric-Matrices', parameters, rsat)
-        parameters2 = self.HashMap()
-        
-        parameters2.put('filter', 'Refined Lee Filter')
-        parameters2.put('windowSize', '5x5')
-        parameters2.put('numLooksStr', '3')
-        
-        target2 = GPF.createProduct('Polarimetric-Speckle-Filter', parameters, target)
-        
-        ProductIO.writeProduct(target2, output, 'BEAM-DIMAP')
-        
-        self.logger.debug(matrix + ' generated sucessfully') 
-        
-        self.FileNames.append(output+'.dim')        
-
-    #POLARIMETRIC SPECIFIC    
-    def polarFilter(self):
-        '''
-        Apply a speckle filter on a fully polarimetric product
-        
-        **Parameters**
-            
-            *save*   : True if output filename should be added into internal filenames array for later use
-            
-        **Returns**
-        
-            *output* : filename of new product
-        '''
-        
-        output = os.path.splitext(self.FileNames[-1])[0] +  '_filter'
-        inname = self.FileNames[-1]
-        
-        rsat = ProductIO.readProduct(inname)
-        parameters = self.HashMap()
-        
-        parameters.put('filter', 'Refined Lee Filter')
-        parameters.put('windowSize', '5x5')
-        parameters.put('numLooksStr', '3')
-        
-        
-        target = GPF.createProduct('Polarimetric-Speckle-Filter', parameters, rsat)
-        ProductIO.writeProduct(target, output, 'BEAM-DIMAP')
-        
-        self.logger.debug('Filtering successful')
-        
-        self.FileNames.append(output +'.dim')
-                
-    #POLARIMETRIC SPECIFIC    
-    def decomposition_generation(self, decomposition, outputType=0, amp = False):
-        '''
-        Generate chosen decomposition on a fully polarimetric product, if looking to create an amplitude image with quad-pol data, set amp to True
-        and send either a Pauli Decomposition or Sinclair Decomposition
-        
-        **Parameters**
-        
-            *decomposition* : decomposition to be generated. options include: Sinclair Decomposition, Pauli Decomposition, Freeman-Durden Decomposition, Yamagushi Decomposition, van Zyl Decomposition, H-A-Alpha Quad Pol Decomposition, Cloude Decomposition, or Touzi Decompositio
-            
-            *outputType* : option to select which set of output parameters that will be used for the Touzi or HAAlpha (1-8, leave 0 for none)
-            
-            *amp* : True if looking to generate Pauli or Sinclair decomposition to create quad-pol amp image
-            
-        **Returns**
-        
-            *output* : filename of new product
-        '''
-        
-        if amp:
-            os.chdir(self.tmpDir)
-                        
-            inname = os.path.join(self.path, self.fname)
-            outname = self.fnameGenerate()[2]
-            output = os.path.join(self.tmpDir, outname)
-            
-            rsat = ProductIO.readProduct(inname)
-            parameters = self.HashMap()
-            
-            parameters.put('decomposition', decomposition)
-            target = GPF.createProduct('Polarimetric-Decomposition', parameters, rsat)
-            ProductIO.writeProduct(target, output, 'BEAM-DIMAP')
-        
-            self.logger.debug(decomposition + ' generated sucessfully')
-            self.FileNames.append(outname+'.dim')
-            
-        else:
-            output = os.path.splitext(self.FileNames[-1])[0] + '_' + decomposition
-            inname = self.FileNames[-1]
-            
-            rsat = ProductIO.readProduct(inname)
-            parameters = self.HashMap()
-            
-            parameters.put('decomposition', decomposition)
-            if outputType == 1:
-                parameters.put('outputAlpha123', True)
-                output = output + "_1"
-            elif outputType == 2:
-                parameters.put('outputBetaDeltaGammaLambda', True)
-                output = output + "_2"
-            elif outputType == 3:
-                parameters.put('outputHAAlpha', True)
-                output = output + "_3"
-            elif outputType == 4:
-                parameters.put('outputLambda123', True)
-                output = output + "_4"
-            elif outputType == 5:
-                parameters.put('outputTouziParamSet0', True)
-                output = output + "_1"
-            elif outputType == 6:
-                parameters.put('outputTouziParamSet1', True)
-                output = output + "_2"
-            elif outputType == 7:
-                parameters.put('outputTouziParamSet2', True)
-                output = output + "_3"
-            elif outputType == 8:
-                parameters.put('outputTouziParamSet3', True)
-                output = output + "_4"
-            
-            try:
-                parameters.put('windowSize', 5)
-            except:
-                pass
-            
-            target = GPF.createProduct('Polarimetric-Decomposition', parameters, rsat)
-            ProductIO.writeProduct(target, output, 'BEAM-DIMAP')
-            
-            self.logger.debug(decomposition + ' generated sucessfully')
-                
     
     def snapTC(self, inname, outname, proj, projDir, smooth = True, outFormat = 'BEAM-DIMAP'):
         '''
@@ -1578,7 +1428,7 @@ class Image(object):
                     bands = bands + ',' + dt + band
                 count +=1
                 
-            parameters.put('sourceBands', "Sigma0_HH")  ###FIXME! Error with band metadata
+            parameters.put('sourceBands', bands)  ###FIXME! Error with band metadata
 
 
         readProj = open(os.path.join(projDir, proj + '.wkt'), 'r').read()
@@ -1637,42 +1487,7 @@ class Image(object):
         count += 1
         if save:
             self.FileNames.append(output+'.dim')
-    
-            
-    def slantRangeMask(self, mask, inname, workingDir, uploads):
-        '''
-        This function takes a wkt with lat long coordinates, and traslates it into a wkt in line-pixel coordinates
-        
-        **Parameters**
-            
-            *mask*  :  wkt file of a polygonal mask in wgs84 coordinates            
 
-            *inname*  :  snap product to cross-reference mask corrdinated to convert them to slant-range
-            
-        **Returns**
-        
-            *newMask*  : wkt file of a polygonal mask in slant-range line-pixel coordinates
-        '''
-        
-        input = os.path.join(workingDir,inname+'.dim')
-        output = os.path.join(workingDir, inname)
-        
-        rsat = ProductIO.readProduct(input)
-        
-        parameters = self.HashMap()        
-        parameters.put('vectorFile', os.path.join(workingDir, mask+'.shp'))
-
-        t = GPF.createProduct('Import-Vector', parameters, rsat)
-        ProductIO.writeProduct(t, output, 'BEAM-DIMAP') 
-        
-        masking = ProductIO.readProduct(input)
-        parameters = self.HashMap()
-        parameters.put('geometry', mask+'_1')
-        
-        o = GPF.createProduct('Land-Sea-Mask', parameters, masking)
-        ProductIO.writeProduct(o, os.path.join(uploads, inname), 'BEAM-DIMAP')
-        
-      
     def correct_known_elevation(self):
         '''
         Transforms image GCPs based on a known elevation (rather than the default average)

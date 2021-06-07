@@ -330,76 +330,7 @@ def ullr2llur(ullr):
     ur = (lr[0], ul[1])
     ll = (ul[0], lr[1])
 
-    return ll,ur    
-
-#OBSOLETE
-def reprojSHP(in_shp, vectdir, proj, projdir):
-    """
-    Opens a shapefile, saves it as a new shapefile in the same directory
-    that is reprojected to the projection wkt provided.
-
-    **Note:** this could be expanded to get polyline data from polygon data
-    for masking lines (not areas) ogr2ogr -nlt MULTILINESTRING
-
-    **Parameters**
-        
-        *in_shp*  :
-
-        *vectdir* :
-
-        *proj*    :
-
-        *projdir* :
-
-    **Returns**
-        
-        *out_shp* : name of the proper shapefile
-    """
-    
-    extlist = ['.shp', '.dbf','.prj','.shx']
-
-    #load the srs from the reference wkt
-    img_wkt = os.path.join(projdir, proj+'.wkt')
-    img_srs = osr.SpatialReference()
-    img_srs.ImportFromWkt(img_wkt)
-
-    vect_srs = osr.SpatialReference()
-    #driver = ogr.GetDriverByName('ESRI Shapefile')
-
-    ds = ogr.Open(os.path.join(vectdir, in_shp+'.shp'))
-
-    lyr = ds.GetLayer(0)
-    vect_srs = lyr.GetSpatialRef()
-
-    if vect_srs.IsSame(img_srs):
-        # if the spatial reference of the vector mask matches the images, then
-        # do nothing and return the name of the 'good shapefile'
-        return in_shp
-
-    else:
-        #if the spatial reference doesn't match then reproject the shapefile
-        out_shp = in_shp+'_'+proj
-
-        #first delete any shapefiles that might be old so they can be overwriten
-        if os.path.isfile(os.path.join(vectdir, out_shp+'.shp')):  # if shp, assume they are all around...
-            try:
-                for ext in extlist:
-                    os.remove(os.path.join(vectdir, out_shp+ext))  #Must remove because it won't overwrite!
-            except:
-                pass # the files don't all exist (or they can't be deleted (problems later!)
-        #tr = osr.CoordinateTransformation(vect_srs, img_srs)
-
-        #Now reproject
-        # go for it outside the API - command line ogr2ogr
-        cmd = 'ogr2ogr -f \"ESRI Shapefile\" -t_srs ' + os.path.join(projdir, proj+'.wkt') +\
-        ' ' + os.path.join(vectdir, out_shp + '.shp')+ ' ' +\
-        os.path.join(vectdir, in_shp +'.shp')+' ' + in_shp
-
-        command =  shlex.split(cmd)
-
-        subprocess.Popen(command).wait() # must wait until finished
-
-    return out_shp  # return the name of the proper shapefile
+    return ll,ur
 
 #OBSOLETE
 def getdBScale(power):
@@ -530,55 +461,6 @@ def wkt2shp(shpname, vectdir, proj, projdir, wkt):
     feature.Destroy()
     datasource.Destroy()
     del fout
-
-#OBSOLETE    
-def copyfiles(self, copylist, wrkdir, fname=None, export=False, loghandler=None):   
-    """
-    Copies files from a local archive. If file could not be found, check that the 
-    drive mapping is correct (above).   
-    
-    
-    **Parameters**
-        
-        *copylist* : a list of images + inst             
-
-        *wrkdir*   : working directory
-        
-        *fname*    : Filename if exporting copylist as txt
-        
-        *export*   : True if want to export copylist as txt
-    """
-    
-    if loghandler != None:
-        loghandler = loghandler             #Logging setup if loghandler sent, otherwise, set up a console only logging system
-        logger = logging.getLogger(__name__)
-        logger.addHandler(loghandler)
-        logger.propagate = False   
-        logger.setLevel(logging.DEBUG)
-    else:
-        logger = logging.getLogger(__name__)                        
-        logger.setLevel(logging.DEBUG)
-        logger.addHandler(logging.StreamHandler())    
-    
-    for fname in copylist:
-        destination = os.path.join(wrkdir,os.path.split(fname)[1])
-        if not os.path.isfile(fname):
-            self.logger.error(fname + ' does not exist')
-            continue        
-        if os.path.isfile(destination):
-            self.logger.debug(destination + " exists already and will not be copied")
-        else:
-            shutil.copy(fname,wrkdir)
-            self.logger.debug("Copied File " + fname)
-    self.logger.info("Finished File Copy")
-    
-    if export:
-        fout = open(fname+".txt", 'w')
-
-        for line in copylist:
-            fout.write(line+'\n')
-    
-        fout.close() 
 
 #OBSOLETE
 def interpolate_bilinear_matrix(Q, x, y):
