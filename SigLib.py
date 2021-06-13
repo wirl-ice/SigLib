@@ -36,7 +36,7 @@ from glob import glob
 from Database import Database
 from Metadata import Metadata
 from Image import Image
-from Query import Query
+#from Query import Query
 import Util
 
 class SigLib:
@@ -351,7 +351,8 @@ class SigLib:
         """
 
         #ROI needs to be in the Query Mode format.
-        query = Query(self.roi, self.roiProjSRID, self.vectDir, method)
+        #query = Query(self.roi, self.roiProjSRID, self.vectDir, method)
+        pass
             
 
     def qualitative_mode(self, fname, imgname, zipname, sattype, granule, zipfile, sar_meta, unzipdir):
@@ -414,8 +415,7 @@ class SigLib:
 
             if self.crop:
                 self.logger.debug("Image Crop")
-                sar_img.cropImg([tuple(map(float, self.crop.split(" "))[:2]), \
-                                 tuple(map(float, self.crop.split(" "))[2:])], 'crop')
+                sar_img.cropImg([list(map(float, self.crop.split(" ")[:2])), list(map(float, self.crop.split(" ")[2:]))], 'crop')
                 self.logger.debug("Cropping complete")
    
             try: 

@@ -416,8 +416,9 @@ class Image(object):
                 inname = file
         if not inname:
             inname = self.FileNames[-1] #last file
+            print("Here {}".format(inname))
 
-        outname = os.path.splitext(inname)[0] + '_proj'
+        outname = os.path.splitext(inname)[0] + '_proj' + ext
 
         if self.sattype == 'SEN-1' or self.sattype == 'SEN-2':
             #project sentinel with snap
@@ -427,7 +428,7 @@ class Image(object):
             command = 'gdalwarp -of ' + imgFormat +  ' -t_srs ' +\
                     os.path.join(projdir, projout+'.wkt') + \
                         ' -order 3 -dstnodata 0 -r ' + resample +' '+clobber+ \
-                        inname + ' ' + outname + ext
+                        inname + ' ' + outname
                     
             try:
                 ok = subprocess.Popen(command).wait()  # run the other way on linux
@@ -579,7 +580,7 @@ class Image(object):
        
         imgFormat = 'vrt'
         ext = '.vrt'
-        inname = self.FileNames[-1] +ext # this is potentially an issue here
+        inname = self.FileNames[-1] # this is potentially an issue here
         outname = os.path.splitext(inname)[0] +'_'+str(subscene) +ext
 
         self.fname_nosubest = inname
@@ -965,23 +966,25 @@ class Image(object):
         if 'crop' in levels and len(self.FileNames) > 3:
             for file in self.FileNames:
                 if 'crop' in file:
-                    deleteMe.append(glob.glob(file))
+                    deleteMe.append(file)
         if 'proj' in levels and len(self.FileNames) > 2:
             for file in self.FileNames:
                 if 'proj' in file:
-                    deleteMe.append(glob.glob(file)) 
+                    deleteMe.append(file)
         if 'nil' in levels and len(self.FileNames) > 1:
-            for file in self.FileNames:
-                if 'nil' in file:   #this needs to be tested
-                    deleteMe.append(glob.glob(file))
+            deleteMe.append(self.tifname)
+            print(self.tifname)
+            #for file in self.FileNames:
+                #if 'nil' in file:   #this needs to be tested
+                    #deleteMe.append(glob.glob(file))
                     
         for filename in deleteMe:
             if filename != []:
                 try:
-                    os.remove( filename[0] )
-                    self.FileNames.remove(filename[0])
+                    os.remove(filename)
+                    self.FileNames.remove(filename)
                 except:
-                    self.FileNames.remove(filename[0])
+                    self.FileNames.remove(filename)
                     
 
     def getSigma(self, datachunk, n_lines):

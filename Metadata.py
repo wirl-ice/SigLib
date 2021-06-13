@@ -27,12 +27,14 @@ import logging
 import subprocess
 import shlex
 import struct
+#import gdal
+#import osr
 
 from osgeo import gdal
 from osgeo import osr
 from osgeo.gdalconst import *
 
-#from future.utils import iteritems
+from future.utils import iteritems
 
 import Util
 import pdb

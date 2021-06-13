@@ -4,7 +4,9 @@ Using SigLib
 Welcome to the tutorial sections of the SigLib documentation! This section 
 gives a brief overview of how to use the Metadata, 
 Util, Database, and Image functions via SigLib and its config file,
-or in a custom way via qryDatabase.  
+or in a custom way via qryDatabase.
+
+**NOTE**: These tutorials are out of date and will need to be updated in the future! Please do not rely on them.
 
 Basic SigLib Setup
 ------------------
@@ -33,8 +35,8 @@ file, including the config file itself and its extension.
 window
 
 	
-Example #1: Basic Radarsat2 Image Calibration using SigLib
----------------------------------------------------------
+Example #1: Basic Radarsat2 Image Calibration using SigLib (Qualitative Mode)
+-----------------------------------------------------------------------------
 
 In this example we will be using SigLib to produce Tiff 
 images from Amplitude Radarsat2 image files.
@@ -117,8 +119,8 @@ and using the same settings as in the above figure, except in the *Input* sectio
 **File** must be set to 0, and **Path** must be set to 1.
 
 
-Example #3: Scientific Mode!
-----------------------------
+Example #3: Quantitative Mode Basics
+-----------------------------------
 
 In this example, we will dive into the depths of SigLibs' Scientific Mode!
 Scientific Mode (as described in an earlier section of this documentation) is a way of 

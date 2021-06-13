@@ -18,7 +18,7 @@ import os
 # If extensions (or modules to document with autodoc) are in another directory,
 # add these directories to sys.path here. If the directory is relative to the
 # documentation root, use os.path.abspath to make it absolute, like shown here.
-sys.path.insert(0, os.path.abspath('/tank/SCRATCH/cfitzpatrick/Siglib/'))
+sys.path.insert(0, os.path.abspath('/tank/SCRATCH/cfitzpatrick/SigLib_Git/'))
 
 # -- General configuration ------------------------------------------------
 
@@ -51,8 +51,8 @@ master_doc = 'index'
 
 # General information about the project.
 project = u'SigLib'
-copyright = u'2018, D. Mueller, C. Lopes, S. Bouh-Ali, C. Fitzpatrick'
-author = u'D. Mueller, C. Lopes, S. Bouh-Ali, C. Fitzpatrick'
+copyright = u'2018, D. Mueller, C. Lopes, S. Bouh-Ali, C. Fitzpatrick, A. Plourde'
+author = u'D. Mueller, C. Lopes, S. Bouh-Ali, C. Fitzpatrick, A. Plourde'
 
 # The version info for the project you're documenting, acts as replacement for
 # |version| and |release|, also used in various other places throughout the
@@ -229,7 +229,7 @@ latex_elements = {
 #  author, documentclass [howto, manual, or own class]).
 latex_documents = [
     (master_doc, 'Siglib.tex', u'SigLib Documentation',
-     u'D. Mueller, C. Lopes, S. Bouh-Ali, C. Fitzpatrick', 'manual'),
+     u'D. Mueller, C. Lopes, S. Bouh-Ali, C. Fitzpatrick, A. Plourde', 'manual'),
 ]
 
 # The name of an image file (relative to this directory) to place at the top of
