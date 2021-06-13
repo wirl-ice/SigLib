@@ -4,7 +4,9 @@ Using SigLib
 Welcome to the tutorial sections of the SigLib documentation! This section 
 gives a brief overview of how to use the Metadata, 
 Util, Database, and Image functions via SigLib and its config file,
-or in a custom way via qryDatabase.  
+or in a custom way via qryDatabase.
+
+**NOTE**: These tutorials are out of date and will need to be updated in the future! Please do not rely on them.
 
 Basic SigLib Setup
 ------------------
@@ -33,8 +35,8 @@ file, including the config file itself and its extension.
 window
 
 	
-Example #1: Basic Radarsat2 Image Calibration using SigLib
----------------------------------------------------------
+Example #1: Basic Radarsat2 Image Calibration using SigLib (Qualitative Mode)
+-----------------------------------------------------------------------------
 
 In this example we will be using SigLib to produce Tiff 
 images from Amplitude Radarsat2 image files.
@@ -117,8 +119,8 @@ and using the same settings as in the above figure, except in the *Input* sectio
 **File** must be set to 0, and **Path** must be set to 1.
 
 
-Example #3: Scientific Mode!
-----------------------------
+Example #3: Quantitative Mode Basics
+-----------------------------------
 
 In this example, we will dive into the depths of SigLibs' Scientific Mode!
 Scientific Mode (as described in an earlier section of this documentation) is a way of 
@@ -131,25 +133,6 @@ pieces via a scientific ROI. The ROI should contain a series of polygons represe
 	Config file settings for scientific mode. Note that we are uploading an ROI in this example. The first time scientific is run with a new ROI, this setting will be nessesary, otherwise it can be set equal 		to 0
 
 Once begun, this mode takes a SAR image in the scanDir, and calibrates it to the selected image type. Once completed, database.py is used to query the ROI against the image footprint to find which polygons in the ROI are within the scene being processed. Each of these hits is then processed one at a time, beginning with a bounding-box crop around the instance, followed by a mask using the ROI polygon (both queried via Database.py). At this point, each instance is projected and turned into its own TIFF file for delivery, or the image data for the instances is uploaded to a database table made to store data from this run. 
-
-
-Example #4: Polarimetric Mode!
-------------------------------
-
-In this final example, we will look at using SigLib's Polarimetric mode. Polarimetric mode 
-uses the SNAP python library SnapPy to perform SAR polarimetry for quad-pol scenes containing
-tracking beacon instances. Three different polarimetric operations are conducted in this mode: Matrix Generation, Polarimetric Speckle Filtering (Using Refined Lee Filter), and Polarimetric Decomposition Generation. All the matricies and decompositions available in SnapPy that are designed for quad-pol imagery are stored in lists in *polarimetric* in **SigLib.py**, these can be edited to contain only desired options. No terrain-correction/reprojections are done in this mode. 
-
-This example requires a database table containing tracking beacon instances and one containing quad-pol SAR image footprints. The nessesary columns for the tracking beacons are geom, latitude, longitude, beaconid, and time (in UTC). The geom and time columns will be comparied to similar columns in the SAR footprints table. The sql statement to compare these two tables will need to be edited to match your column names, see *beaconIntersections* in **Image.py** to make appropriate edits. 
-
-
-.. figure:: polarimetry.png
-	:scale: 50%
-
-	Config file settings for polarimetry mode
-
-
-Once started, this mode goes through the images in the scan directory, processing one image at a time. The program checks to make sure the images are quad-pol, and then queries the geodatabase to see if any beacon pings are contained in the image within a 91 minute buffered timeframe of the SAR data being collected. If there are beacons in the image, the ID's, latitudes, and longitudes of the beacons are collected. The scene is then calibrated to sigma0. At this point, image processing begins per beacon instance in this scene. First, both polarimetric matricies, C3 and T3, are applied (two separate files are created, one with each). Each of these files is then speckle-filtered with a Refined-Lee Filter. After, each decomposition type specified is generated upon each matrix type (again, separate file for each). For the Touzi and H-A-Alpha Decompositions, they are generated four times per matrix, each with a different set of bands. Max conditions will generate 28 GeoTiff files per beacon instance, if both matricies and all snap decompositions are utilized. 
 
 
 Conclusion

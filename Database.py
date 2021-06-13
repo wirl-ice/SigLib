@@ -33,6 +33,7 @@ import glob
 import getpass
 import logging
 import sys
+import pandas as pd
 
 class Database:
     """
@@ -327,31 +328,6 @@ class Database:
         for i in range(len(result)):
             instances.append(result[i][0])
         return instances
-
-    #OBSOLETE    
-    def nameRelationTable(self, roi, spatialrel):
-        """
-        Automatically gives a name to a relational table in the format: "trel" + roi + "img" + _int or _con (in reference to spatialrel)
-        
-        **Parameters**
-        
-            *roi*        : region of interest 
-            
-            *spatialrel* : spatial relationship (i.e. ST_Contains or ST_Intersect)
-                            
-        **Returns**
-        
-            *name*       : name of the table
-        """
-        
-        if spatialrel == 'ST_Intersects':
-            spat = '_int'
-        if spatialrel == 'ST_Contains':
-            spat = '_con'
-        
-        name = 'trel'+roi+'img'+spat
-        
-        return name
 
     #DATABASE UTILITY FUNCTION   
     def updateROI(self, inFile, srid, wdir, ogr=False): 
@@ -1113,102 +1089,6 @@ class Database:
         curs = self.connection.cursor()
         curs.execute(query) 
         self.connection.commit()
-
-    #POLARIMETRIC SPECIFIC    
-    def beaconIntersections(self, beacontable, granule):
-        """
-        Get id, lat and long of beacons that intersect the image within a ninty minutes of the image data being collected
-        
-        **Parameters**
-        
-            *beacontable* : database table containing beacon tracks
-            
-            *granule* : unique identifier of image being analysed
-            
-        **Returns**
-        
-            *rows* : all beacon pings that meet requirements. Each row has three columns: beacon id, lat, and long
-        """
-        
-        sql = """SELECT """ + beacontable + """.beacnid, """+ beacontable + """.latitud, """ + beacontable + """.longitd """ +\
-        """FROM """ + self.table_to_query +""", """ + beacontable +\
-        """ WHERE """ + self.table_to_query + """.granule = %(granule)s """ +\
-        """AND """ + beacontable + """.dtd_utc <= """ + self.table_to_query + """.acdatetime + interval '91 minutes' """ +\
-        """AND """ + beacontable + """.dtd_utc >= """ + self.table_to_query + """.acdatetime - interval '91 minutes' """ +\
-        """AND ST_Contains(ST_Transform(""" + self.table_to_query + """.geom, 96718), ST_Transform(""" + beacontable + """.geom, 96718)) """ +\
-        """ORDER BY """ + beacontable + """.beacnid, ((DATE_PART('day', """+beacontable+""".dtd_utc - """ + self.table_to_query + """.acdatetime)*24 + """ +\
-        """DATE_PART('hour', """+beacontable+""".dtd_utc - """ + self.table_to_query + """.acdatetime))*60 + """ +\
-        """DATE_PART('minute', """+beacontable+""".dtd_utc - """ + self.table_to_query + """.acdatetime))*60 + """ +\
-        """DATE_PART('second', """+beacontable+""".dtd_utc - """ + self.table_to_query + """.acdatetime) ASC"""
-        
-        param = {'granule' : granule}
-        curs = self.connection.cursor()
-
-        try:
-            curs.execute(sql,param)
-        except psycopg2.ProgrammingError as e:
-            self.logger.error('ERROR(programming): Confirm the SQL statement is valid--> ' +str(e))
-            return
-            
-        self.connection.commit()
-        
-        rows = curs.fetchall()
-
-        return rows
-
-    #POLARIMETRIC SPECIFIC    
-    def polarimetricDonuts(self, granule, beaconid):
-        '''
-        **Parameters**
-            
-            *granule* : unique name of an image in string format
-            
-            *beaconid* : identification number of a tracking beacon assocated with this image
-            
-        **Returns**
-        
-            *results* : array of polygonal masks in wkt format associated witht eh above beacon and image 
-        '''
-        
-        curs = self.connection.cursor()        
-        
-        param = {'granule': granule}
-        
-        sql = "SELECT dimgname FROM "+self.table_to_query+" WHERE granule LIKE %(granule)s"
-        curs.execute(sql,param)
-        dimgname = str(curs.fetchone()[0])
-        
-        param = {'beacnid': beaconid, 'dimgname': dimgname, 'srid':'4326'}
-        
-        sql2 = """SELECT ST_AsText(ST_Transform(ST_Buffer(ii_polygons.geom, -30), 4326)) FROM ii_polygons """ +\
-        """WHERE ii_polygons.beaconid = %(beacnid)s AND %(dimgname)s LIKE ii_polygons.imgref"""      
-        
-        results = []
-        #How to execute each command and get buffer polygon back to add to results above
-        try:
-            curs.execute(sql2, param)
-        except Exception as e:
-            self.logger.error(e)
-            return []
-        result = str(curs.fetchone()[0])
-        if result == 'GEOMETRYCOLLECTION EMPTY':
-            return []
-        results.append(result)
-        
-        sql3 =  """SELECT ST_AsText(ST_Transform(ST_Multi(ST_Difference(ST_Buffer(ii_polygons.geom, 400), ST_Buffer(ii_polygons.geom, 30))), 4326)) """ +\
-        """FROM ii_polygons WHERE ii_polygons.beaconid = %(beacnid)s AND %(dimgname)s LIKE ii_polygons.imgref"""
-        
-        try:
-            curs.execute(sql3, param)
-        except Exception as e:
-            self.logger.error(e)
-            return []
-        result = str(curs.fetchone()[0])
-        if result == 'GEOMETRYCOLLECTION EMPTY':
-            return []
-        results.append(result)
-        
-        return results
 
     #KEEP    
     def removeHandler(self):

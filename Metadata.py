@@ -27,6 +27,8 @@ import logging
 import subprocess
 import shlex
 import struct
+#import gdal
+#import osr
 
 from osgeo import gdal
 from osgeo import osr
@@ -415,43 +417,6 @@ class Metadata(object):
         lr = str(x[lowermost & rightmost][0]) +sep+ str(y[lowermost & rightmost][0])
         ll = str(x[lowermost & leftmost][0]) +sep+ str(y[lowermost & leftmost][0])
 
-        ########################
-        gul = ul
-        gur = ur
-        glr = lr
-        gll = ll
-        ########################
-        '''
-        #TODO - determine once and for all if this is correct or not - for now disabled...
-        #If Rsat 1 and Decending flip the corner points
-        if  self.sattype != 'RS2' and self.passDirection == "Descending":        ###
-            print "Pass direction is descending flipping corners and GCPs"
-            """FLIP GCP AROUND THE Y-AXIS"""
-            ulX = ul[:ul.find(' ',0,len(ul))]
-            urX = ur[:ur.find(' ',0,len(ur))]
-
-            #Find the x-coordiate of the centre of the image
-            centre = (float(urX) + float(ulX))/2
-
-            for gcp in self.geopts:
-                #For each point flip about the Y axis but moving the X coordinate according to newX = center + (center - oldX)
-                gcp.GCPX = centre + (centre - gcp.GCPX)
-
-            print "ul: ", ul
-            print "ur: ", ur
-            print "ll: ", ll
-            print "lr: ", lr
-
-            #Flip the corner points
-            ul, ur = ur, ul
-            ll, lr = lr, ll
-
-            print "ul: ", ul
-            print "ur: ", ur
-            print "ll: ", ll
-            print "lr: ", lr
-        '''
-
         #make sure we have the right spatial coord syst.
         wgs84_srs = osr.SpatialReference()
         wgs84_srs.SetWellKnownGeogCS( "WGS84" )
@@ -489,104 +454,6 @@ class Metadata(object):
 
         self.geom = 'POLYGON(('+ul+', '+ur+', '+lr+', '+ll+', '+ul+'))'
 
-    #OBSOLETE
-    def getMoreGCPs(self, n_gcps):
-        """
-        If you have a CDPF RSat1 image, gdal only has 15 GCPs
-        Perhaps you want more?  If so, use this function.
-        It will grab all the GCPs available (3 on each line) and
-        subselect n_gcps of these to return.
-
-        The GCPs will not necessarily be on the 'bottom corners' since the gcps
-        will be spaced evenly to get n_gcps (or more if not divisible by 3)
-        If you want corners the only way to guarantee this is to set n_gcps = 6
-        
-        **Parameters**
-            
-            *n_gcps*      : # of GCP's to return
-                
-        **Returns**
-            
-            *gcps (tuple)* : GCP's specified returned in tuple format
-        """
-
-        assert self.sattype == 'CDPF', 'You can only use this function with CDPF R1 data'
-
-        #cycle through record to 50-11-18-20
-        fp = open(os.path.join(self.path, self.imgname + '.img'), mode='rb') # must read binary!
-        # Get file size
-        fp.seek(0,2)
-        file_size = fp.tell()
-
-        first = []
-        mid = []
-        last = []
-
-        # Search the file
-        record_offset = 0
-
-        while record_offset < file_size:
-
-            fp.seek(record_offset,0)
-            header_data = fp.read(12)
-
-            # CEOS data is Big Endian, here is the code to read it:
-                # header one long int, four unsigned bytes, one long int
-            seq, sub1, type, sub2, sub3, record_length = struct.unpack('>lBBBBl', header_data)
-
-            record_key = str(sub1) +'-'+ str(type) +'-'+ str(sub2) +'-'+ str(sub3)
-
-            if record_key == '50-11-18-20':
-
-                fp.seek(record_offset+132,0) # go to start of coord data
-                coords_bin = fp.read(24)
-                coords_int = struct.unpack('>llllll', coords_bin)
-
-                first.append((coords_int[3]/1e6, coords_int[0]/1e6))
-                mid.append((coords_int[4]/1e6, coords_int[1]/1e6))
-                last.append((coords_int[5]/1e6, coords_int[2]/1e6))
-
-            record_offset = record_offset + record_length
-
-
-        #ok so now you have the coords, but we don't want them all
-
-        # make sure the n_gcps are a multiple of 3 (if not round up!)
-        if n_gcps % 3 !=0:
-            n_gcps = n_gcps + 3- n_gcps % 3
-
-        # determine the pixel/line of each gcp
-        interval = int( (self.n_rows-1) / (n_gcps/3.0 - 1) ) # gives the interval
-        lines = range(0, self.n_rows, interval)
-        pixels = [0.5, self.n_cols/2, self.n_cols - 0.5]
-        gcps = []
-
-        for i, line in enumerate(lines):
-            for j, pixel in enumerate(pixels):
-                img = (pixel, line+0.5)
-                if pixel == 0.5:
-                    coord = first[line]
-                elif pixel == self.n_cols/2:
-                    coord = mid[line]
-                elif pixel == self.n_cols -0.5:
-                    coord = last[line]
-
-                # put into a GCP
-                gcp = gdal.GCP()
-                gcp.Id = str(i)+'_'+str(j)
-                gcp.Info = 'info'
-                gcp.GCPX = coord[0]
-                gcp.GCPY = coord[1]
-                gcp.GCPZ = 0.0
-                gcp.GCPPixel = img[0]
-                gcp.GCPLine = img[1]
-
-                gcps.append(gcp)
-                #gdal.GDAL_GCP_GCPX_get(gcp) # find out what made it into the gcp
-
-        self.geopts = tuple(gcps)
-        self.n_geopts = n_gcps
-        return tuple(gcps)
 
     def getCEOSmetafile(self):
         """
@@ -861,7 +728,6 @@ class Metadata(object):
 
         return tuple(gcps)
 
-    #CAMERON - This function is the one that needs work mostly. 
     def getS1metadata(self):         #Get a better description for this function, summarize fields, don't list all
         """
         Open a S1 and get all the required metadata
