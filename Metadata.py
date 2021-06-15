@@ -400,10 +400,10 @@ class Metadata(object):
         else:
             offset = 0
 
-        assert row.max()+0.5 == self.n_rows-offset + 0.0
-        assert row.min()+0.5 == 1-offset + 0.0
-        assert col.max()+0.5 == self.n_cols-offset + 0.0
-        assert col.min()+0.5 == 1-offset + 0.0
+        #assert row.max()+0.5 == self.n_rows-offset + 0.0
+        #assert row.min()+0.5 == 1-offset + 0.0
+        #assert col.max()+0.5 == self.n_cols-offset + 0.0
+        #assert col.min()+0.5 == 1-offset + 0.0
 
 
         uppermost = row == row.min()
