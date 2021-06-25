@@ -77,7 +77,7 @@ class Image(object):
             *zipname*  
     """
 
-    def __init__(self, fname, path, meta, imgType, imgFormat, zipname, imgDir, tmpDir, loghandler = None, pol = False, eCorr = None):
+    def __init__(self, fname, path, meta, imgType, imgFormat, zipname, imgDir, tmpDir, loghandler = None, eCorr = None):
 
         #TODO - consider a secondary function to create the image so the class can be initialized without CPU time...  
 
@@ -139,22 +139,19 @@ class Image(object):
             self.imgExt = '.tif'
         if imgFormat.lower() == 'hfa':
             self.imgExt = '.img'
-            
-        if pol: 
-            self.snapCalibration(saveInComplex=True)
-        else:   
-            if self.sattype == 'SEN-1' and self.imgType == 'sigma':
-                #TODO: use snap calibration for other things
-                self.snapCalibration(saveInComplex=False)
+              
+        if self.sattype == 'SEN-1' and self.imgType == 'sigma':
+            #TODO: use snap calibration for other things
+            self.snapCalibration(saveInComplex=False)
+        else:
+            self.openDataset(self.fname, self.path)
+                
+            if self.imgType == 'amp' and 'Q' in self.meta.beam:  # this would be a quad pol scene...
+                self.decomp(format='GTiff')
             else:
-                self.openDataset(self.fname, self.path)
+                self.status = self.imgWrite(format='GTiff')
                 
-                if self.imgType == 'amp' and 'Q' in self.meta.beam:  # this would be a quad pol scene...
-                    self.decomp(format='GTiff')
-                else:
-                    self.status = self.imgWrite(format='GTiff')
-                
-                self.inds = None            
+            self.inds = None            
             
        
         
@@ -174,7 +171,8 @@ class Image(object):
         self.n_bands = self.inds.RasterCount
         
         #If no rows are found take from metadata
-        if(self.n_rows == 0):
+        if(self.n_rows == 0 or self.n_cols == 0):
+            self.logger.info("Using meta row/col count over gdal...")
             self.n_rows = self.meta.n_rows
             self.n_cols = self.meta.n_cols
             self.n_bands = self.meta.n_bands
@@ -268,6 +266,7 @@ class Image(object):
 
                 if datachunk is None:
                     self.logger.error("Error datachunk =  None")
+                    self.logger.error("GDAL unable to read scene!")
 
                     self.tifname = outname+ext          ###
                     return "error"

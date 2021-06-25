@@ -17,7 +17,7 @@ There are 3 main ''modes'' that it can run in (or combinations of these)
 
 These modes are brought together to work in harmony by '''SigLib.py''' the recommended way to interact with the software.  This program reads in a configuration file that provides all the parameters required to do various jobs.  However, this is only one way to go... Anyone can call the modules identified above from a custom made python script to do what they wish, using the SigLib API
 
-In addition, there are different ways to process ''input'' through SigLib.py that can be changed for these modes.  You can input based on a recursive ***scan*** of a directory for files that match a pattern; you can input one **file** at a time (useful for parallelization, when many processes are spawned by gnu parallel).
+In addition, there are different ways to process ''input'' through SigLib.py that can be changed for these modes.  You can either input based on a recursive **scan** of a directory for files that match a pattern, or you can input one **file** at a time (useful for parallelization, when many processes are spawned by gnu parallel).
 
 .. figure:: QueryMode.jpg
 	:scale: 50%

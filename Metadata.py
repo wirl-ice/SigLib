@@ -400,10 +400,10 @@ class Metadata(object):
         else:
             offset = 0
 
-        assert row.max()+0.5 == self.n_rows-offset + 0.0
-        assert row.min()+0.5 == 1-offset + 0.0
-        assert col.max()+0.5 == self.n_cols-offset + 0.0
-        assert col.min()+0.5 == 1-offset + 0.0
+        #assert row.max()+0.5 == self.n_rows-offset + 0.0
+        #assert row.min()+0.5 == 1-offset + 0.0
+        #assert col.max()+0.5 == self.n_cols-offset + 0.0
+        #assert col.min()+0.5 == 1-offset + 0.0
 
 
         uppermost = row == row.min()
@@ -1032,8 +1032,8 @@ class Metadata(object):
             self.logger.debug("Warning! could not determine satellite altitude (line 1160 metadata.py)")
 
         #Save these to check the projections
-        self.ellip_maj = result['ellip_maj']
-        self.ellip_min = result['ellip_min']
+        self.ellip_maj = float(result['ellip_maj'])
+        self.ellip_min = float(result['ellip_min'])
 
         self.lutApplied = None
         self.order_Az = result["time_dir_lin"]

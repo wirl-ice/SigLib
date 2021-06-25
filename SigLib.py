@@ -31,6 +31,7 @@ import shutil
 import time
 from time import localtime, strftime
 from glob import glob
+from func_timeout import func_timeout
 #from builtins import input
 
 from Database import Database
@@ -66,10 +67,9 @@ class SigLib:
         self.scanFor = str(config.get("Input", "scanFor"))
         self.uploadData = str(config.get("Input", "uploadData"))
 
-        self.processData2db = str(config.get("Process", "data2db"))
-        self.qualitativeProcess = str(config.get("Process", "data2img"))
-        self.quantitativeProcess = str(config.get("Process", "scientific"))
-        self.polarimetricProcess = str(config.get("Process", "polarimetric"))
+        self.processData2db = str(config.get("Process", "metaUpload"))
+        self.qualitativeProcess = str(config.get("Process", "qualitative"))
+        self.quantitativeProcess = str(config.get("Process", "quanitative"))
         self.queryProcess = str(config.get("Process", "query"))
         
         self.proj = str(config.get('MISC',"proj"))
@@ -81,6 +81,7 @@ class SigLib:
         self.spatialrel = str(config.get('MISC',"spatialrel"))
         self.imgType = str(config.get('MISC',"imgTypes"))
         self.imgFormat = str(config.get('MISC',"imgFormat"))
+        self.uploadData = str(config.get("MISC", "uploadResults"))
 
         self.elevation_correction = str(config.get('MISC', "elevationCorrection"))
 
@@ -133,7 +134,7 @@ class SigLib:
 
         self.logger = self.createLog(zipfile)
         self.logger = logging.getLogger(__name__)
-        self.count_img += 1      
+        self.count_img = 1      
                            
         self.logger.info('Started processing image %s', zipfile) 
         
@@ -147,7 +148,7 @@ class SigLib:
             self.logger.error('Image failed %s, due to: %s', zipfile, e, exc_info=True)
             self.logger.error("Image processing exception, moving to next image")
             self.issueString += "\n\nERROR (exception): " + zipfile
-            self.bad_img += 1
+            self.bad_img = 1
     
         end_time = time.time()
         self.logger.info("Image Processing Time: " + str(int((end_time-start_time)/60)) + " Minutes " + str(int((end_time-start_time)%60)) + " Seconds")
@@ -160,7 +161,7 @@ class SigLib:
         self.logger.debug('cleaned zip dir')
 
         good_img = self.count_img - self.bad_img
-        self.logger.info("%i images where successfully processed out of %i", good_img, self.count_img)
+        self.logger.info("%i images were successfully processed out of %i", good_img, self.count_img)
 
         if self.bad_img > 0:
             # Write the issue file
@@ -225,7 +226,7 @@ class SigLib:
             self.logger.debug('cleaned zip dir')
 
         good_img = self.count_img - self.bad_img
-        self.logger.info("%i images where successfully processed out of %i", good_img, self.count_img)
+        self.logger.info("%i images were successfully processed out of %i", good_img, self.count_img)
 
         if self.bad_img > 0:
             # Write the issue file
@@ -279,7 +280,7 @@ class SigLib:
             self.bad_img += 1
 
         else:#begin processing data ...
-            sar_meta = Metadata(granule, imgname, unzipdir, zipfile, sattype, self.loghandler)   # Retrieve metadata          
+            sar_meta = func_timeout(300, Metadata, args=(granule, imgname, unzipdir, zipfile, sattype, self.loghandler))   # Retrieve metadata          
 
             if sar_meta.status != "ok":       # Meta class unsuccessful
                 self.logger.error("Creating an instance of the meta class failed, moving to next image")
@@ -388,8 +389,9 @@ class SigLib:
             os.makedirs(newTmp)
             
         # Process the image
-        sar_img = Image(fname, unzipdir, sar_meta, self.imgType, self.imgFormat, zipname, self.imgDir, newTmp, loghandler = self.loghandler, eCorr = self.elevation_correction)
+        sar_img = func_timeout(600, Image, args=(fname, unzipdir, sar_meta, self.imgType, self.imgFormat, zipname, self.imgDir, newTmp, self.loghandler, self.elevation_correction))
 
+        
         if sar_img.status == "error":
             self.logger.error("Image could not be opened or manipulated, moving to next image")
             sar_img.cleanFiles(levels=['nil']) 
@@ -472,7 +474,7 @@ class SigLib:
         newTmp = os.path.join(self.tmpDir,zipname)
         
         # Process the image
-        sar_img = Image(fname, unzipdir, sar_meta, self.imgType, self.imgFormat, zipname, self.imgDir, newTmp, self.loghandler)
+        sar_img = func_timeout(600, Image, args=(fname, unzipdir, sar_meta, self.imgType, self.imgFormat, zipname, self.imgDir, newTmp, self.loghandler))
 
         if sar_img.status == "error":
             self.logger.error("Image could not be opened or manipulated, moving to next image")

@@ -285,8 +285,7 @@ class Database:
         curs.execute(qryCountAllImgs)
         n_imgs = curs.fetchall()
         self.logger.info("tblArchive updated with " + str(n_imgs[0][0]) + " SAR images")     
-
-    #CALL FROM QUERY    
+    
     def qryGetInstances(self, granule, roi, metaTable):   
         """
         Writes a query to fetch the instance names that are
