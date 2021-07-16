@@ -276,7 +276,7 @@ class Metadata(object):
                     return
             else:
                 self.clean_metaASF(ceos_meta)
-                pass
+
 
         elif self.sattype == 'RS2':
             self.getCornerPoints()
@@ -959,8 +959,8 @@ class Metadata(object):
         self.n_bands = 1  # since we have HH
         self.lineSpacing = float(result['line_spacing'])
         self.pixelSpacing = float(result['pix_spacing'])
-        assert self.lineSpacing > 0 and type(self.lineSpacing) == type(1.2)
-        assert self.pixelSpacing > 0 and type(self.pixelSpacing) == type(1.2)
+        #assert self.lineSpacing > 0 and type(self.lineSpacing) == type(1.2)
+        #assert self.pixelSpacing > 0 and type(self.pixelSpacing) == type(1.2)
 
         self.beams = result['beam_type1']+result['beam_type2']+result['beam_type3']+result['beam_type4']
         self.beams = self.beams.strip()
@@ -1068,8 +1068,10 @@ class Metadata(object):
 
         ok = subprocess.Popen(command, stdout = subprocess.PIPE)
 
+        results = list(ok.stdout)
+        decoded = [i.decode('utf-8') for i in results]
 
-        for line in ok.stdout:
+        for line in decoded:
             if " PRODUCT TYPE" in line:
                 self.productType = line[15:]
 
@@ -1088,8 +1090,10 @@ class Metadata(object):
 
         ok = subprocess.Popen(command, stdout = subprocess.PIPE)
 
+        results = list(ok.stdout)
+        decoded = [i.decode('utf-8') for i in results]
 
-        for line in ok.stdout:
+        for line in decoded:
             if "Lat at start of image frame in near swath" in line:
                 ulLat = line[45:]
             elif "Long at start of image frame in near swath" in line:
@@ -1193,8 +1197,8 @@ class Metadata(object):
         self.n_bands = 1  # since we have HH
         self.lineSpacing = result['line_spacing']
         self.pixelSpacing = result['pix_spacing']
-        assert self.lineSpacing > 0 and type(self.lineSpacing) == type(1.2)
-        assert self.pixelSpacing > 0 and type(self.pixelSpacing) == type(1.2)
+        #assert self.lineSpacing > 0 and type(self.lineSpacing) == type(1.2)
+        #assert self.pixelSpacing > 0 and type(self.pixelSpacing) == type(1.2)
 
         self.beams = result['beam_type1']+result['beam_type2']+result['beam_type3']+result['beam_type4']
         self.beams = self.beams.strip()
@@ -1205,7 +1209,7 @@ class Metadata(object):
             self.bitsPerSample = None
 
         self.copyright = 'Copyright CSA ' + self.acDateTime.strftime('%Y')
-        self.freqSAR = 0.29979e9/result['wave_length'] # in Hz
+        self.freqSAR = 0.29979e9/float(result['wave_length']) # in Hz
         self.looks_Az = result['n_azilok']
         self.looks_Rg = result['n_rnglok']
         self.n_beams = result['n_beams']

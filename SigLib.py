@@ -65,7 +65,6 @@ class SigLib:
         self.scanPath = str(config.get("Input", "path"))
         self.scanFile = str(config.get("Input", "file"))
         self.scanFor = str(config.get("Input", "scanFor"))
-        self.uploadData = str(config.get("Input", "uploadData"))
 
         self.processData2db = str(config.get("Process", "metaUpload"))
         self.qualitativeProcess = str(config.get("Process", "qualitative"))
@@ -86,6 +85,7 @@ class SigLib:
         self.elevation_correction = str(config.get('MISC', "elevationCorrection"))
 
         self.issueString = ""
+        self.zipname = None
         self.count_img = 0            # Number of images processed
         self.bad_img = 0             # Number of bad images processed
         self.starttime = strftime('%Y%m%d_%H%M%S', localtime())
@@ -153,7 +153,7 @@ class SigLib:
         end_time = time.time()
         self.logger.info("Image Processing Time: " + str(int((end_time-start_time)/60)) + " Minutes " + str(int((end_time-start_time)%60)) + " Seconds")
         os.chdir(self.tmpDir)
-        #os.system("rm -r " +os.path.splitext(os.path.basename(zipfile))[0])
+
         try:
             shutil.rmtree(os.path.splitext(os.path.basename(zipfile))[0])
         except Exception as e:
@@ -206,10 +206,10 @@ class SigLib:
             
             try:
                 start_time = time.time()
-                tmpname = self.retrieve(zipfile)
+                self.retrieve(zipfile)
                 self.logger.debug('image retrieved') #TODO move to retrieve and return meaningful info.
-            except Exception: #Normally Exception
-                self.logger.error('Image failed %s', zipfile)
+            except Exception as e: #Normally Exception
+                self.logger.error('Image failed %s, due to: %s', zipfile, e, exc_info=True)
                 self.logger.error("Image processing exception, moving to next image")
                 self.issueString += "\n\nERROR (exception): " + zipfile
                 self.bad_img += 1
@@ -218,9 +218,8 @@ class SigLib:
             end_time = time.time()
             self.logger.info("Image Processing Time: " + str(int((end_time-start_time)/60)) + " Minutes " + str(int((end_time-start_time)%60)) + " Seconds")
             os.chdir(self.tmpDir)
-            #os.system("rm -r " +os.path.splitext(os.path.basename(zipfile))[0])
             try:
-                shutil.rmtree(os.path.splitext(os.path.basename(tmpname))[0])
+                shutil.rmtree(os.path.splitext(os.path.basename(self.zipname))[0])
             except Exception as e:
                 self.logger.debug("Warning: could not remove file from temp directory; {}".format(e))
             self.logger.debug('cleaned zip dir')
@@ -250,7 +249,9 @@ class SigLib:
         """
         
         # Verify if zipfile has its own subdirectory before unzipping
-        unzipdir, zipname, nested, granule = Util.getZipRoot(os.path.join(self.scanDir,zipfile), self.tmpDir)            
+        unzipdir, zipname, nested, granule = Util.getZipRoot(os.path.join(self.scanDir,zipfile), self.tmpDir)
+
+        self.zipname = zipname #for file cleanup
         self.logger.debug("Zipfile %s will unzip to %s. Granule is %s and Nested is %s", zipfile, unzipdir, granule, nested)        
 
         # Unzip the zip file into the unzip directory
@@ -379,14 +380,14 @@ class SigLib:
             *unzipdir* : directory zipfiles were unzipped into     
         """
         print("Starting Qualitative Mode for:\n", zipname)
-        # Change working directories so that processed image can be stored in imgDir
-        os.chdir(self.imgDir)
-        
+
         newTmp = os.path.join(self.tmpDir,zipname)
         if os.path.isdir(newTmp):
             pass
         else:
             os.makedirs(newTmp)
+
+        os.chdir(self.tmpDir)
             
         # Process the image
         sar_img = func_timeout(600, Image, args=(fname, unzipdir, sar_meta, self.imgType, self.imgFormat, zipname, self.imgDir, newTmp, self.loghandler, self.elevation_correction))
@@ -438,8 +439,10 @@ class SigLib:
             sar_img.compress()
             sar_img.makePyramids()
             self.logger.debug('Image pyramid ok')
-            sar_img.cleanFiles(levels=['nil','proj']) 
-            self.logger.debug('Intermediate file cleanup done')
+            shutil.copy(os.path.join(newTmp, sar_img.FileNames[-1]), self.imgDir)
+            print(sar_img.FileNames[-1])
+            #sar_img.cleanFiles(levels=['nil','proj'])
+            #self.logger.debug('Intermediate file cleanup done')
             sar_img.removeHandler()
             sar_meta.removeHandler()
         print("Quatlitative Mode Complete.")

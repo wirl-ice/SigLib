@@ -437,6 +437,121 @@ def slantRangeMask(self, mask, inname, workingDir, uploads):
     o = GPF.createProduct('Land-Sea-Mask', parameters, masking)
     ProductIO.writeProduct(o, os.path.join(uploads, inname), 'BEAM-DIMAP')
 
+def snapCrop(self, subscene, ullr=None):
+    '''
+    Using lat long provided, create bounding box 1200x1200 pixels around it, and subset this
+    (This requires id, lat, and longt)
+    OR
+    Using ul and lr coordinates of bounding box, subset
+    (This requires idNum and ullr)
+
+    **parameters**
+
+        *subscene* : id # of subset region (for filenames, each subset region should have unique id)
+
+        *ullr* : Coordinates of ul and lr corners of bounding box to subset to (Optional)
+
+    '''
+
+    inname = os.path.join(self.tmpDir, self.FileNames[-1])
+    output = os.path.join(dir, os.path.splitext(self.FileNames[-1])[0] + '__' + str(subscene) + '_subset')
+
+    sat = ProductIO.readProduct(inname)
+    info = sat.getSceneGeoCoding()
+
+    geoPosOP = snappy.jpy.get_type('org.esa.snap.core.datamodel.PixelPos')
+
+    # We are in Scientific mode/a normal crop, bounding box provided
+    pixel_posUL = info.getPixelPos(GeoPos(ullr[0][1], ullr[0][0]), geoPosOP())
+    pixel_posLR = info.getPixelPos(GeoPos(ullr[1][1], ullr[1][0]), geoPosOP())
+
+    topL_x = int(round(pixel_posUL.x))
+    topL_y = int(round(pixel_posUL.y))
+    x_LR = int(round(pixel_posLR.x))
+    y_LR = int(round(pixel_posLR.y))
+
+    width = x_LR - topL_x
+    height = y_LR - topL_y
+
+    parameters = self.HashMap()
+
+    parameters.put('region', "%s,%s,%s,%s" % (topL_x, topL_y, width, height))
+    target = GPF.createProduct('Subset', parameters, rsat)
+    ProductIO.writeProduct(target, output, 'BEAM-DIMAP')
+
+    self.logger.debug("Subset complete on " + self.zipname + " for id " + str(idNum))
+    self.FileNames.append(output + '.dim')
+
+def snapSubset(self, idNum, lat, longt, dir, ullr=None):
+    '''
+    Using lat long provided, create bounding box 1200x1200 pixels around it, and subset this
+    (This requires id, lat, and longt)
+    OR
+    Using ul and lr coordinates of bounding box, subset
+    (This requires idNum and ullr)
+
+    **parameters**
+
+        *idNum* : id # of subset region (for filenames, each subset region should have unique id)
+
+        *lat* : latitiude of beacon at centre of subset (Optional)
+
+        *longt* : longitude of beacon at centre of subset (Optional)
+
+        *dir* : location output will be stored
+
+        *ullr* : Coordinates of ul and lr corners of bounding box to subset to (Optional)
+
+    '''
+
+    inname = os.path.join(self.tmpDir, self.FileNames[-1])
+    output = os.path.join(dir, os.path.splitext(self.FileNames[-1])[0] + '__' + str(idNum) + '_subset')
+
+    sat = ProductIO.readProduct(inname)
+    info = sat.getSceneGeoCoding()
+
+    geoPosOP = snappy.jpy.get_type('org.esa.snap.core.datamodel.PixelPos')
+
+    if ullr == None:  # We are in polarimetry mode, make 200x200 BB around lat long
+        pixel_pos = info.getPixelPos(GeoPos(lat, longt), geoPosOP())
+
+        x = int(round(pixel_pos.x))
+        y = int(round(pixel_pos.y))
+
+        topL_x = x - 600
+        if topL_x <= 0:
+            topL_x = 0
+        topL_y = y - 600
+        if topL_y <= 0:
+            topL_y = 0
+        width = 1200
+        if (x + width) > self.n_cols:
+            width = self.n_cols
+        height = 1200
+        if (x + height) > self.n_rows:
+            height = self.n_rows
+
+    else:  # We are in Scientific mode/a normal crop, bounding box provided
+        pixel_posUL = info.getPixelPos(GeoPos(ullr[0][1], ullr[0][0]), geoPosOP())
+        pixel_posLR = info.getPixelPos(GeoPos(ullr[1][1], ullr[1][0]), geoPosOP())
+
+        topL_x = int(round(pixel_posUL.x))
+        topL_y = int(round(pixel_posUL.y))
+        x_LR = int(round(pixel_posLR.x))
+        y_LR = int(round(pixel_posLR.y))
+
+        width = x_LR - topL_x
+        height = y_LR - topL_y
+
+    parameters = self.HashMap()
+
+    parameters.put('region', "%s,%s,%s,%s" % (topL_x, topL_y, width, height))
+    target = GPF.createProduct('Subset', parameters, rsat)
+    ProductIO.writeProduct(target, output, 'BEAM-DIMAP')
+
+    self.logger.debug("Subset complete on " + self.zipname + " for id " + str(idNum))
+    self.FileNames.append(output + '.dim')
+
 if __name__ == "__main__":
     if self.polarimetricProcess == '1':
         if 'Q' not in sar_meta.beam:

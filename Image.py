@@ -30,15 +30,15 @@ cropped, masked, stretched, etc.
 """
 
 import os
+import sys
 import numpy
 import subprocess
-import glob
 import math
 import logging
 import shlex
-import re
-import sys
+
 try:
+    sys.path.append('C:\\Users\\Cameron\\.snap\\snap-python')
     import snappy
     from snappy import ProductIO
     from snappy import GPF
@@ -50,6 +50,8 @@ except:
         
 import gc
 
+from configparser import ConfigParser
+
 from osgeo import gdal
 from osgeo.gdalconst import *
 from osgeo import gdal_array
@@ -58,7 +60,7 @@ import Util
 
 class Image(object):
     """
-    This is the Img class for each image.  RSAT2, RSAT1 (CDPF)
+    This is the Img class for each image.  RSAT2, RSAT1, S1
     
     Opens the file specified by fname, passes reference to the metadata class and declares the imgType of interest.
 
@@ -77,9 +79,7 @@ class Image(object):
             *zipname*  
     """
 
-    def __init__(self, fname, path, meta, imgType, imgFormat, zipname, imgDir, tmpDir, loghandler = None, eCorr = None):
-
-        #TODO - consider a secondary function to create the image so the class can be initialized without CPU time...  
+    def __init__(self, fname, path, meta, imgType, imgFormat, zipname, imgDir, tmpDir, loghandler = None, eCorr = None, initOnly=False):
 
         #assert imgType in ['amp','sigma','noise','theta']
         assert imgFormat.lower() in ['gtiff','hfa','envi','vrt']
@@ -139,6 +139,9 @@ class Image(object):
             self.imgExt = '.tif'
         if imgFormat.lower() == 'hfa':
             self.imgExt = '.img'
+
+        if initOnly:
+            return
               
         if self.sattype == 'SEN-1' and self.imgType == 'sigma':
             #TODO: use snap calibration for other things
@@ -148,13 +151,13 @@ class Image(object):
                 
             if self.imgType == 'amp' and 'Q' in self.meta.beam:  # this would be a quad pol scene...
                 self.decomp(format='GTiff')
+            elif self.sattype == 'ASF_CEOS':
+                self.asfR1Process()
             else:
                 self.status = self.imgWrite(format='GTiff')
                 
             self.inds = None            
-            
-       
-        
+
     def openDataset(self, fname, path=''):
         """
         Opens a dataset with gdal
@@ -191,12 +194,6 @@ class Image(object):
         Note there is a parameter called chunk_size hard coded here that could be changed 
             If you are running with lots of RAM
         """
-
-        #Use ASF Tools for ASF_CEOS data
-        if self.sattype == 'ASF_CEOS':
-            self.logger.error("Cannot write ASF_CEOS")
-            
-            return "error"
 
         chunkSize = 300 # 300 seems to work ok, go lower if RAM is wimpy...
 
@@ -401,13 +398,8 @@ class Image(object):
             clobber=' -overwrite '
         else: 
             clobber= None
-            
-        #Use ASF Tools for ASF_CEOS data
-        if self.sattype == 'ASF_CEOS':        
-            self.logger.error("cannot project afs_ceos")
-            return
 
-        os.chdir(self.imgDir)
+        os.chdir(self.tmpDir)
 
         inname = ''
         for file in self.FileNames:
@@ -445,6 +437,75 @@ class Image(object):
             self.logger.error('Image projection failed')
 
         return ok
+
+    def asfR1Process(self):
+
+        os.chdir(self.path)
+        n_bands, dataType, outname = self.fnameGenerate()
+        ext = '.tif'
+
+        # create asf config
+        command = "asf_mapready -create {}".format(self.zipname + '.cfg')
+        fail = os.system(command)
+        print(fail)
+        if fail:
+            print(
+                "Problem with initializing configfile for ASFMapReady, is it installed and configured for the command line?")
+            return
+
+        asfConfig = os.path.join(self.path, self.zipname + '.cfg')
+
+        # Remove file header so config can be read by configparser
+        with open(asfConfig, 'r') as tmpIn:
+            content = tmpIn.read().splitlines(True)
+        with open(asfConfig, 'w') as tmpout:
+            tmpout.writelines(content[1:])
+        tmpIn.close()
+        tmpout.close()
+
+        config = ConfigParser()
+        config.read(asfConfig)
+
+        # Set initial parameters (in, out, outdir)
+        inout = config['General']
+        inout['input file'] = self.zipname
+        inout['output file'] = outname
+        inout['default output dir'] = self.tmpDir
+
+        # Write changes back to config
+        with open(asfConfig, 'w') as cfg:
+            config.write(cfg)
+            cfg.close()
+        config = None
+
+        # Regenerate config, same command as above
+        os.system(command)
+
+        # Remove file header so config can be read by configparser
+        with open(asfConfig, 'r') as tmpIn:
+            content = tmpIn.read().splitlines(True)
+        with open(asfConfig, 'w') as tmpout:
+            tmpout.writelines(content[1:])
+        tmpIn.close()
+        tmpout.close()
+
+        config = ConfigParser()
+        config.read(asfConfig)
+
+        # Set projection details
+        geocode = config['Geocoding']
+        geocode['projection'] = 'geographic'
+        geocode['datum'] = 'wgs84'
+
+        with open(asfConfig, 'w') as cfg:
+            config.write(cfg)
+            cfg.close()
+        config = None
+
+        command = 'asf_mapready {}'.format(self.zipname + '.cfg')
+        os.system(command)
+
+        self.FileNames.append(outname + ext)
 
 
     def fnameGenerate(self, names=False):
@@ -1223,7 +1284,7 @@ class Image(object):
         img = os.path.join(self.path, self.fname)
         sat = ProductIO.readProduct(img)
         
-        output = os.path.join(self.imgDir, outname)
+        output = os.path.join(self.tmpDir, outname)
         
         parameters = self.HashMap()
         if saveInComplex:
@@ -1246,125 +1307,9 @@ class Image(object):
                 return Exception
                 
         target = GPF.createProduct("Calibration", parameters, sat)
-        ProductIO.writeProduct(target, output, 'BEAM-DIMAP') 
+        ProductIO.writeProduct(target, output, 'GeoTiff')
         
-        self.FileNames.append(outname+'.dim')
-        
-    def snapCrop(self, subscene, ullr=None):
-        '''
-        Using lat long provided, create bounding box 1200x1200 pixels around it, and subset this
-        (This requires id, lat, and longt)
-        OR
-        Using ul and lr coordinates of bounding box, subset
-        (This requires idNum and ullr)
-        
-        **parameters**
-        
-            *subscene* : id # of subset region (for filenames, each subset region should have unique id)
-            
-            *ullr* : Coordinates of ul and lr corners of bounding box to subset to (Optional)
-            
-        '''  
-
-        inname = os.path.join(self.imgDir, self.FileNames[-1])
-        output = os.path.join(dir, os.path.splitext(self.FileNames[-1])[0] + '__' + str(subscene) + '_subset')
-
-        sat = ProductIO.readProduct(inname)
-        info = sat.getSceneGeoCoding()
-        
-        geoPosOP = snappy.jpy.get_type('org.esa.snap.core.datamodel.PixelPos')
-
-        #We are in Scientific mode/a normal crop, bounding box provided
-        pixel_posUL = info.getPixelPos(GeoPos(ullr[0][1], ullr[0][0]), geoPosOP())
-        pixel_posLR = info.getPixelPos(GeoPos(ullr[1][1], ullr[1][0]), geoPosOP())
-
-        topL_x = int(round(pixel_posUL.x))
-        topL_y = int(round(pixel_posUL.y))
-        x_LR = int(round(pixel_posLR.x))
-        y_LR = int(round(pixel_posLR.y))
-
-        width = x_LR - topL_x
-        height = y_LR - topL_y
-
-        parameters = self.HashMap()  
-
-        parameters.put('region', "%s,%s,%s,%s" % (topL_x, topL_y, width, height))       
-        target = GPF.createProduct('Subset', parameters, rsat) 
-        ProductIO.writeProduct(target, output, 'BEAM-DIMAP')
-
-        self.logger.debug("Subset complete on " + self.zipname + " for id " + str(idNum))
-        self.FileNames.append(output+'.dim')
-        
-
-    def snapSubset(self, idNum, lat, longt, dir, ullr=None):
-        '''
-        Using lat long provided, create bounding box 1200x1200 pixels around it, and subset this
-        (This requires id, lat, and longt)
-        OR
-        Using ul and lr coordinates of bounding box, subset
-        (This requires idNum and ullr)
-        
-        **parameters**
-        
-            *idNum* : id # of subset region (for filenames, each subset region should have unique id)
-            
-            *lat* : latitiude of beacon at centre of subset (Optional)
-            
-            *longt* : longitude of beacon at centre of subset (Optional)
-            
-            *dir* : location output will be stored
-            
-            *ullr* : Coordinates of ul and lr corners of bounding box to subset to (Optional)
-            
-        '''       
-        
-        inname = os.path.join(self.tmpDir, self.FileNames[-1])
-        output = os.path.join(dir, os.path.splitext(self.FileNames[-1])[0] + '__' + str(idNum) + '_subset')
-        
-        sat = ProductIO.readProduct(inname)
-        info = sat.getSceneGeoCoding()
-        
-        geoPosOP = snappy.jpy.get_type('org.esa.snap.core.datamodel.PixelPos')
-        
-        if ullr == None:   #We are in polarimetry mode, make 200x200 BB around lat long
-            pixel_pos = info.getPixelPos(GeoPos(lat, longt), geoPosOP())
-            
-            x = int(round(pixel_pos.x))
-            y = int(round(pixel_pos.y))
-        
-            topL_x = x - 600
-            if topL_x <= 0:
-                topL_x = 0
-            topL_y = y - 600
-            if topL_y <= 0:
-                topL_y = 0
-            width = 1200
-            if (x + width) > self.n_cols:
-                width = self.n_cols
-            height = 1200
-            if (x + height) > self.n_rows:
-                height = self.n_rows
-            
-        else:    #We are in Scientific mode/a normal crop, bounding box provided
-            pixel_posUL = info.getPixelPos(GeoPos(ullr[0][1], ullr[0][0]), geoPosOP())
-            pixel_posLR = info.getPixelPos(GeoPos(ullr[1][1], ullr[1][0]), geoPosOP())
-            
-            topL_x = int(round(pixel_posUL.x))
-            topL_y = int(round(pixel_posUL.y))
-            x_LR = int(round(pixel_posLR.x))
-            y_LR = int(round(pixel_posLR.y))
-
-            width = x_LR - topL_x
-            height = y_LR - topL_y
-        
-        parameters = self.HashMap()  
-
-        parameters.put('region', "%s,%s,%s,%s" % (topL_x, topL_y, width, height))       
-        target = GPF.createProduct('Subset', parameters, rsat) 
-        ProductIO.writeProduct(target, output, 'BEAM-DIMAP')
-        
-        self.logger.debug("Subset complete on " + self.zipname + " for id " + str(idNum))
-        self.FileNames.append(output+'.dim')
+        self.FileNames.append(outname+'.tif')
     
     def snapTC(self, inname, outname, proj, projDir, smooth = True, outFormat = 'BEAM-DIMAP'):
         '''
@@ -1385,15 +1330,15 @@ class Image(object):
             *outFormat* : Format of product this function returns, default is BEAM-DIMAP
         '''
 
-        #os.chdir(self.tmpDir) 
-        os.chdir(self.imgDir)
+        os.chdir(self.tmpDir)
+        #os.chdir(self.imgDir)
             
         if outFormat == 'BEAM-DIMAP':
             #output = os.path.join(self.tmpDir, outname)
-            output = os.path.join(self.imgDir, outname) #output to imgDir for consistency with R2 processing
+            output = os.path.join(self.tmpDir, outname) #output to imgDir for consistency with R2 processing
             ext = '.dim'
         else:
-            output = os.path.join(self.imgDir, outname)
+            output = os.path.join(self.tmpDir, outname)
             ext = '.tif'
       
         parameters = self.HashMap()
