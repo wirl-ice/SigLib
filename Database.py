@@ -508,121 +508,131 @@ class Database:
         sql = fp.read()
         data = self.qryFromText(sql, output)
         if output:
-            return(data)       
+            return(data)
 
-    #OBSOLETE        
+
     def qrySelectFromAvailable(self, roi, selectFrom, spatialrel, srid):
         """
         Given a roi table name (with polygons, from/todates), determine the scenes that cover the area
         from start (str that looks like iso date) to end (same format).
-        
-        Eventually include criteria:
-            subtype - a single satellite name: ALOS_AR, RADAR_AR, RSAT2_AR (or ANY)        
-            beam - a beam mode
-    
-        Returns a list of images+inst - the bounding box
-        
-        **Parameters**
-            
-            *roi*        : region of interest table in the database                
 
-            *spatialrel* : spatial relationship (i.e. ST_Contains or ST_Intersect).  Does the image contain the ROI polygon or just intersect with it?               
+        Eventually include criteria:
+            subtype - a single satellite name: ALOS_AR, RADAR_AR, RSAT2_AR (or ANY)
+            beam - a beam mode
+
+        Returns a list of images+inst - the bounding box
+
+        **Parameters**
+
+            *roi*        : region of interest table in the database
+
+            *spatialrel* : spatial relationship (i.e. ST_Contains or ST_Intersect).  Does the image contain the ROI polygon or just intersect with it?
 
             *srid*       : srid of desired projecton
-            
+
             *selectFrom* : table in the database to find the scenes
-                
+
         **Returns**
 
-            *copylist* : a list of image catalog ids                
+            *copylist* : a list of image catalog ids
 
             *instimg*  : a list of each instance and the images that correspond
         """
-    
+
         assert spatialrel.lower() == 'st_contains' or spatialrel.lower() == 'st_intersects'
-       
-        curs = self.connection.cursor()       
+
+        curs = self.connection.cursor()
+
+        # Check if local table to query exists
+        # Tablenames are stored in lower case and are case sensistive
+        curs.execute("select exists(select * from information_schema.tables where table_name=%s)",
+                     (selectFrom.lower(),))
+        table_exists = curs.fetchone()[0]
+        if not table_exists:
+            return None, None
+
+        # Check if ROI table exists
+        curs.execute("select exists(select * from information_schema.tables where table_name=%s)", (roi.lower(),))
+        table_exists = curs.fetchone()[0]
+        if not table_exists:
+            return None, None
 
         curs.execute('SELECT inst, fromdate, todate FROM ' + roi + ';')
-        
+
         instances = curs.fetchall()
-          
-        
+
         n_poly = len(instances)
-    
+
         instimg = [] # make a list of dictionaries to create the instimg table
         copyfiles = [] # make a list to contain all the files to copy
-        
-        # The query is set up to take the most recent addition to the archive of 
-            # the SAME file - ie the date/time and satellite match fully, however, it 
+
+        # The query is set up to take the most recent addition to the archive of
+            # the SAME file - ie the date/time and satellite match fully, however, it
             # is desirable to match on more than one image as the time span allows.
         #Note DO NOT do this comparison in WGS84-lat.lon  - use a projection)
-        
+
         for i in range(n_poly): # for each polygon in tblROI, get images that
-          
+
             inst = instances[i][0]
-                         
+
             fromdate = instances[i][1] + datetime.timedelta(seconds=1)
             fromdate = fromdate.strftime('%Y-%m-%d')
-                       
-            #allow for truncation errors
-            todate = instances[i][2] + datetime.timedelta(seconds=1) 
-            todate = todate.strftime('%Y-%m-%d')   #%H:%M:%S'          
-            
-            param = {'inst': inst, 'fromdate' : fromdate, 'todate' : todate, 'srid' : srid}
 
-            if selectFrom == 'tblArchive':             
+            #allow for truncation errors
+            todate = instances[i][2] + datetime.timedelta(seconds=1)
+            todate = todate.strftime('%Y-%m-%d')   #%H:%M:%S'
+
+            param = {'inst': inst, 'fromdate' : fromdate, 'todate' : todate, 'srid' : int(srid)}
+
+            if selectFrom == 'tblArchive':
                 sql1 = """SELECT DISTINCT ON (substring("file name", 1, 27)) 
                 "file name", "file path", "subtype", "beam mode", "valid time", "catalog id" """
                 sql4 = 'AND "valid time" >= %(fromdate)s '
                 sql5 = 'AND "valid time" <= %(todate)s '
                 sql9 = """ORDER BY substring("file name", 1, 27), "file name" DESC"""
-                
+
             else:
                 sql1 = """SELECT DISTINCT ON (substring("granule", 1, 27)) 
                 "granule", "location", "sattype", "beam", "acdatetime" """
                 sql4 = 'AND "acdatetime" >= %(fromdate)s '
                 sql5 = 'AND "acdatetime" <= %(todate)s '
                 sql9 = """ORDER BY substring("granule", 1, 27), "granule" DESC"""
-                
+
             sql2 = 'FROM ' + selectFrom +', ' +roi+ ' '
             sql3 = 'WHERE ' + roi + '.inst = %(inst)s '
             sql6 = 'AND ' + spatialrel + ' '
             sql7 = '(ST_Transform('+selectFrom+'.geom, %(srid)s), ST_Transform('
             sql8 =  roi+'.geom, %(srid)s)) '
             qry = sql1 + sql2 + sql3 + sql4 + sql5 + sql6 + sql7 + sql8+ sql9
-                            
+
             curs.execute(qry,param)
-            self.connection.commit()   
+            self.connection.commit()
             rows = curs.fetchall()
-            
+
             for i in range(len(rows)):
-                
+
                 if selectFrom == 'tblArchive':
-    
+
                     granule= rows[i][0]
                     catid= rows[i][5]
                     acTime= rows[i][4]
-    
+
                     copyfiles.append(catid)
-                
+
                     instimg.append({"inst": inst, "granule": granule, "catid": catid, "time": acTime})
-                    
+
                 else:
                     granule = rows[i][0]
                     location = rows[i][1]
                     acTime = rows[i][4]
-                    
+
                     copyfiles.append(location)
-                    
-                    instimg.append({"inst" : inst, "granule" : granule, "location" : location, "time": acTime})                   
-    
+
+                    instimg.append({"inst" : inst, "granule" : granule, "location" : location, "time": acTime})
+
         # make sure there are no repeat occurrances of the files to copy
-        copylist = dict.fromkeys(copyfiles).keys()
-        
-        copylist.sort()
+        copylist = sorted(dict.fromkeys(copyfiles))
         copylist.reverse()
-        
         return copylist, instimg
 
     #OBSOLETE
@@ -1093,4 +1103,26 @@ class Database:
     #KEEP    
     def removeHandler(self):
         self.logger.handlers = []
+
+
+
+    def exportToCSV_Tmp(self, qryOutput, outputName):
+        """
+        Given a dictionary of results from the database and a filename puts all the results
+        into a csv with the filename outputName
+
+        **Parameters**
+
+            *qryOutput*  : output from a query - needs to be a tupple - numpy data and list of column names
+
+            *outputName* : the file name
+        """
+
+        tmp = pd.DataFrame.from_dict(qryOutput)
+        for col in tmp.columns:
+            if tmp[col].dtype == 'O' or tmp[col].dtype == 'S':
+                stripped = tmp[col].str.rstrip()  # somehow there are plenty of spaces in some cols
+                if not stripped.isnull().all():  # sometimes this goes horribly wrong (datetimes)
+                    tmp[col] = stripped
+        tmp.to_csv(outputName, index=False)
         

@@ -22,7 +22,7 @@ Common Parameters of this Module:
 *granule* : unique name of an image in string format
 
 """
-
+import geopandas
 import os
 import sys
 from configparser import ConfigParser, RawConfigParser
@@ -36,7 +36,7 @@ from glob import glob
 from Database import Database
 from Metadata import Metadata
 from Image import Image
-#from Query import Query
+from Query import Query
 import Util
 
 class SigLib:
@@ -53,6 +53,7 @@ class SigLib:
         self.scanDir = str(os.path.abspath(os.path.expanduser(config.get("Directories", "scanDir"))))
         self.vectDir = str(os.path.abspath(os.path.expanduser(config.get("Directories","vectDir"))))
         self.logDir = str(os.path.abspath(os.path.expanduser(config.get("Directories","logDir"))))
+        self.outDir = str(os.path.abspath(os.path.expanduser(config.get("Directories","outDir"))))
         
         self.dbName = str(config.get("Database", "db"))
         self.dbHost = str(config.get("Database", "host"))
@@ -93,7 +94,17 @@ class SigLib:
         self.length_time = 0
         self.loghandler = None
         self.logger = 0        
-    
+
+    #def read_shp(self):
+    #    roiShapeFile = "/Users/jazminromero/Desktop/shp/ArcticBay.shp"
+    #    print ('Reading shape file: {}'.format(roiShapeFile))
+    #    shapefile = geopandas.read_file(roiShapeFile, driver='ESRI')
+    #    print(shapefile)
+
+    #    roiGeojson = "/Users/jazminromero/Desktop/shp/ArcticBay.geojson"
+    #    print('Writing geojson file: {}'.format(roiGeojson))
+    #    shapefile.to_file(roiGeojson, driver='GeoJSON')
+
     def createLog(self,zipfile=None):   
         """
         Creates log file that will be used to report progress and errors
@@ -350,10 +361,10 @@ class SigLib:
 
         """
 
-        #ROI needs to be in the Query Mode format.
-        #query = Query(self.roi, self.roiProjSRID, self.vectDir, method)
-        pass
-            
+        # ROI needs to be in the Query Mode format.
+        Query(db, self.roi, self.roiProjSRID, self.vectDir, self.table_to_query, self.spatialrel, self.outDir, method)
+        return
+
 
     def qualitative_mode(self, fname, imgname, zipname, sattype, granule, zipfile, sar_meta, unzipdir):
         """
@@ -560,13 +571,18 @@ class SigLib:
             if ans.lower() == 'y':
                 db.findInstances(self.roi)
         if self.queryProcess == "1": #note query mode is seperate from qualitative and quantitative
+            #self.read_shp()
             db = Database(self.table_to_query, self.dbName, self.loghandler, host=self.dbHost)
-            query_methods = {'1': 'metadata', '2': 'cis', '3':'EODMS'}
+            query_methods = {'1': 'metadata', '2': 'cis', '3':'EODMS', '4':'ORDER_EODMS', '5':'DOWNLOAD_EODMS', '6':'SENTINEL', '7':'DOWNLOAD_SENTINEL'}
             print("Available Query Methods:\n")
             print("1: {}".format(self.table_to_query))
             print("2: CIS Archive (WIRL users only)")
-            print("3: EODMS\n")
-            ans = input("Please select the desired query method (1,2,3):\t")
+            print("3: EODMS: Query")
+            print("4: EODMS: Order")
+            print("5: EODMS: Download")
+            print("6: Copernicus: Query")
+            print("7: Copernicus: Download")
+            ans = input("Please select the desired query method (1,2,3,4,5,6,7):\t")
             self.query_mode(db, query_methods[ans])
         if self.scanPath == "1":
             self.proc_Dir(self.scanDir, self.scanFor)      # Scan by path pattern

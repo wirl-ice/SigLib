@@ -8,6 +8,11 @@ import sys
 import requests
 import json
 from osgeo import ogr, osr
+import geopandas
+from eodms_api_client import EodmsAPI
+from sentinelsat import SentinelAPI, read_geojson, geojson_to_wkt
+import csv
+
 
 class Query(object):
     """
@@ -25,7 +30,7 @@ class Query(object):
 
     """
 
-    def __init__(self, roi, srid, roidir, method, loghandler = None):
+    def __init__(self, db, roi, srid, roidir, localtable, spatialrel, outputDir, method, loghandler = None):
 
         self.status = "ok"  ### For testing
         
@@ -40,25 +45,70 @@ class Query(object):
             self.logger.setLevel(logging.DEBUG)
             self.logger.addHandler(logging.StreamHandler())
 
+        self.db = db
         self.roi = roi
         self.roiSRID = srid
         self.roiDir = roidir
+        self.table_to_query = localtable
+        self.spatialrel = spatialrel
+        self.outputDir = outputDir
 
-        
+        print ('Queriying')
+        #self.read_shp()
+
+
         if method == 'metadata':
-            #query from metadata table
-            pass
+            copylist, instimg = db.qrySelectFromAvailable(self.roi, self.table_to_query, self.spatialrel, self.roiSRID)
+            filename = self.create_filename(self.outputDir, roi, method)
+            print ('Results saved to {}'.format(filename))
+            db.exportToCSV_Tmp(instimg,filename)
+            return
         elif method == 'cis':
             #do cis query
             pass
         elif method == 'EODMS': #set up to query RSAT-1 data
             #query from EODMS
-            roiShpFile = os.path.join(self.roiDir, roi)
-            queryParams = self.readShpFile(roiShpFile)
-            self.queryEODMS(queryParams)
+            allison=False
+            if allison:
+                roiShpFile = os.path.join(self.roiDir, roi)
+                queryParams = self.readShpFile(roiShpFile)
+                records = self.queryEODMS(queryParams)
+            else:
+                records = self.queryEODMS_MB(self.roiDir, roi, 'Radarsat1')
+
+            filename = self.create_filename(self.outputDir, roi, method)
+            db.exportToCSV_Tmp(records, filename)
+            print('File saved to {}'.format(filename))
+
+        elif method == 'ORDER_EODMS':
+            filename = input("Enter CSV filename of images to order: ")
+            record_id = self.get_EODMS_ids_from_csv(filename)
+            print ('Ordering {} images: '.format(len(record_id)))
+            print(record_id)
+            submit_order = input("Would you like to order {} images? [Y/N]\t".format(len(record_id)))
+            if submit_order.lower() == 'y':
+                self.order_to_EODMS(record_id)
+        elif method == 'SENTINEL':
+            records = self.queryCopernicus(self.roiDir, roi, 'Sentinel-2')
+            filename = self.create_filename(self.outputDir, roi, method)
+            db.exportToCSV_Tmp(records, filename)
+            print('File saved to {}'.format(filename))
+        elif method =='DOWNLOAD_EODMS':
+            self.download_images_from_EODMS(self.outputDir)
+        elif method =='DOWNLOAD_SENTINEL':
+            self.download_images_from_Copernicus(self.outputDir)
         else:
             self.logger.error("Valid Query Method not selected, cannot complete task.")
             return
+
+    def create_filename(self, outputDir, roi, method):
+
+        now = datetime.now()
+        dt_string = now.strftime("%d-%m-%Y %H:%M:%S")
+        filename = roi + '_' + method + '_' + dt_string + '.csv'
+        fullpath = os.path.join(outputDir,filename)
+        return fullpath
+
 
     def queryEODMS(self, queryParams):
         """
@@ -88,6 +138,7 @@ class Query(object):
             #if end_date.tzinfo is None:
             #    end_date = end_date.replace(tzinfo=timezone.utc)
 
+            print('ROI start date: {}  end date: {}'.format(start_date, end_date))
             coordinates = item['geom']
             records.append(self.getEODMSRecords(session, start_date, end_date, coordinates))
             
@@ -101,10 +152,11 @@ class Query(object):
         
         #Submit Order
         submit_order = input("Would you like to order {} images? [Y/N]\t".format(n))
-        if ans.lower() == 'y':
+        if submit_order.lower() == 'y':
             orderquery = self.buildQuery(records)
             self.submit_post(orderquery)
-                 
+
+        return records
 
     def getEODMSRecords(self, session, start_date, end_date, coords):
         """ 
@@ -134,8 +186,8 @@ class Query(object):
                     '''query=CATALOG_IMAGE.THE_GEOM_4326+INTERSECTS+POLYGON+%28%28''' + \
                         polygon_coordinates + '''%29%29&''' + \
                     '''resultField=RSAT1.BEAM_MNEMONIC&maxResults=5000&format=json'''
-        response = session.get(query_url)
 
+        response = session.get(query_url)
         rsp = response.content
         response_dict = json.loads(rsp.decode('utf-8'))
 
@@ -159,7 +211,6 @@ class Query(object):
                     record_id = result["recordId"]
                     collection_id = result["collectionId"]
                     records.append([record_id, collection_id])
-            break
         
         return records
 
@@ -180,7 +231,7 @@ class Query(object):
         
         return query
 
-    def submit_post(query):
+    def submit_post(session, query):
         """ 
         submits order to EODMS
             
@@ -192,7 +243,6 @@ class Query(object):
 
         rest_url = "https://www.eodms-sgdot.nrcan-rncan.gc.ca/wes/rapi/order"
         response = session.post(rest_url, data=str(query))
-
 
     def readShpFile(self, filename):
         """ 
@@ -237,5 +287,161 @@ class Query(object):
             
         return query_dict
 
-    
-    
+
+    def read_shp(self):
+        roiShapeFile = "/Users/jazminromero/Desktop/shp/ArcticBay.shp"
+        print ('Reading shape file: {}'.format(roiShapeFile))
+        shapefile = geopandas.read_file(roiShapeFile, driver='ESRI')
+        print(shapefile)
+
+        roiGeojson = "/Users/jazminromero/Desktop/shp/ArcticBay.geojson"
+        print('Writing geojson file: {}'.format(roiGeojson))
+        shapefile.to_file(roiGeojson, driver='GeoJSON')
+
+
+    def queryEODMS_MB(self, roiDir, roi, collection):
+
+        # 1. Transform shapefile into geojson
+        shpFilename = os.path.join(roiDir, roi)
+        shpFilename = shpFilename + '.shp'
+        shapefile = geopandas.read_file(shpFilename, driver='ESRI Shapefile')
+
+        geojsonFilename = roi + '.geojson'
+        geojsonFilename = os.path.join(roiDir, geojsonFilename)
+        shapefile.to_file(geojsonFilename, driver='GeoJSON')
+
+        # 2. Retrieve fromDate and startDate from file
+        f = open(geojsonFilename)
+        data = json.load(f)
+        fromdate = data['features'][0]['properties']['FROMDATE']
+        todate = data['features'][0]['properties']['TODATE']
+
+
+        # 3. Query EODMS
+        client = EodmsAPI(collection=collection)
+        client.query(start=fromdate, end=todate, geometry=geojsonFilename)
+        len(client.results)
+
+        record_ids = client.results.to_dict()
+        print(record_ids)
+
+        return record_ids
+
+
+    def read_csv(self, filename):
+        with open(filename, newline='') as csvfile:
+            reader = csv.DictReader(csvfile)
+            for row in reader:
+                print(row)
+
+        return reader
+
+    def get_EODMS_ids_from_csv(self, filename):
+        record_id =[]
+        with open(filename, newline='') as csvfile:
+            reader = csv.DictReader(csvfile)
+            for row in reader:
+                record_id.append(row['EODMS RecordId'])
+
+        return record_id
+
+
+    def order_to_EODMS(self, record_ids):
+        collection = input("Enter Collection for order: ")
+        client = EodmsAPI(collection=collection)
+        order_id = client.order(record_ids)
+        print ('Order {} submitted. Wait for confirmation email.'.format(order_id))
+
+
+    def download_images_from_EODMS(self, output_dir):
+        collection = input("Enter Collection for downloading: ")
+        client = EodmsAPI(collection=collection)
+        order_item_id = input("Enter order_item_id:")
+        client.download(order_item_id, output_dir)
+
+    def queryCopernicus(self, roiDir, roi, platform):
+
+        # 1. Transform shapefile into geojson
+        shpFilename = os.path.join(roiDir, roi)
+        shpFilename = shpFilename + '.shp'
+        shapefile = geopandas.read_file(shpFilename, driver='ESRI Shapefile')
+
+        geojsonFilename = roi + '.geojson'
+        geojsonFilename = os.path.join(roiDir, geojsonFilename)
+        shapefile.to_file(geojsonFilename, driver='GeoJSON')
+
+        # 2. Retrieve fromDate and startDate from file
+        f = open(geojsonFilename)
+        data = json.load(f)
+        fromdate = data['features'][0]['properties']['FROMDATE']
+        todate = data['features'][0]['properties']['TODATE']
+        fromdate_obj = datetime.strptime(fromdate, '%Y-%m-%d')
+        todate_obj = datetime.strptime(todate, '%Y-%m-%d')
+
+        # 3. Query Sentinel
+        footprint = geojson_to_wkt(read_geojson(geojsonFilename))
+        username = input("Enter your Copernicus username: ")
+        password = getpass.getpass("Enter your Copernicus password: ")
+        api = SentinelAPI(username, password, 'https://scihub.copernicus.eu/dhus')
+        products = api.query(footprint,
+                             date = (fromdate_obj,todate_obj),
+                             platformname = platform,
+                             processinglevel='Level-2A')
+        record_ids = api.to_dataframe(products)
+
+        #products = api.query(footprint,
+        #                     date=(fromdate_obj, todate_obj),
+        #                     platformname=platform,
+        #                     processinglevel='Level-2A',
+        #                     producttype='GRD',
+        #                     sensoroperationalmode='SM')
+        #record_ids = api.to_dataframe(products)
+
+        #sensoroperationalmode=Possible values are: SM, IW, EW, WV
+
+
+        #products = api.query(footprint,
+        #                     date=('20100101', '20201230'),
+        #                     platformname=platform,
+        #                     processinglevel='Level-2A')
+        #record_ids = api.to_dataframe(products)
+
+        return record_ids
+
+    def download_images_from_Copernicus(self, output_dir):
+
+        #Read record UUID from filelocation
+        filename = input("Enter filelocation of images ids: ")
+        records = []
+        with open(filename, newline='') as csvfile:
+            reader = csv.DictReader(csvfile)
+            for row in reader:
+                #records.append(row['uuid'])
+                records.append({"title": row['title'], "uuid": row['uuid']})
+
+        #print(records)
+
+        username = input("Enter your Copernicus username: ")
+        password = getpass.getpass("Enter your Copernicus password: ")
+        api = SentinelAPI(username, password, 'https://scihub.copernicus.eu/dhus')
+
+
+        for record in records:
+        # download the file
+         try:
+            id = record['uuid']
+            title = record['title']
+            is_online = api.is_online(id)
+            if is_online:
+                 print (title + ' is online')
+                 #api.download(id,output_dir)
+                 print('Download successfull')
+                 #break
+            else:
+                print(title + ' is offline')
+         except:
+            print ('Try next file')
+
+
+
+
