@@ -769,6 +769,28 @@ class Metadata(object):
         self.satellite = xmldoc.getElementsByTagName('safe:familyName')[0].firstChild.data + xmldoc.getElementsByTagName('safe:number')[0].firstChild.data
         self.copyright = "ESA"     #hardcoded
 
+        pathToCal = os.path.join(self.path, 'annotation\\calibration')
+        calFile = os.listdir(pathToCal)[0]
+
+        caldoc = minidom.parse(os.path.join(pathToCal, calFile))
+
+        s1CalPixels = caldoc.getElementsByTagName('pixel')[0].firstChild.data
+        s1CalPixels = s1CalPixels.split(' ')
+        s1CalPixels = [int(i) for i in s1CalPixels]
+        s1CalVals = caldoc.getElementsByTagName('sigmaNought')[0].firstChild.data
+        s1CalVals = s1CalVals.split(' ')
+        s1CalVals = [float(i) for i in s1CalVals]
+
+        numCals = numpy.arange(0, self.n_cols, 1)
+        calgain = numpy.interp(numCals, s1CalPixels, s1CalVals)
+
+        self.calgain = calgain.astype(numpy.float32)
+
+        #if self.order_Rg.lower() == 'decreasing':
+        #    self.calgain = self.calgain[::-1].copy()  # REVERSE!!
+
+        caldoc.unlink()
+
         xmldoc.unlink()
         self.getDimgname()   #CHECK TO SEE IF THIS WORKS
         

@@ -143,7 +143,7 @@ class Image(object):
         if initOnly:
             return
               
-        if self.sattype == 'SEN-1' and self.imgType == 'sigma':
+        if self.sattype == 'SEN-1' and self.imgType == 'beta':
             #TODO: use snap calibration for other things
             self.snapCalibration(saveInComplex=False)
         else:
@@ -411,7 +411,7 @@ class Image(object):
 
         outname = os.path.splitext(inname)[0] + '_proj' + ext
 
-        if self.sattype == 'SEN-1' or self.sattype == 'SEN-2':
+        if self.sattype == 'SEN-1' and self.imgType == 'beta':
             #project sentinel with snap
             ok = self.snapTC(inname, outname, projout, projdir)
         else:
@@ -472,6 +472,9 @@ class Image(object):
         inout['output file'] = outname
         inout['default output dir'] = self.tmpDir
 
+        if self.imgType == 'sigma':
+            inout['Calibration'] = '1'
+
         # Write changes back to config
         with open(asfConfig, 'w') as cfg:
             config.write(cfg)
@@ -491,6 +494,14 @@ class Image(object):
 
         config = ConfigParser()
         config.read(asfConfig)
+
+        if self.imgType == 'sigma':
+            mode = config['Import']
+            mode['radiometry'] = 'sigma_image'
+            cal = config['Calibration']
+            cal['radiometry'] = 'sigma'
+            out = config['Export']
+            out['byte conversion'] = 'none'
 
         # Set projection details
         geocode = config['Geocoding']
@@ -739,18 +750,22 @@ class Image(object):
         inname = self.FileNames[-1]
         outname = os.path.splitext(inname)[0] + '_subset'+ self.imgExt
         
-        cmd = 'gdal_translate -of '+ self.imgFormat +' -co \"COMPRESS=LZW\" -a_nodata 0 ' +\
-            inname +' '+ outname            
+        cmd = '''gdal_translate -of {} -co "COMPRESS=LZW" -a_nodata 0 {} {}'''.format(self.imgFormat, inname, outname)
             
         command = shlex.split(cmd)
-        try:
+        ok = subprocess.Popen(command).wait()
+
+        if self.imgFormat == 'GTiff' and ok != 0:
+            self.logger.info('Normal write failed, attempting BigTiff write')
+
+            cmd = '''gdal_translate -of {} -co "COMPRESS=LZW" -co "BIGTIFF=YES" -a_nodata 0 {} {}'''.format(self.imgFormat, inname, outname)
+            command = shlex.split(cmd)
             ok = subprocess.Popen(command).wait()
-        except:
-            self.logger.error("vrt2RealImg failed")
-		
+            self.logger.info("vrt2RealImg failed")
+
         if ok == 0:
             self.FileNames.append(outname)          ###
-            self.logger.debug('Completed export to tiff ' + outname+'.tif')
+            self.logger.debug('Completed export to tiff ' + outname)
         else:
             self.logger.error('Image export failed')
 
@@ -1068,6 +1083,10 @@ class Image(object):
         if datachunk.dtype == numpy.complex64 or datachunk.dtype == numpy.complex128:
             #convert to detected image
             datachunk = pow(numpy.real(datachunk), 2) + pow(numpy.imag(datachunk), 2)
+            gains = self.meta.calgain**2
+
+        elif self.sattype == 'SEN-1':
+            datachunk = numpy.float32(datachunk)**2 # convert to float, prevent integer overflow
             gains = self.meta.calgain**2
 
         else:       # magnitude detected data

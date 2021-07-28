@@ -265,6 +265,12 @@ class SigLib:
                 
         # Parse zipfile
         fname, imgname, sattype = Util.getFilename(granule, unzipdir, self.loghandler)
+
+        if sattype == 'SEN-1':
+            granule = granule.split('.')[0]
+            zipname = granule
+            os.rename(unzipdir, os.path.join(self.tmpDir, granule))
+            unzipdir = os.path.join(self.tmpDir, granule)
         
         formatter = logging.Formatter('')        
         self.loghandler.setFormatter(formatter)
@@ -387,7 +393,7 @@ class SigLib:
         else:
             os.makedirs(newTmp)
 
-        os.chdir(self.tmpDir)
+        os.chdir(newTmp)
             
         # Process the image
         sar_img = func_timeout(600, Image, args=(fname, unzipdir, sar_meta, self.imgType, self.imgFormat, zipname, self.imgDir, newTmp, self.loghandler, self.elevation_correction))
@@ -403,7 +409,7 @@ class SigLib:
             try:    
                 if self.imgType == 'amp':
                     ok = sar_img.projectImg(self.proj, self.projDir, resample='bilinear')
-                else:  # no smoothing for quantitative_mode images
+                else:  # no smoothing for quantitative images
                     ok = sar_img.projectImg(self.proj, self.projDir, resample='near')
             except:
                 self.logger.error('ERROR: Issue with projection... will stop projecting this img')

@@ -552,6 +552,181 @@ def snapSubset(self, idNum, lat, longt, dir, ullr=None):
     self.logger.debug("Subset complete on " + self.zipname + " for id " + str(idNum))
     self.FileNames.append(output + '.dim')
 
+
+def snapCalibration(self, outDataType='sigma', saveInComplex=False):
+    '''
+    This fuction calibrates radarsat images into sigma, beta, or gamma
+
+    **Parameters**
+
+        *outDataType* : Type of calibration to perform (sigma, beta, or gamma), default is sigma
+
+        *saveInComplex* : Output complex sigma data (for polarimetric mode)
+    '''
+
+    os.chdir(self.tmpDir)
+    self.openDataset(self.fname, self.path)
+    outname = self.fnameGenerate()[2]
+
+    img = os.path.join(self.path, self.fname)
+    sat = ProductIO.readProduct(img)
+
+    output = os.path.join(self.tmpDir, outname)
+
+    parameters = self.HashMap()
+    if saveInComplex:
+        parameters.put('outputImageInComplex', 'true')
+    else:
+        parameters.put('outputImageInComplex', 'false')
+
+        if outDataType == 'sigma':
+            parameters.put('outputSigmaBand', True)
+        elif outDataType == 'beta':
+            parameters.put('createBetaBand', True)
+            parameters.put('outputBetaBand', True)
+            parameters.put('outputSigmaBand', False)
+        elif outDataType == 'gamma':
+            parameters.put('outputSigmaBand', False)
+            parameters.put('createGammaBand', True)
+            parameters.put('outputGammaBand', True)
+        else:
+            self.logger.error('Valid out data type not specified!')
+            return Exception
+
+    target = GPF.createProduct("Calibration", parameters, sat)
+    ProductIO.writeProduct(target, output, 'GeoTiff')
+
+    self.FileNames.append(outname + '.tif')
+
+
+def snapTC(self, inname, outname, proj, projDir, smooth=True, outFormat='BEAM-DIMAP'):
+    '''
+    Perform an Ellipsoid-Correction using snap. This function also projects the product
+
+    **Parameters**
+
+        *inname* : name of file to be projected (assumed to be located in imgDir)
+
+        *outname* : output name of projected file (output to imgDir)
+
+        *proj* : name of wkt projection file (minus file extension)
+
+        *projDir* : directory containing projection file
+
+        *smooth* : If quanitative data, do not smooth (Smooth using Bilinear resampling for quality)
+
+        *outFormat* : Format of product this function returns, default is BEAM-DIMAP
+    '''
+
+    os.chdir(self.tmpDir)
+    # os.chdir(self.imgDir)
+
+    if outFormat == 'BEAM-DIMAP':
+        # output = os.path.join(self.tmpDir, outname)
+        output = os.path.join(self.tmpDir,
+                              outname)  # output to imgDir for consistency with R2 processing
+        ext = '.dim'
+    else:
+        output = os.path.join(self.tmpDir, outname)
+        ext = '.tif'
+
+    parameters = self.HashMap()
+    product = ProductIO.readProduct(
+        inname)  # throws nullpointerexception
+
+    # Parameters section##################################
+    if not smooth:
+        parameters.put('imgResamplingMethod', 'NEAREST_NEIGHBOUR')
+
+    if self.imgType == 'beta':
+        dt = 'Beta0_'
+    elif self.imgType == 'gamma':
+        dt = 'Gamma0_'
+    elif self.imgType == 'sigma':
+        dt = 'Sigma0_'
+    elif self.imgType == 'amp':
+        if 'Q' in self.meta.beam:
+            pass
+        else:
+            dt = 'Amplitude_'
+    else:
+        self.logger.error('Invalid out data type!')
+        return Exception
+
+        # Create string containing all output bands
+    if 'Q' not in self.meta.beam:
+        count = 0
+        bands = ''
+        while count < self.meta.n_bands:
+            band = str(self.bandNames[count][1:])
+            if count == 0:
+                bands = bands + dt + band
+            else:
+                bands = bands + ',' + dt + band
+            count += 1
+
+        parameters.put('sourceBands',
+                       bands)  ###FIXME! Error with band metadata
+
+    readProj = open(os.path.join(projDir, proj + '.wkt'), 'r').read()
+    parameters.put('mapProjection', readProj)
+    ######################################################
+    target = GPF.createProduct("Ellipsoid-Correction-GG", parameters, product)
+    ProductIO.writeProduct(target, output, outFormat)
+    self.logger.debug('Terrain-Correction successful!')
+
+    self.FileNames.append(outname + ext)
+    status = 0
+
+    return status
+
+
+# OBSOLETE, keep?
+def makeAmp(self, newFile=True, save=True):
+    '''
+    Use snap bandMaths to create amplitude band for SLC products
+
+    **Parameters**
+
+        *newFile* :  True if the inname is the product file
+
+        *save*    :  True if output filename should be added into internal filenames array for later use
+    '''
+
+    count = 0
+    bands = snappy.jpy.array('org.esa.snap.core.gpf.common.BandMathsOp$BandDescriptor', self.meta.n_bands)
+
+    if newFile:
+        outname = self.fnameGenerate()[2]
+        inname = os.path.join(self.path, self.fname)
+        output = os.path.join(self.tmpDir, outname)
+    else:
+        inname = self.FileNames[-1]
+        output = os.path.splitext(self.FileNames[-1])[0] + '_amp'
+
+    while count < self.meta.n_bands:
+        if self.meta.n_bands == 1:
+            band = str(self.bandNames)
+        else:
+            band = str(self.bandNames[count])[1:]
+
+        target = self.BandMathsOp()
+        target.name = 'Amplitude_' + band
+        target.type = 'float32'
+        target.expression = 'sqrt(pow(i_' + band + ', 2) + pow(q_' + band + ', 2))'
+        bands[count] = target
+        count += 1
+
+    parameters = self.HashMap()
+    product = ProductIO.readProduct(inname)
+    parameters.put('targetBands', bands)
+    t = GPF.createProduct('BandMaths', parameters, product)
+    ProductIO.writeProduct(t, output, 'BEAM-DIMAP')
+    count += 1
+    if save:
+        self.FileNames.append(output + '.dim')
+
+
 if __name__ == "__main__":
     if self.polarimetricProcess == '1':
         if 'Q' not in sar_meta.beam:
