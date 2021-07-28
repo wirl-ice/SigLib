@@ -583,6 +583,7 @@ class Database:
             todate = todate.strftime('%Y-%m-%d')   #%H:%M:%S'
 
             param = {'inst': inst, 'fromdate' : fromdate, 'todate' : todate, 'srid' : int(srid)}
+            print('ROI start date: {}  end date: {}'.format(fromdate, todate))
 
             if selectFrom == 'tblArchive':
                 sql1 = """SELECT DISTINCT ON (substring("file name", 1, 27)) 
@@ -1106,7 +1107,7 @@ class Database:
 
 
 
-    def exportToCSV_Tmp(self, qryOutput, outputName):
+    def exportDict_to_CSV(self, qryOutput, outputName):
         """
         Given a dictionary of results from the database and a filename puts all the results
         into a csv with the filename outputName
@@ -1125,4 +1126,137 @@ class Database:
                 if not stripped.isnull().all():  # sometimes this goes horribly wrong (datetimes)
                     tmp[col] = stripped
         tmp.to_csv(outputName, index=False)
-        
+
+        # DATABASE UTILITY FUNCTION
+
+
+    def create_query_table(self, table_name, records=None):
+
+        success = True
+        curs = self.connection.cursor()
+
+        try:
+            sql_query = 'DROP TABLE IF EXISTS {}'.format(table_name)
+            curs.execute(sql_query)
+            self.connection.commit()
+        except Exception as e:
+            print(e)
+            self.connection.rollback()
+            success = False
+
+        # Get columns and its types
+        columns = tuple(records)
+        columns_name = []
+        total_columns = len(records)
+        types = []
+
+        for i in range(total_columns):
+            name = columns[i]
+            name = name.replace(' ', '_')
+            name = name.replace('(', '')
+            name = name.replace(')', '')
+            columns_name.append(name)
+            if (type(records[columns[i]]).__name__) == 'dict':
+                dict = records[columns[i]]
+                dict_cols = tuple(dict)
+                types.append(type(dict[dict_cols[0]]).__name__)
+
+        sql_types = []
+
+        for t in types:
+            if t == 'int':
+                sql_types.append('integer')
+            elif t == 'str':
+                sql_types.append('varchar')
+            elif t == 'float':
+                sql_types.append('double precision')
+            elif t.lower() == 'polygon':
+                sql_types.append('varchar')
+            else:
+                sql_types.append(t)
+
+        sql_query = 'CREATE TABLE {} ('.format(table_name)
+        for i in range(0, total_columns - 1):
+            sql_query = sql_query + columns_name[i] + ' ' + sql_types[i] + ', '
+
+        sql_query = sql_query + columns_name[total_columns - 1] + ' ' + sql_types[total_columns - 1] + ");"
+
+        try:
+            curs.execute(sql_query)
+            self.connection.commit()
+        except Exception as e:
+            print(e)
+            self.connection.rollback()
+            success=False
+
+        return success
+
+
+
+    def insert_query_table(self, table_name,records=None):
+
+
+        success = True
+
+
+        #Get columns and its types
+        columns = tuple(records)
+        columns_name = []
+        total_columns = len(records)
+
+
+        for i in range(total_columns):
+            name = columns[i]
+            name = name.replace(' ', '_')
+            name = name.replace('(', '')
+            name = name.replace(')', '')
+            columns_name.append(name)
+
+
+        total_rows = len(records[columns[0]])
+
+        for row in range(0, total_rows):
+            sql_query = 'INSERT INTO {} ('.format(table_name)
+            for i in range(0, total_columns-1):
+                sql_query = sql_query + columns_name[i] + ', '
+
+            sql_query = sql_query + columns_name[total_columns-1] + ') VALUES ('
+
+            values = []
+            for i in range(total_columns-1):
+                if (type(records[columns[i]]).__name__) == 'dict':
+                    dict = records[columns[i]]
+                    dict_cols = tuple(dict)
+                    if (type(dict[dict_cols[row]]).__name__) == 'Polygon':
+                        v = dict[dict_cols[row]]
+                        p = v.wkt
+                        values.append(p)
+                    else:
+                        values.append(dict[dict_cols[row]])
+                    sql_query = sql_query +  '%s, '
+
+
+            dict = records[columns[total_columns - 1]]
+            dict_cols = tuple(dict)
+            if (type(dict[dict_cols[row]]).__name__) == 'Polygon':
+                v = dict[dict_cols[row]]
+                p = v.wkt
+                values.append(p)
+            else:
+                values.append(dict[dict_cols[row]])
+
+            sql_query = sql_query + '%s)'
+
+
+            curs = self.connection.cursor()
+
+            try:
+                curs.execute(sql_query, values)
+                self.connection.commit()
+            except Exception as e:
+                print(e)
+                self.connection.rollback()
+                success = False
+
+
+        return success

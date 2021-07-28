@@ -53,15 +53,17 @@ class Query(object):
         self.spatialrel = spatialrel
         self.outputDir = outputDir
 
-        print ('Queriying')
         #self.read_shp()
-
+        #tablename = self.create_tablename(roi, method)
+        #sucess = db.create_query_table(tablename)
+        #if sucess:
+        #    sucess = db.insert_query_table(tablename)
 
         if method == 'metadata':
             copylist, instimg = db.qrySelectFromAvailable(self.roi, self.table_to_query, self.spatialrel, self.roiSRID)
             filename = self.create_filename(self.outputDir, roi, method)
             print ('Results saved to {}'.format(filename))
-            db.exportToCSV_Tmp(instimg,filename)
+            db.exportDict_to_CSV(instimg, filename)
             return
         elif method == 'cis':
             #do cis query
@@ -77,9 +79,13 @@ class Query(object):
                 records = self.queryEODMS_MB(self.roiDir, roi, 'Radarsat1')
 
             filename = self.create_filename(self.outputDir, roi, method)
-            db.exportToCSV_Tmp(records, filename)
+            db.exportDict_to_CSV(records, filename)
             print('File saved to {}'.format(filename))
-
+            tablename = self.create_tablename(roi, method)
+            success = db.create_query_table(tablename,records)
+            if success:
+                success = db.insert_query_table(tablename,records)
+                print('Table {} created {}'.format(tablename, success))
         elif method == 'ORDER_EODMS':
             filename = input("Enter CSV filename of images to order: ")
             record_id = self.get_EODMS_ids_from_csv(filename)
@@ -91,8 +97,14 @@ class Query(object):
         elif method == 'SENTINEL':
             records = self.queryCopernicus(self.roiDir, roi, 'Sentinel-2')
             filename = self.create_filename(self.outputDir, roi, method)
-            db.exportToCSV_Tmp(records, filename)
+            db.exportDict_to_CSV(records, filename)
+            records_dict = records.to_dict()
             print('File saved to {}'.format(filename))
+            tablename = self.create_tablename(roi, method)
+            success = db.create_query_table(tablename,records_dict)
+            if success:
+                success = db.insert_query_table(tablename,records_dict)
+                print ('Table {} created {}'.format(tablename,success))
         elif method =='DOWNLOAD_EODMS':
             self.download_images_from_EODMS(self.outputDir)
         elif method =='DOWNLOAD_SENTINEL':
@@ -108,6 +120,13 @@ class Query(object):
         filename = roi + '_' + method + '_' + dt_string + '.csv'
         fullpath = os.path.join(outputDir,filename)
         return fullpath
+
+    def create_tablename(self, roi, method):
+
+        now = datetime.now()
+        dt_string = now.strftime("%d%m%Y_%H%M")
+        tablename = roi + '_' + method + '_' + dt_string
+        return tablename
 
 
     def queryEODMS(self, queryParams):
@@ -200,6 +219,7 @@ class Query(object):
 
         #Filter query results for specified daterange
         records = []  #records to order
+
         for result in results:
             if result["isOrderable"]:
                 for item in result["metadata2"]:
@@ -211,6 +231,7 @@ class Query(object):
                     record_id = result["recordId"]
                     collection_id = result["collectionId"]
                     records.append([record_id, collection_id])
+
         
         return records
 
@@ -315,6 +336,7 @@ class Query(object):
         data = json.load(f)
         fromdate = data['features'][0]['properties']['FROMDATE']
         todate = data['features'][0]['properties']['TODATE']
+        print ('ROI start date {} end date {}'.format(fromdate,todate))
 
 
         # 3. Query EODMS
@@ -323,7 +345,6 @@ class Query(object):
         len(client.results)
 
         record_ids = client.results.to_dict()
-        print(record_ids)
 
         return record_ids
 
@@ -377,17 +398,18 @@ class Query(object):
         todate = data['features'][0]['properties']['TODATE']
         fromdate_obj = datetime.strptime(fromdate, '%Y-%m-%d')
         todate_obj = datetime.strptime(todate, '%Y-%m-%d')
+        print('ROI start date {} end date {}'.format(fromdate, todate))
 
         # 3. Query Sentinel
         footprint = geojson_to_wkt(read_geojson(geojsonFilename))
         username = input("Enter your Copernicus username: ")
         password = getpass.getpass("Enter your Copernicus password: ")
         api = SentinelAPI(username, password, 'https://scihub.copernicus.eu/dhus')
-        products = api.query(footprint,
-                             date = (fromdate_obj,todate_obj),
-                             platformname = platform,
-                             processinglevel='Level-2A')
-        record_ids = api.to_dataframe(products)
+        #products = api.query(footprint,
+        #                     date = (fromdate_obj,todate_obj),
+        #                     platformname = platform,
+        #                     processinglevel='Level-2A')
+        #record_ids = api.to_dataframe(products)
 
         #products = api.query(footprint,
         #                     date=(fromdate_obj, todate_obj),
@@ -400,11 +422,11 @@ class Query(object):
         #sensoroperationalmode=Possible values are: SM, IW, EW, WV
 
 
-        #products = api.query(footprint,
-        #                     date=('20100101', '20201230'),
-        #                     platformname=platform,
-        #                     processinglevel='Level-2A')
-        #record_ids = api.to_dataframe(products)
+        products = api.query(footprint,
+                             date=('20100101', '20201230'),
+                             platformname=platform,
+                             processinglevel='Level-2A')
+        record_ids = api.to_dataframe(products)
 
         return record_ids
 
@@ -425,20 +447,21 @@ class Query(object):
         password = getpass.getpass("Enter your Copernicus password: ")
         api = SentinelAPI(username, password, 'https://scihub.copernicus.eu/dhus')
 
-
+        online = 0
         for record in records:
         # download the file
          try:
             id = record['uuid']
             title = record['title']
-            is_online = api.is_online(id)
-            if is_online:
-                 print (title + ' is online')
-                 #api.download(id,output_dir)
-                 print('Download successfull')
-                 #break
-            else:
-                print(title + ' is offline')
+            if title!='':
+                is_online = api.is_online(id)
+                if is_online and online<1:
+                    print (title + ' is online')
+                    #api.download(id,output_dir)
+                    print('Download successfull')
+                    #break
+                else:
+                    print(title + ' is offline')
          except:
             print ('Try next file')
 
