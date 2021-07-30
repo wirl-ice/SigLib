@@ -59,15 +59,32 @@ class Query(object):
         #if sucess:
         #    sucess = db.insert_query_table(tablename)
 
+        #db.cleanup_query_tables()
+
         if method == 'metadata':
             copylist, instimg = db.qrySelectFromAvailable(self.roi, self.table_to_query, self.spatialrel, self.roiSRID)
-            filename = self.create_filename(self.outputDir, roi, method)
+            filename = self.create_filename(self.outputDir, roi, self.table_to_query)
             print ('Results saved to {}'.format(filename))
             db.exportDict_to_CSV(instimg, filename)
+            tablename = self.create_tablename(roi, method)
+            success = db.create_table_from_dict(tablename, instimg)
+            #success = db.create_table_from_dict('EXAMPLE', instimg)
+            if success:
+                success = db.insert_table_from_dict(tablename, instimg)
+                print('Table {} created {}'.format(tablename, success))
             return
         elif method == 'cis':
-            #do cis query
-            pass
+            copylist, instimg = db.qrySelectFromAvailable(self.roi, 'tblcisarchive', self.spatialrel, self.roiSRID)
+            filename = self.create_filename(self.outputDir, roi, method)
+            print('Results saved to {}'.format(filename))
+            db.exportDict_to_CSV(instimg, filename)
+            tablename = self.create_tablename(roi, method)
+            # success = db.create_table_from_dict(tablename, instimg)
+            success = db.create_table_from_dict('EXAMPLE', instimg)
+            if success:
+                success = db.insert_table_from_dict('EXAMPLE', instimg)
+                print('Table {} created {}'.format(tablename, success))
+            return
         elif method == 'EODMS': #set up to query RSAT-1 data
             #query from EODMS
             allison=False
