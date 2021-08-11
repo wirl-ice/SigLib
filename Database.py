@@ -585,12 +585,12 @@ class Database:
             param = {'inst': inst, 'fromdate' : fromdate, 'todate' : todate, 'srid' : int(srid)}
             print('ROI start date: {}  end date: {}'.format(fromdate, todate))
 
-            if selectFrom == 'tblArchive':
-                sql1 = """SELECT DISTINCT ON (substring("file name", 1, 27)) 
-                "file name", "file path", "subtype", "beam mode", "valid time", "catalog id" """
-                sql4 = 'AND "valid time" >= %(fromdate)s '
-                sql5 = 'AND "valid time" <= %(todate)s '
-                sql9 = """ORDER BY substring("file name", 1, 27), "file name" DESC"""
+            if selectFrom == 'tblcisarchive':
+                sql1 = """SELECT DISTINCT ON (substring("File Name", 1, 27)) 
+                "File Name", "File Path", "SubType", "Valid Time", "Catalog Id" """
+                sql4 = 'AND "Valid Time" >= %(fromdate)s '
+                sql5 = 'AND "Valid Time" <= %(todate)s '
+                sql9 = """ORDER BY substring("File Name", 1, 27), "File Name" DESC"""
 
             else:
                 sql1 = """SELECT DISTINCT ON (substring("granule", 1, 27)) 
@@ -612,11 +612,11 @@ class Database:
 
             for i in range(len(rows)):
 
-                if selectFrom == 'tblArchive':
+                if selectFrom == 'tblcisarchive':
 
                     granule= rows[i][0]
-                    catid= rows[i][5]
-                    acTime= rows[i][4]
+                    catid= rows[i][4]
+                    acTime= rows[i][3]
 
                     copyfiles.append(catid)
 
@@ -1130,6 +1130,136 @@ class Database:
         # DATABASE UTILITY FUNCTION
 
 
+
+    def create_table_from_dict (self, table_name, list=None):
+
+        success = True
+        curs = self.connection.cursor()
+
+        try:
+            sql_query = 'DROP TABLE IF EXISTS {}'.format(table_name)
+            curs.execute(sql_query)
+            self.connection.commit()
+        except Exception as e:
+            print(e)
+            self.connection.rollback()
+            success = False
+
+        if len(list) > 0:
+            dict = list[0]
+
+
+        # Get columns and its types
+        columns = tuple(dict)
+        columns_name = []
+        total_columns = len(dict)
+        types = []
+
+        for i in range(total_columns):
+            name = columns[i]
+            name = name.replace(' ', '_')
+            name = name.replace('(', '')
+            name = name.replace(')', '')
+            columns_name.append(name)
+            value = dict[name]
+            types.append(type(value).__name__)
+
+        sql_types = []
+
+        for t in types:
+            if t == 'int':
+                sql_types.append('integer')
+            elif t == 'str':
+                sql_types.append('varchar')
+            elif t == 'float':
+                sql_types.append('double precision')
+            elif t.lower() == 'polygon':
+                sql_types.append('varchar')
+            elif t.lower() =='datetime':
+                sql_types.append(' timestamp')
+            else:
+                sql_types.append(t)
+
+        sql_query = 'CREATE TABLE {} ('.format(table_name)
+        for i in range(0, total_columns - 1):
+            sql_query = sql_query + columns_name[i] + ' ' + sql_types[i] + ', '
+
+        sql_query = sql_query + columns_name[total_columns - 1] + ' ' + sql_types[total_columns - 1] + ");"
+
+        try:
+            curs.execute(sql_query)
+            self.connection.commit()
+        except Exception as e:
+            print(e)
+            self.connection.rollback()
+            success = False
+
+        return success
+
+
+    def insert_table_from_dict(self, table_name, list=None):
+
+        success = True
+
+        if len(list) > 0:
+            dict = list[0]
+
+            # Get columns and its types
+        columns = tuple(dict)
+        columns_name = []
+        total_columns = len(dict)
+
+        for i in range(total_columns):
+            name = columns[i]
+            name = name.replace(' ', '_')
+            name = name.replace('(', '')
+            name = name.replace(')', '')
+            columns_name.append(name)
+
+        total_rows = len(list)
+
+        for row in range(0, total_rows):
+            sql_query = 'INSERT INTO {} ('.format(table_name)
+            for i in range(0, total_columns - 1):
+                sql_query = sql_query + columns_name[i] + ', '
+
+            sql_query = sql_query + columns_name[total_columns - 1] + ') VALUES ('
+
+            values = []
+            dict = list[row]
+            for i in range(total_columns - 1):
+                    if (type(dict[columns_name[i]]).__name__) == 'Polygon':
+                        v = dict[columns_name[i]]
+                        p = v.wkt
+                        values.append(p)
+                    else:
+                        values.append(dict[columns_name[i]])
+                    sql_query = sql_query + '%s, '
+
+            if (type(dict[columns_name[total_columns-1]]).__name__) == 'Polygon':
+                v = dict[columns_name[total_columns-1]]
+                p = v.wkt
+                values.append(p)
+            else:
+                values.append(dict[columns_name[total_columns-1]])
+
+            sql_query = sql_query + '%s)'
+
+            curs = self.connection.cursor()
+
+            try:
+                curs.execute(sql_query, values)
+                self.connection.commit()
+            except Exception as e:
+                print(e)
+                self.connection.rollback()
+                success = False
+
+        return success
+
+
+
+
     def create_query_table(self, table_name, records=None):
 
         success = True
@@ -1260,3 +1390,36 @@ class Database:
 
 
         return success
+
+
+
+    def cleanup_query_tables(self):
+
+        curs = self.connection.cursor()
+        sql_query = "SELECT table_name FROM INFORMATION_SCHEMA.TABLES WHERE table_Name LIKE 'arcticbay_%'"
+        success= True
+        try:
+            curs.execute(sql_query)
+            tables = curs.fetchone()[0]
+            print(tables)
+        except Exception as e:
+            print(e)
+            self.connection.rollback()
+            success = False
+
+        return success
+
+
+    def execute_raw_sql_query(self, sql_query):
+        curs = self.connection.cursor()
+        success = True
+        try:
+            curs.execute(sql_query)
+            result = curs.fetchall()
+
+        except Exception as e:
+            print(e)
+            self.connection.rollback()
+            success = False
+
+        return result
