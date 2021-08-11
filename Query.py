@@ -61,6 +61,7 @@ class Query(object):
         #    sucess = db.insert_query_table(tablename)
 
         #db.cleanup_query_tables()
+
         #sql_query = 'SELECT * from EXAMPLE'
         #db.execute_raw_sql_query(sql_query)
 
@@ -73,6 +74,24 @@ class Query(object):
         elif method == 'cis':
             copylist, instimg = db.qrySelectFromAvailable(self.roi, 'tblcisarchive', self.spatialrel, self.roiSRID)
             filename = self.create_filename(self.outputDir, roi, method,'.csv')
+            print('Results saved to {}'.format(filename))
+            db.exportDict_to_CSV(instimg, filename)
+
+        if method == 'metadata':
+            copylist, instimg = db.qrySelectFromAvailable(self.roi, self.table_to_query, self.spatialrel, self.roiSRID)
+            filename = self.create_filename(self.outputDir, roi, self.table_to_query)
+            print ('Results saved to {}'.format(filename))
+            db.exportDict_to_CSV(instimg, filename)
+            tablename = self.create_tablename(roi, method)
+            success = db.create_table_from_dict(tablename, instimg)
+            #success = db.create_table_from_dict('EXAMPLE', instimg)
+            if success:
+                success = db.insert_table_from_dict(tablename, instimg)
+                print('Table {} created {}'.format(tablename, success))
+            return
+        elif method == 'cis':
+            copylist, instimg = db.qrySelectFromAvailable(self.roi, 'tblcisarchive', self.spatialrel, self.roiSRID)
+            filename = self.create_filename(self.outputDir, roi, method)
             print('Results saved to {}'.format(filename))
             db.exportDict_to_CSV(instimg, filename)
             tablename = self.create_tablename(roi, method)
@@ -380,13 +399,12 @@ class Query(object):
 
             if typOut == '2' or typOut == '3':
                 tablename = self.create_tablename(roi, method)
-                tablename = 'EXAMPLE'
                 success = db.create_table_from_dict(tablename, instimg)
                 if success:
                     success = db.insert_table_from_dict(tablename, instimg)
                     print('{} at creating Table {}'.format(success,tablename))
                     if success and not downloaded:
-                        answer = input('Download {} images to output directory [Y/N]?')
+                        answer = input('Download {} images to output directory [Y/N]? '.format(len(copylist)))
                         if answer.lower() == 'y':
                             self.download_from_table_tblmetadata(db, self.outputDir, tablename, roi, method)
 

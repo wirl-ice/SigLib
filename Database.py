@@ -1410,6 +1410,7 @@ class Database:
         return success
 
 
+
     def execute_raw_sql_query(self, sql_query):
         curs = self.connection.cursor()
         success = True
@@ -1423,3 +1424,4 @@ class Database:
             success = False
 
         return result
+
