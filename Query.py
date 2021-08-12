@@ -8,6 +8,12 @@ import sys
 import requests
 import json
 from osgeo import ogr, osr
+import geopandas
+from eodms_api_client import EodmsAPI
+from sentinelsat import SentinelAPI, read_geojson, geojson_to_wkt
+import csv
+import shutil
+
 
 class Query(object):
     """
@@ -25,7 +31,7 @@ class Query(object):
 
     """
 
-    def __init__(self, roi, srid, roidir, method, loghandler = None):
+    def __init__(self, db, roi, srid, roidir, localtable, spatialrel, outputDir, method, loghandler = None):
 
         self.status = "ok"  ### For testing
         
@@ -40,25 +46,103 @@ class Query(object):
             self.logger.setLevel(logging.DEBUG)
             self.logger.addHandler(logging.StreamHandler())
 
+        self.db = db
         self.roi = roi
         self.roiSRID = srid
         self.roiDir = roidir
+        self.table_to_query = localtable
+        self.spatialrel = spatialrel
+        self.outputDir = outputDir
 
-        
+        #self.read_shp()
+        #tablename = self.create_tablename(roi, method)
+        #sucess = db.create_query_table(tablename)
+        #if sucess:
+        #    sucess = db.insert_query_table(tablename)
+
+        #db.cleanup_query_tables()
+
+        #sql_query = 'SELECT * from EXAMPLE'
+        #db.execute_raw_sql_query(sql_query)
+
         if method == 'metadata':
-            #query from metadata table
-            pass
+            self.query_local_table(db, self.roi, self.table_to_query, self.spatialrel, self.roiSRID, method)
+            return
+        elif method =='download_metabdata':
+            self.donwload_local_table(self, db, roi, method)
+            return
         elif method == 'cis':
-            #do cis query
-            pass
+            copylist, instimg = db.qrySelectFromAvailable(self.roi, 'tblcisarchive', self.spatialrel, self.roiSRID)
+            filename = self.create_filename(self.outputDir, roi, method,'.csv')
+            print('Results saved to {}'.format(filename))
+            db.exportDict_to_CSV(instimg, filename)
+
+        if method == 'metadata':
+            copylist, instimg = db.qrySelectFromAvailable(self.roi, self.table_to_query, self.spatialrel, self.roiSRID)
+            filename = self.create_filename(self.outputDir, roi, self.table_to_query)
+            print ('Results saved to {}'.format(filename))
+            db.exportDict_to_CSV(instimg, filename)
+            tablename = self.create_tablename(roi, method)
+            success = db.create_table_from_dict(tablename, instimg)
+            #success = db.create_table_from_dict('EXAMPLE', instimg)
+            if success:
+                success = db.insert_table_from_dict(tablename, instimg)
+                print('Table {} created {}'.format(tablename, success))
+            return
+        elif method == 'cis':
+            copylist, instimg = db.qrySelectFromAvailable(self.roi, 'tblcisarchive', self.spatialrel, self.roiSRID)
+            filename = self.create_filename(self.outputDir, roi, method)
+            print('Results saved to {}'.format(filename))
+            db.exportDict_to_CSV(instimg, filename)
+            tablename = self.create_tablename(roi, method)
+            # success = db.create_table_from_dict(tablename, instimg)
+            success = db.create_table_from_dict('EXAMPLE', instimg)
+            if success:
+                success = db.insert_table_from_dict('EXAMPLE', instimg)
+                print('Table {} created {}'.format(tablename, success))
+            return
         elif method == 'EODMS': #set up to query RSAT-1 data
-            #query from EODMS
-            roiShpFile = os.path.join(self.roiDir, roi)
-            queryParams = self.readShpFile(roiShpFile)
-            self.queryEODMS(queryParams)
+            self.query_eodms(db, self.roi, self.roiDir, method, self.outputDir)
+        elif method == 'ORDER_EODMS':
+            self.order_eodms(db)
+        elif method == 'SENTINEL':
+            self.query_sentinel(db, self.roi, self.roiDir, method, self.outputDir)
+        elif method =='DOWNLOAD_EODMS':
+            self.download_images_from_eodms(self.outputDir)
+        elif method =='DOWNLOAD_SENTINEL':
+            self.donwload_images_from_sentinel(db, self.outputDir)
         else:
             self.logger.error("Valid Query Method not selected, cannot complete task.")
             return
+
+    def create_filename(self, outputDir, roi, method, extension):
+
+        now = datetime.now()
+        dt_string = now.strftime("%d-%m-%Y %H:%M:%S")
+        filename = roi + '_' + method + '_' + dt_string + extension
+        fullpath = os.path.join(outputDir,filename)
+        return fullpath
+
+    def create_tablename(self, roi, method):
+
+        now = datetime.now()
+        dt_string = now.strftime("%d%m%Y_%H%M")
+        tablename = roi + '_' + method + '_' + dt_string
+        return tablename
+
+
+    def save_filepaths(self, output_dir, roi, method, copied_locations):
+        try:
+            outputName = self.create_filename(output_dir, roi, method + '_PATHS', '.txt')
+            with open(outputName, "w") as output:
+                for location in copied_locations:
+                    output.write(location + "\n")
+
+            print('\nList of downloaded images: {} '.format(outputName))
+        except Exception as e:
+            print('The following exception occurred when saving the list of downloaded images to a txt file.')
+            print(e)
+        return
 
     def queryEODMS(self, queryParams):
         """
@@ -88,6 +172,7 @@ class Query(object):
             #if end_date.tzinfo is None:
             #    end_date = end_date.replace(tzinfo=timezone.utc)
 
+            print('ROI start date: {}  end date: {}'.format(start_date, end_date))
             coordinates = item['geom']
             records.append(self.getEODMSRecords(session, start_date, end_date, coordinates))
             
@@ -101,10 +186,11 @@ class Query(object):
         
         #Submit Order
         submit_order = input("Would you like to order {} images? [Y/N]\t".format(n))
-        if ans.lower() == 'y':
+        if submit_order.lower() == 'y':
             orderquery = self.buildQuery(records)
             self.submit_post(orderquery)
-                 
+
+        return records
 
     def getEODMSRecords(self, session, start_date, end_date, coords):
         """ 
@@ -134,8 +220,8 @@ class Query(object):
                     '''query=CATALOG_IMAGE.THE_GEOM_4326+INTERSECTS+POLYGON+%28%28''' + \
                         polygon_coordinates + '''%29%29&''' + \
                     '''resultField=RSAT1.BEAM_MNEMONIC&maxResults=5000&format=json'''
-        response = session.get(query_url)
 
+        response = session.get(query_url)
         rsp = response.content
         response_dict = json.loads(rsp.decode('utf-8'))
 
@@ -148,6 +234,7 @@ class Query(object):
 
         #Filter query results for specified daterange
         records = []  #records to order
+
         for result in results:
             if result["isOrderable"]:
                 for item in result["metadata2"]:
@@ -159,7 +246,7 @@ class Query(object):
                     record_id = result["recordId"]
                     collection_id = result["collectionId"]
                     records.append([record_id, collection_id])
-            break
+
         
         return records
 
@@ -180,7 +267,7 @@ class Query(object):
         
         return query
 
-    def submit_post(query):
+    def submit_post(session, query):
         """ 
         submits order to EODMS
             
@@ -192,7 +279,6 @@ class Query(object):
 
         rest_url = "https://www.eodms-sgdot.nrcan-rncan.gc.ca/wes/rapi/order"
         response = session.post(rest_url, data=str(query))
-
 
     def readShpFile(self, filename):
         """ 
@@ -237,5 +323,449 @@ class Query(object):
             
         return query_dict
 
-    
-    
+
+    def read_shp(self):
+        roiShapeFile = "/Users/jazminromero/Desktop/shp/ArcticBay.shp"
+        print ('Reading shape file: {}'.format(roiShapeFile))
+        shapefile = geopandas.read_file(roiShapeFile, driver='ESRI')
+        print(shapefile)
+
+        roiGeojson = "/Users/jazminromero/Desktop/shp/ArcticBay.geojson"
+        print('Writing geojson file: {}'.format(roiGeojson))
+        shapefile.to_file(roiGeojson, driver='GeoJSON')
+
+
+    def queryEODMS_MB(self, roiDir, roi, collection):
+
+        # 1. Transform shapefile into geojson
+        shpFilename = os.path.join(roiDir, roi)
+        shpFilename = shpFilename + '.shp'
+        shapefile = geopandas.read_file(shpFilename, driver='ESRI Shapefile')
+
+        geojsonFilename = roi + '.geojson'
+        geojsonFilename = os.path.join(roiDir, geojsonFilename)
+        shapefile.to_file(geojsonFilename, driver='GeoJSON')
+
+        # 2. Retrieve fromDate and startDate from file
+        f = open(geojsonFilename)
+        data = json.load(f)
+        fromdate = data['features'][0]['properties']['FROMDATE']
+        todate = data['features'][0]['properties']['TODATE']
+        print ('ROI start date {} end date {}'.format(fromdate,todate))
+
+
+        # 3. Query EODMS
+        client = EodmsAPI(collection=collection)
+        client.query(start=fromdate, end=todate, geometry=geojsonFilename)
+        len(client.results)
+
+        record_ids = client.results.to_dict()
+
+        return record_ids
+
+
+    def read_csv(self, filename):
+        with open(filename, newline='') as csvfile:
+            reader = csv.DictReader(csvfile)
+            for row in reader:
+                print(row)
+
+        return reader
+
+   
+
+    def query_local_table(self, db, roi, tablename, spatialrel, roiSRID, method):
+
+        try:
+            copylist, instimg = db.qrySelectFromAvailable(roi, tablename, spatialrel, roiSRID)
+
+            #Options to output results
+            print('Query completed. Write query results to: ')
+            print('1: CSV file')
+            print('2: Local table')
+            print('3: Both')
+            typOut = input('Enter your option (1,2,3): ')
+
+            downloaded=False
+            if typOut == '1' or typOut == '3':
+                filename = self.create_filename(self.outputDir, roi, self.table_to_query, '.csv')
+                db.exportDict_to_CSV(instimg, filename)
+                print('Results saved to {} '.format(filename))
+
+                answer = input('Download {} images to output directory [Y/N]? '.format(len(copylist)))
+                if answer.lower() == 'y':
+                    self.download_from_csv_tblmetadata(self.outputDir, filename, roi, method)
+                    downloaded = True
+
+            if typOut == '2' or typOut == '3':
+                tablename = self.create_tablename(roi, method)
+                success = db.create_table_from_dict(tablename, instimg)
+                if success:
+                    success = db.insert_table_from_dict(tablename, instimg)
+                    print('{} at creating Table {}'.format(success,tablename))
+                    if success and not downloaded:
+                        answer = input('Download {} images to output directory [Y/N]? '.format(len(copylist)))
+                        if answer.lower() == 'y':
+                            self.download_from_table_tblmetadata(db, self.outputDir, tablename, roi, method)
+
+        except Exception as e:
+            print ('The following exception occurred when query a local table.')
+            print(e)
+        return
+
+    def donwload_local_table(self, db, roi, method):
+        try:
+            sourcename = input("Enter CSV filename or tablename of images to download: ")
+            if '.csv' in sourcename.lower():
+                self.download_from_csv_tblmetadata(self.outputDir, sourcename, roi, method)
+            else:
+                self.download_from_table_tblmetadata(db, self.outputDir, sourcename, roi, method)
+        except Exception as e:
+            print('The following exception occurred when query a local table.')
+            print(e)
+        return
+
+    def download_from_csv_tblmetadata(self, output_dir, csv_filename, roi, method):
+
+        locations = []
+        copied_locations = []
+        with open(csv_filename, newline='') as csvfile:
+            reader = csv.DictReader(csvfile)
+            for row in reader:
+                locations.append(row['location'])
+
+
+        if not os.path.exists(output_dir):
+            os.makedirs(output_dir)
+
+        for filepath in locations:
+            #filepath = os.path.split(image)
+            #path = filepath[0]
+            #filename = filepath[1]
+            if os.path.exists(filepath):
+                shutil.copy(filepath,output_dir)
+                copied_locations.append(filepath)
+            else:
+                print('File {} not found.'.format(filepath))
+
+        #outputName = self.create_filename(output_dir, roi, method+'_PATHS','.txt')
+        #with open(outputName, "w") as output:
+        #    for location in copied_locations:
+        #        output.write(location + "\n")
+
+        self.save_filepaths(output_dir, roi, method, copied_locations)
+
+    def download_from_table_tblmetadata(self, db, output_dir, tablename, roi, method):
+
+        copied_locations = []
+
+        query = 'SELECT location FROM {}'.format(tablename)
+        locations = db.execute_raw_sql_query(query)
+
+
+        if not os.path.exists(output_dir):
+            os.makedirs(output_dir)
+
+        for tuple in locations:
+            filepath = tuple[0]
+            #filepath = os.path.split(image)
+            #path = filepath[0]
+            #filename = filepath[1]
+            if os.path.exists(filepath):
+                shutil.copy(filepath,output_dir)
+                copied_locations.append(filepath)
+            else:
+                print('File {} not found.'.format(filepath))
+
+        #outputName = self.create_filename(output_dir, roi, method+'_PATHS','.txt')
+        #with open(outputName, "w") as output:
+        #    for location in copied_locations:
+        #        output.write(location+ "\n")
+        #print('List of downloaded images: {} '.format(outputName))
+        self.save_filepaths(output_dir, roi, method, copied_locations)
+
+    def query_eodms(self, db, roi, roiDir, method, outputDir):
+        # query from EODMS
+        allison = False
+        if allison:
+            roiShpFile = os.path.join(self.roiDir, roi)
+            queryParams = self.readShpFile(roiShpFile)
+            records = self.queryEODMS(queryParams)
+        else:
+            collection = input('Enter collection to query or press enter for default "Radarsat1": ')
+            if collection =='\n' or collection=='':
+               collection='Radarsat1'
+            records = self.queryEODMS_MB(roiDir, roi, collection)
+
+        # Options to output results
+        print('Query completed. Write query results to: ')
+        print('1: CSV file')
+        print('2: Local table')
+        print('3: Both')
+        typOut = input('Enter your option (1,2,3): ')
+
+        if typOut == '1' or typOut == '3':
+            filename = self.create_filename(outputDir, roi, method, '.csv')
+            db.exportDict_to_CSV(records, filename)
+            print('Reslts saved to {}'.format(filename))
+
+
+        if typOut == '2' or typOut == '3':
+            tablename = self.create_tablename(roi, method)
+            #tablename = 'EXAMPLE_EODMS'
+            success = db.create_query_table(tablename, records)
+            if success:
+                success = db.insert_query_table(tablename, records)
+                print('Table {} created {}'.format(tablename, success))
+
+        if len(records)>0:
+            submit_order = input("Would you like to order the images? [Y/N]")
+            if submit_order.lower() == 'y':
+                self._order_to_eodms(records)
+                print('Images ordered to EODMS. Wait for confirmation email.')
+
+    def order_eodms(self, db):
+        sourcename = input("Enter CSV filename or tablename of images to order: ")
+        if '.csv' in sourcename.lower():
+            record_id = self.get_EODMS_ids_from_csv(sourcename)
+        else:
+            record_id = self.get_EODMS_ids_from_table(db, sourcename.lower())
+
+        print('Ordering {} images: '.format(len(record_id)))
+        print(record_id)
+        submit_order = input("Would you like to order {} images? [Y/N]\t".format(len(record_id)))
+        if submit_order.lower() == 'y':
+            self._order_to_eodms(record_id)
+            print('Images ordered to EODMS. Wait for confirmation email.')
+
+    def download_images_from_eodms(self, output_dir):
+        try:
+            source = input("Enter an order_item_id or a filename with a list of order_item_ids: ")
+            ids = []
+            if '.txt' in source.lower():
+                with open(source) as file:
+                    ids = file.readlines()
+            else:
+                ids.append(source)
+
+            collection = input('Enter collection to download or press enter for default "Radarsat1": ')
+            if collection == '\n' or collection == '':
+                collection = 'Radarsat1'
+            client = EodmsAPI(collection=collection)
+            copied_locations = []
+            for order_item_id in ids:
+                order_item_id = order_item_id.replace('\n', '')
+                try:
+                    list_files = client.download(order_item_id, output_dir)
+                    if len(list_files)==0:
+                        print("\nOrder_item_id {} is *not* available to download. ".format(order_item_id))
+                    else:
+                        print ("\nOrder_item_id {} sucessfully downloaded. ".format(order_item_id))
+                        copied_locations.append(list_files[0])
+                except:
+                    print ('Problem when downloading order_item_id {}'.format(order_item_id))
+
+            if len(copied_locations)>0:
+                self.save_filepaths(output_dir, '_', 'eodms', copied_locations)
+
+        except Exception as e:
+            print('The following exception occurred when downloading images from eodms:')
+            print(e)
+        return
+
+    def get_EODMS_ids_from_csv(self, filename):
+        record_id = []
+        with open(filename, newline='') as csvfile:
+            reader = csv.DictReader(csvfile)
+            for row in reader:
+                record_id.append(row['EODMS RecordId'])
+
+        return record_id
+
+    def get_EODMS_ids_from_table(self, db, tablename):
+        query = 'SELECT eodms_recordid FROM {}'.format(tablename)
+        result = db.execute_raw_sql_query(query)
+        record_id = []
+        for record in result:
+            record_id.append(record[0])
+        return record_id
+
+    def _order_to_eodms(self, record_ids):
+        #eodms = ['Radarsat1', 'Radarsat2', 'RCMImageProducts', 'NAPL', 'PlanetScope']
+        collection = input('Enter collection to order or press enter for default "Radarsat1": ')
+        if collection == '\n' or collection == '':
+            collection = 'Radarsat1'
+        client = EodmsAPI(collection=collection)
+        order_id = client.order(record_ids)
+        print('Order {} submitted. Wait for confirmation email.'.format(order_id))
+
+
+    def query_sentinel(self, db, roi, roiDir, method, outputDir):
+
+        satellite = input('Enter satellite to query or press enter for default "Sentinel-2": ')
+        if satellite == '\n' or satellite == '':
+            satellite = 'Sentinel-2'
+
+        product = input('Enter product type or press enter for "None"')
+        if product == '\n' or product == '':
+            product = None
+
+        sensoroperationalmode = input('Enter sensor type ("SM", "IW", "EW", "WV") or press enter for None')
+        if sensoroperationalmode == '\n' or sensoroperationalmode == '':
+            sensoroperationalmode = None
+
+        records = self._query_sentinel(roiDir, roi, satellite, product, sensoroperationalmode)
+        if len(records)==0:
+            print ('No images were found for the Shapefile and parameters selected.')
+            return
+
+        # Options to output results
+        print('Query completed. Write query results to: ')
+        print('1: CSV file')
+        print('2: Local table')
+        print('3: Both')
+        typOut = input('Enter your option (1,2,3): ')
+
+        if typOut == '1' or typOut == '3':
+            filename = self.create_filename(outputDir, roi, method, '.csv')
+            db.exportDict_to_CSV(records, filename)
+            print('File saved to {}'.format(filename))
+
+        if typOut == '2' or typOut == '3':
+            tablename = self.create_tablename(roi, method)
+            #tablename = 'EXAMPLE_SENTINEL'
+            records_dict = records.to_dict()
+            success = db.create_query_table(tablename, records_dict)
+            if success:
+                success = db.insert_query_table(tablename, records_dict)
+                print('Table {} created {}'.format(tablename, success))
+
+        answer = input("Would you like to download {} images? [Y/N]\t".format(len(records)))
+        if answer == True:
+            self._download_images_from_sentinel(records, self.outputDir)
+
+        return
+
+
+
+
+    def donwload_images_from_sentinel(self, db, outputDir):
+        try:
+            sourcename = input("Enter CSV filename or tablename of images to download: ")
+            if '.csv' in sourcename.lower():
+                records = self.get_Sentinel_ids_from_csv(sourcename)
+            else:
+                records = self.get_Sentinel_ids_from_table(db, sourcename.lower())
+
+            self._download_images_from_sentinel(records, outputDir)
+
+        except Exception as e:
+            print('The following exception occurred when downloading images from Copernicus:')
+            print(e)
+        return
+
+    def _query_sentinel(self, roiDir, roi, satellite, product, sensoroperationalmode=None):
+
+        # 1. Transform shapefile into geojson
+        shpFilename = os.path.join(roiDir, roi)
+        shpFilename = shpFilename + '.shp'
+        shapefile = geopandas.read_file(shpFilename, driver='ESRI Shapefile')
+
+        geojsonFilename = roi + '.geojson'
+        geojsonFilename = os.path.join(roiDir, geojsonFilename)
+        shapefile.to_file(geojsonFilename, driver='GeoJSON')
+
+        # 2. Retrieve fromDate and startDate from file
+        f = open(geojsonFilename)
+        data = json.load(f)
+        fromdate = data['features'][0]['properties']['FROMDATE']
+        todate = data['features'][0]['properties']['TODATE']
+        fromdate_obj = datetime.strptime(fromdate, '%Y-%m-%d')
+        todate_obj = datetime.strptime(todate, '%Y-%m-%d')
+        print('ROI start date {} end date {}'.format(fromdate, todate))
+
+        # 3. Query Sentinel
+        footprint = geojson_to_wkt(read_geojson(geojsonFilename))
+        username = input("Enter your Copernicus username: ")
+        password = getpass.getpass("Enter your Copernicus password: ")
+        api = SentinelAPI(username, password, 'https://scihub.copernicus.eu/dhus')
+
+        #products = api.query(footprint,
+        #                     date=(fromdate_obj, todate_obj),
+        #                     platformname=satellite,
+        #                     processinglevel='Level-2A',
+        #                     producttype=product,
+        #                     sensoroperationalmode=sensoroperationalmode)
+        #record_ids = api.to_dataframe(products)
+
+        products = api.query(footprint,
+                             date=('20100101', '20201230'),
+                             platformname=satellite,
+                             processinglevel='Level-2A',
+                             producttype=product)
+
+        record_ids = api.to_dataframe(products)
+
+        return record_ids
+
+    def get_Sentinel_ids_from_csv(self, filename):
+        try:
+            records = []
+            with open(filename, newline='') as csvfile:
+                reader = csv.DictReader(csvfile)
+                for row in reader:
+                    # records.append(row['uuid'])
+                    records.append({"title": row['title'], "uuid": row['uuid']})
+                    # print(records)
+        except:
+            print('An exception occurred when opening the file. Please check file location.')
+
+        return records
+
+    def get_Sentinel_ids_from_table(self, db, tablename):
+
+        query = 'SELECT title, uuid FROM {}'.format(tablename)
+        result = db.execute_raw_sql_query(query)
+        records = []
+        for record in result:
+            records.append({"title": record[0], "uuid": record[1]})
+        return records
+
+    def _download_images_from_sentinel(self, records, output_dir):
+
+        # Read record UUID from filelocation
+        try:
+            username = input("Enter your Copernicus username: ")
+            password = getpass.getpass("Enter your Copernicus password: ")
+            api = SentinelAPI(username, password, 'https://scihub.copernicus.eu/dhus')
+        except:
+            print('An exception occurred when accessing Copernicus. Please check username and/or password.')
+            return
+
+
+        copied_locations = []
+        offline_uuids = []
+        for record in records:
+        # download the file
+         try:
+            id = record['uuid']
+            title = record['title']
+            if title!='':
+                is_online = api.is_online(id)
+                if is_online:
+                    dict = api.download(id,output_dir)
+                    print("Title {} sucessfully downlaoded. ".format(title))
+                    copied_locations.append(dict['path'])
+                else:
+                    print(title + ' is offline - Retry later.')
+                    offline_uuids.append(id)
+                    api.download(id, output_dir)
+
+         except:
+            print ('Try next file.')
+
+        if len(offline_uuids)>0:
+            print ('There were {} offline images. Retry to download thme later.'.format(len(offline_uuids)))
+
+        if len(copied_locations)>0:
+            self.save_filepaths(output_dir, '_', 'sentinel', copied_locations)
