@@ -95,15 +95,7 @@ class SigLib:
         self.loghandler = None
         self.logger = 0        
 
-    #def read_shp(self):
-    #    roiShapeFile = "/Users/jazminromero/Desktop/shp/ArcticBay.shp"
-    #    print ('Reading shape file: {}'.format(roiShapeFile))
-    #    shapefile = geopandas.read_file(roiShapeFile, driver='ESRI')
-    #    print(shapefile)
 
-    #    roiGeojson = "/Users/jazminromero/Desktop/shp/ArcticBay.geojson"
-    #    print('Writing geojson file: {}'.format(roiGeojson))
-    #    shapefile.to_file(roiGeojson, driver='GeoJSON')
 
     def createLog(self,zipfile=None):   
         """
@@ -573,7 +565,7 @@ class SigLib:
         if self.queryProcess == "1": #note query mode is seperate from qualitative and quantitative
             #self.read_shp()
             db = Database(self.table_to_query, self.dbName, self.loghandler, host=self.dbHost)
-            query_methods = {'1': 'metadata', '2': 'download_metabdata', '3': 'cis', '4':'EODMS', '5':'ORDER_EODMS', '6':'DOWNLOAD_EODMS', '7':'SENTINEL', '8':'DOWNLOAD_SENTINEL'}
+            query_methods = {'1': 'metadata', '2': 'download_metabdata', '3': 'cis', '4':'EODMS', '5':'ORDER_EODMS', '6':'DOWNLOAD_EODMS', '7':'SENTINEL', '8':'DOWNLOAD_SENTINEL', '9': 'RAW_SQL'}
             print("Available Query Methods:\n")
             print("1: {}: Query".format(self.table_to_query))
             print("2: {}: Download".format(self.table_to_query))
@@ -583,7 +575,8 @@ class SigLib:
             print("6: EODMS: Download")
             print("7: Copernicus: Query")
             print("8: Copernicus: Download")
-            ans = input("Please select the desired query method (1,2,3,4,5,6,7,8):\t")
+            print("9: Execute Raw Sql Query")
+            ans = input("Please select the desired query method (1,2,3,4,5,6,7,8,9):\t")
             self.query_mode(db, query_methods[ans])
         if self.scanPath == "1":
             self.proc_Dir(self.scanDir, self.scanFor)      # Scan by path pattern

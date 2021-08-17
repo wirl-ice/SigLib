@@ -1129,9 +1129,21 @@ class Database:
 
         # DATABASE UTILITY FUNCTION
 
+    # Creates a table that will contain records from a query
+    def create_table_from_dict (self, table_name, list):
+
+        """
+                Creates a table to store results from a query. The structure of the table follows the information from list.
+
+                    **Parameters**
+
+                        *table_name* : The name of the table to be created.
+                        *list*: A list of records from where the table structure (name and data type of columns) will be obtained.
 
 
-    def create_table_from_dict (self, table_name, list=None):
+                    **Returns**
+                        *success* : True if the records were inserted into the table
+                """
 
         success = True
         curs = self.connection.cursor()
@@ -1196,224 +1208,262 @@ class Database:
 
         return success
 
+    # Inserts records into a insert_table
+    # The records are in a different format as in insert_query_table
+    def insert_table_from_dict(self, table_name, list):
+        """
+               Inserts records into a table to store results from a query. The structure of the table follows the information from records.
 
-    def insert_table_from_dict(self, table_name, list=None):
+                   **Parameters**
 
-        success = True
+                       *table_name* : The name of the table to be created.
+                       *list*: A list of records from where the table structure (name and data type of columns) will be obtained.
 
-        if len(list) > 0:
-            dict = list[0]
 
-            # Get columns and its types
-        columns = tuple(dict)
-        columns_name = []
-        total_columns = len(dict)
+                   **Returns**
+                       *success* : True if the records were inserted into the table
+               """
 
-        for i in range(total_columns):
-            name = columns[i]
-            name = name.replace(' ', '_')
-            name = name.replace('(', '')
-            name = name.replace(')', '')
-            columns_name.append(name)
+        try:
+            success = True
 
-        total_rows = len(list)
+            if len(list) > 0:
+                dict = list[0]
 
-        for row in range(0, total_rows):
-            sql_query = 'INSERT INTO {} ('.format(table_name)
-            for i in range(0, total_columns - 1):
-                sql_query = sql_query + columns_name[i] + ', '
+                # Get columns and its types
+            columns = tuple(dict)
+            columns_name = []
+            total_columns = len(dict)
 
-            sql_query = sql_query + columns_name[total_columns - 1] + ') VALUES ('
+            for i in range(total_columns):
+                name = columns[i]
+                name = name.replace(' ', '_')
+                name = name.replace('(', '')
+                name = name.replace(')', '')
+                columns_name.append(name)
 
-            values = []
-            dict = list[row]
-            for i in range(total_columns - 1):
-                    if (type(dict[columns_name[i]]).__name__) == 'Polygon':
-                        v = dict[columns_name[i]]
-                        p = v.wkt
-                        values.append(p)
-                    else:
-                        values.append(dict[columns_name[i]])
-                    sql_query = sql_query + '%s, '
+            total_rows = len(list)
 
-            if (type(dict[columns_name[total_columns-1]]).__name__) == 'Polygon':
-                v = dict[columns_name[total_columns-1]]
-                p = v.wkt
-                values.append(p)
-            else:
-                values.append(dict[columns_name[total_columns-1]])
+            for row in range(0, total_rows):
+                sql_query = 'INSERT INTO {} ('.format(table_name)
+                for i in range(0, total_columns - 1):
+                    sql_query = sql_query + columns_name[i] + ', '
 
-            sql_query = sql_query + '%s)'
+                sql_query = sql_query + columns_name[total_columns - 1] + ') VALUES ('
 
+                values = []
+                dict = list[row]
+                for i in range(total_columns - 1):
+                        if (type(dict[columns_name[i]]).__name__) == 'Polygon':
+                            v = dict[columns_name[i]]
+                            p = v.wkt
+                            values.append(p)
+                        else:
+                            values.append(dict[columns_name[i]])
+                        sql_query = sql_query + '%s, '
+
+                if (type(dict[columns_name[total_columns-1]]).__name__) == 'Polygon':
+                    v = dict[columns_name[total_columns-1]]
+                    p = v.wkt
+                    values.append(p)
+                else:
+                    values.append(dict[columns_name[total_columns-1]])
+
+                sql_query = sql_query + '%s)'
+
+                curs = self.connection.cursor()
+
+                try:
+                    curs.execute(sql_query, values)
+                    self.connection.commit()
+                except Exception as e:
+                    print(e)
+                    self.connection.rollback()
+                    success = False
+        except Exception as e:
+            print(e)
+            self.connection.rollback()
+            success = False
+
+        return success
+
+
+
+    #Creates a table that will contain records from a query
+    def create_query_table(self, table_name, records):
+        """
+               Creates a table to store results from a query. The structure of the table follows the information from records.
+
+                   **Parameters**
+
+                       *table_name* : The name of the table to be created.
+                       *records*: A list of records from where the table structure (name and data type of columns) will be obtained.
+
+
+                   **Returns**
+                       *success* : True if the records were inserted into the table
+               """
+        try:
+            success = True
             curs = self.connection.cursor()
 
             try:
-                curs.execute(sql_query, values)
+                sql_query = 'DROP TABLE IF EXISTS {}'.format(table_name)
+                curs.execute(sql_query)
                 self.connection.commit()
             except Exception as e:
                 print(e)
                 self.connection.rollback()
                 success = False
 
-        return success
+            # Get columns and its types
+            columns = tuple(records)
+            columns_name = []
+            total_columns = len(records)
+            types = []
 
-
-
-
-    def create_query_table(self, table_name, records=None):
-
-        success = True
-        curs = self.connection.cursor()
-
-        try:
-            sql_query = 'DROP TABLE IF EXISTS {}'.format(table_name)
-            curs.execute(sql_query)
-            self.connection.commit()
-        except Exception as e:
-            print(e)
-            self.connection.rollback()
-            success = False
-
-        # Get columns and its types
-        columns = tuple(records)
-        columns_name = []
-        total_columns = len(records)
-        types = []
-
-        for i in range(total_columns):
-            name = columns[i]
-            name = name.replace(' ', '_')
-            name = name.replace('(', '')
-            name = name.replace(')', '')
-            columns_name.append(name)
-            if (type(records[columns[i]]).__name__) == 'dict':
-                dict = records[columns[i]]
-                dict_cols = tuple(dict)
-                types.append(type(dict[dict_cols[0]]).__name__)
-
-        sql_types = []
-
-        for t in types:
-            if t == 'int':
-                sql_types.append('integer')
-            elif t == 'str':
-                sql_types.append('varchar')
-            elif t == 'float':
-                sql_types.append('double precision')
-            elif t.lower() == 'polygon':
-                sql_types.append('varchar')
-            else:
-                sql_types.append(t)
-
-        sql_query = 'CREATE TABLE {} ('.format(table_name)
-        for i in range(0, total_columns - 1):
-            sql_query = sql_query + columns_name[i] + ' ' + sql_types[i] + ', '
-
-        sql_query = sql_query + columns_name[total_columns - 1] + ' ' + sql_types[total_columns - 1] + ");"
-
-        try:
-            curs.execute(sql_query)
-            self.connection.commit()
-        except Exception as e:
-            print(e)
-            self.connection.rollback()
-            success=False
-
-        return success
-
-
-
-    def insert_query_table(self, table_name,records=None):
-
-
-        success = True
-
-
-        #Get columns and its types
-        columns = tuple(records)
-        columns_name = []
-        total_columns = len(records)
-
-
-        for i in range(total_columns):
-            name = columns[i]
-            name = name.replace(' ', '_')
-            name = name.replace('(', '')
-            name = name.replace(')', '')
-            columns_name.append(name)
-
-
-        total_rows = len(records[columns[0]])
-
-        for row in range(0, total_rows):
-            sql_query = 'INSERT INTO {} ('.format(table_name)
-            for i in range(0, total_columns-1):
-                sql_query = sql_query + columns_name[i] + ', '
-
-            sql_query = sql_query + columns_name[total_columns-1] + ') VALUES ('
-
-            values = []
-            for i in range(total_columns-1):
+            for i in range(total_columns):
+                name = columns[i]
+                name = name.replace(' ', '_')
+                name = name.replace('(', '')
+                name = name.replace(')', '')
+                columns_name.append(name)
                 if (type(records[columns[i]]).__name__) == 'dict':
                     dict = records[columns[i]]
                     dict_cols = tuple(dict)
-                    if (type(dict[dict_cols[row]]).__name__) == 'Polygon':
-                        v = dict[dict_cols[row]]
-                        p = v.wkt
-                        values.append(p)
-                    else:
-                        values.append(dict[dict_cols[row]])
-                    sql_query = sql_query +  '%s, '
+                    types.append(type(dict[dict_cols[0]]).__name__)
 
+            sql_types = []
 
-            dict = records[columns[total_columns - 1]]
-            dict_cols = tuple(dict)
-            if (type(dict[dict_cols[row]]).__name__) == 'Polygon':
-                v = dict[dict_cols[row]]
-                p = v.wkt
-                values.append(p)
-            else:
-                values.append(dict[dict_cols[row]])
+            for t in types:
+                if t == 'int':
+                    sql_types.append('integer')
+                elif t == 'str':
+                    sql_types.append('varchar')
+                elif t == 'float':
+                    sql_types.append('double precision')
+                elif t.lower() == 'polygon':
+                    sql_types.append('varchar')
+                else:
+                    sql_types.append(t)
 
-            sql_query = sql_query + '%s)'
+            sql_query = 'CREATE TABLE {} ('.format(table_name)
+            for i in range(0, total_columns - 1):
+                sql_query = sql_query + columns_name[i] + ' ' + sql_types[i] + ', '
 
-
-            curs = self.connection.cursor()
+            sql_query = sql_query + columns_name[total_columns - 1] + ' ' + sql_types[total_columns - 1] + ");"
 
             try:
-                curs.execute(sql_query, values)
+                curs.execute(sql_query)
                 self.connection.commit()
             except Exception as e:
                 print(e)
                 self.connection.rollback()
-                success = False
+                success=False
 
+        except Exception as e:
+            print(e)
+            success = False
 
         return success
 
 
+    #Inserts records into a table.
+    #The records are in a different format as in insert_table_from_dict.
+    def insert_query_table(self, table_name,records):
+        """
+               Inserts records in a table_name.
 
-    def cleanup_query_tables(self):
+                   **Parameters**
 
-        curs = self.connection.cursor()
-        sql_query = "SELECT table_name FROM INFORMATION_SCHEMA.TABLES WHERE table_Name LIKE 'arcticbay_%'"
-        success= True
+                       *table_name* : The name of the table in which the records will be inserted.
+
+
+                   **Returns**
+                       *success* : True if the records were inserted into the table
+               """
+
         try:
-            curs.execute(sql_query)
-            tables = curs.fetchone()[0]
-            print(tables)
+            success = True
+            #Get columns and its types
+            columns = tuple(records)
+            columns_name = []
+            total_columns = len(records)
+
+            for i in range(total_columns):
+                name = columns[i]
+                name = name.replace(' ', '_')
+                name = name.replace('(', '')
+                name = name.replace(')', '')
+                columns_name.append(name)
+
+
+            total_rows = len(records[columns[0]])
+
+            for row in range(0, total_rows):
+                sql_query = 'INSERT INTO {} ('.format(table_name)
+                for i in range(0, total_columns-1):
+                    sql_query = sql_query + columns_name[i] + ', '
+
+                sql_query = sql_query + columns_name[total_columns-1] + ') VALUES ('
+
+                values = []
+                for i in range(total_columns-1):
+                    if (type(records[columns[i]]).__name__) == 'dict':
+                        dict = records[columns[i]]
+                        dict_cols = tuple(dict)
+                        if (type(dict[dict_cols[row]]).__name__) == 'Polygon':
+                            v = dict[dict_cols[row]]
+                            p = v.wkt
+                            values.append(p)
+                        else:
+                            values.append(dict[dict_cols[row]])
+                        sql_query = sql_query +  '%s, '
+
+
+                dict = records[columns[total_columns - 1]]
+                dict_cols = tuple(dict)
+                if (type(dict[dict_cols[row]]).__name__) == 'Polygon':
+                    v = dict[dict_cols[row]]
+                    p = v.wkt
+                    values.append(p)
+                else:
+                    values.append(dict[dict_cols[row]])
+
+                sql_query = sql_query + '%s)'
+
+                curs = self.connection.cursor()
+
+                try:
+                    curs.execute(sql_query, values)
+                    self.connection.commit()
+                except Exception as e:
+                    print(e)
+                    self.connection.rollback()
+                    success = False
         except Exception as e:
+            success = False
             print(e)
             self.connection.rollback()
-            success = False
 
         return success
 
 
 
     def execute_raw_sql_query(self, sql_query):
+        """
+           Executes a sql query passed as a parameter.
+
+               **Parameters**
+
+                   *sql_query* : The sql_query to be executed
+
+               **Returns**
+                   *result* : The result of the sql query or empty string if failed.
+           """
+
+        result = ''
         curs = self.connection.cursor()
-        success = True
         try:
             curs.execute(sql_query)
             result = curs.fetchall()
@@ -1421,7 +1471,5 @@ class Database:
         except Exception as e:
             print(e)
             self.connection.rollback()
-            success = False
-
         return result
 
