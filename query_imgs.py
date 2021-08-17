@@ -1124,20 +1124,20 @@ def _query_sentinel(roiDir, roi, satellite, product=None, sensoroperationalmode=
             api = SentinelAPI(username, password, 'https://scihub.copernicus.eu/dhus')
 
 
-            #products = api.query(footprint,
-            #                     date=(fromdate_obj, todate_obj),
-            #                     platformname=satellite,
-            #                     processinglevel='Level-2A',
-            #                     producttype=product,
-            #                     sensoroperationalmode=sensoroperationalmode)
-            #records = api.to_dataframe(products)
-
             products = api.query(footprint,
-                                 date=('20100101', '20201230'),
+                                 date=(fromdate_obj, todate_obj),
                                  platformname=satellite,
                                  processinglevel='Level-2A',
-                                 producttype=product)
+                                 producttype=product,
+                                 sensoroperationalmode=sensoroperationalmode)
             records = api.to_dataframe(products)
+
+            #products = api.query(footprint,
+            #                     date=('20100101', '20201230'),
+            #                     platformname=satellite,
+            #                     processinglevel='Level-2A',
+            #                     producttype=product)
+            #records = api.to_dataframe(products)
         except Exception as e:
             print('The following exception occurred when querying SentinelAPI:')
             print(e)
