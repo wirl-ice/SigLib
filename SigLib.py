@@ -95,15 +95,7 @@ class SigLib:
         self.loghandler = None
         self.logger = 0        
 
-    #def read_shp(self):
-    #    roiShapeFile = "/Users/jazminromero/Desktop/shp/ArcticBay.shp"
-    #    print ('Reading shape file: {}'.format(roiShapeFile))
-    #    shapefile = geopandas.read_file(roiShapeFile, driver='ESRI')
-    #    print(shapefile)
 
-    #    roiGeojson = "/Users/jazminromero/Desktop/shp/ArcticBay.geojson"
-    #    print('Writing geojson file: {}'.format(roiGeojson))
-    #    shapefile.to_file(roiGeojson, driver='GeoJSON')
 
     def createLog(self,zipfile=None):   
         """

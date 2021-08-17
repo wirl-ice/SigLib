@@ -395,8 +395,10 @@ class Query(object):
 
         for filepath in locations:
             if os.path.exists(filepath):
-                shutil.copy(filepath,output_dir)
-                copied_locations.append(filepath)
+                head_tail = os.path.split(filepath)
+                new_location = os.path.join(output_dir, head_tail[1])
+                shutil.copy(filepath, output_dir)
+                copied_locations.append(new_location)
             else:
                 print('File {} not found.'.format(filepath))
 
@@ -432,8 +434,10 @@ class Query(object):
             for tuple in locations:
                 filepath = tuple[0]
                 if os.path.exists(filepath):
-                    shutil.copy(filepath,output_dir)
-                    copied_locations.append(filepath)
+                    head_tail = os.path.split(filepath)
+                    new_location = os.path.join(output_dir, head_tail[1])
+                    shutil.copy(filepath, output_dir)
+                    copied_locations.append(new_location)
                 else:
                     print('File {} not found.'.format(filepath))
 
@@ -481,7 +485,7 @@ class Query(object):
             if typOut == '1' or typOut == '3':
                 filename = self.create_filename(outputDir, roi, method, '.csv')
                 db.exportDict_to_CSV(records, filename)
-                print('Reslts saved to {}'.format(filename))
+                print('Results saved to {}'.format(filename))
 
 
             if typOut == '2' or typOut == '3':
@@ -691,11 +695,11 @@ class Query(object):
         if satellite == '\n' or satellite == '':
             satellite = 'Sentinel-2'
 
-        product = input('Enter product type or press enter for "None"')
+        product = input('Enter product type or press enter for "None": ')
         if product == '\n' or product == '':
             product = None
 
-        sensoroperationalmode = input('Enter sensor type ("SM", "IW", "EW", "WV") or press enter for None')
+        sensoroperationalmode = input('Enter sensor type ("SM", "IW", "EW", "WV") or press enter for None: ')
         if sensoroperationalmode == '\n' or sensoroperationalmode == '':
             sensoroperationalmode = None
 
