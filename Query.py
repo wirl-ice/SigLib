@@ -60,7 +60,7 @@ class Query(object):
             self.query_local_table(db, self.roi, self.table_to_query, self.spatialrel, self.roiSRID, method)
             return
         elif method =='download_metabdata':
-            self.download_local_table(self, db, roi, method)
+            self.download_local_table(db, roi, method)
             return
         elif method == 'cis':
             self.query_local_table(db, self.roi, 'tblcisarchive', self.spatialrel, self.roiSRID, method)
