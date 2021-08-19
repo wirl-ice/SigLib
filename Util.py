@@ -462,35 +462,6 @@ def wkt2shp(shpname, vectdir, proj, projdir, wkt):
     datasource.Destroy()
     del fout
 
-#OBSOLETE
-def interpolate_bilinear_matrix(Q, x, y):
-    """
-    Peforms a bilinear interpolation of matrix Q at the specified x (length M), y (length N) points and
-    returns an M x N array of the interpolated values
-    
-    **Parameters**
-        
-        *Q*        : 2x2 array of known values located at the corners of x and y     
-
-        *x*        : x points at which to interpolate Q-value
-        
-        *y*        : y points at which to interpolate Q-value
-        
-    """
-
-    Q = numpy.matrix(Q)
-
-    normalization_factor = 1/((x[-1]-x[0])*(y[-1]-y[0]))
-
-    Y = numpy.asarray([[y[-1]-y],[y-y[0]]])
-    X = numpy.asarray([x[-1]-x, x-x[0]])
-
-    interp_y = Q*Y
-
-    interp = normalization_factor*(X.transpose()*interp_y)
-    
-    return numpy.asarray(interp)
-
 #KEEP
 def interpolate_biquadratic(P_corr, Pixels, Lines, x_matrix, y_matrix, z_matrix):
     x, y, z = numpy.empty(P_corr.shape), numpy.empty(P_corr.shape), numpy.empty(P_corr.shape)

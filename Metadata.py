@@ -652,7 +652,7 @@ class Metadata(object):
         mid = []
         last = []
 
-        line_num =-1;
+        line_num =-1
         n_gcps = 0
         record_offset = 0
 
@@ -660,7 +660,7 @@ class Metadata(object):
         while record_offset < file_size:
 
             #Increase the number of lines
-            line_num = line_num + 1;
+            line_num = line_num + 1
 
             fp.seek(record_offset,0)
             header_data = fp.read(12)
