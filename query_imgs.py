@@ -1073,7 +1073,10 @@ def download_images_from_sentinel(connection, outputDir):
             else:
                 records = get_Sentinel_ids_from_table(connection, sourcename.lower())
 
-            _download_images_from_sentinel(records, outputDir)
+            total_records = len(records)
+            answer = input("Do you want to download {} images [Y/N] ".format(total_records))
+            if answer.lower() == 'y':
+                _download_images_from_sentinel(records, outputDir)
 
         except Exception as e:
             print('The following exception occurred when downloading images from Copernicus:')
