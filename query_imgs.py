@@ -12,6 +12,7 @@ from eodms_api_client import EodmsAPI
 import json
 from sentinelsat import SentinelAPI, read_geojson, geojson_to_wkt
 import getpass
+from ftplib import FTP
 
 def read_config():
 
@@ -864,6 +865,84 @@ def download_images_from_eodms(output_dir):
         return
 
 
+def _download_eodms_folder(ftp, cart_directory, image_folder, output_directory):
+
+        """
+             Downloads all images in a specific folder location from a public eodms directory.
+
+             **Parameters**
+
+                 *ftp* : FTP connection
+                 *cart_directory* : folder of the cart
+                 *image_folder* : folder of the images to download
+                 *output_directory*: where the images will be donwloaded
+
+             **Returns**
+                 *record_id* : A list of images id from EODMS
+         """
+
+        copied_locations = []
+        start = datetime.now()
+        path = os.path.join(cart_directory, image_folder)
+        ftp.cwd(path)
+
+        # Get All Files
+        files = ftp.nlst()
+
+        os.chdir(output_directory)
+        for file in files:
+            if not os.path.isfile(file):
+                print("Downloading..." + file)
+                try:
+                    ftp.retrbinary("RETR " + file, open(file, 'wb').write)
+                    copied_locations.append(os.path.join(output_directory, file))
+                except Exception as e:
+                    print ('Problem when downloading file. ')
+                    print (e)
+            else:
+                print(file + ' already exists on directory.')
+                copied_locations.append(os.path.join(output_directory, file))
+
+        end = datetime.now()
+        diff = end - start
+        print('All files downloaded for ' + str(diff.seconds) + 's')
+        return copied_locations
+
+
+def download_eodms_cart(output_directory):
+        """
+            Downloads all images from an eodms cart.
+            It also outputs the list of downloaded images into a txt file. One image per line.
+
+            **Parameters**
+
+                *ouput_directory* : The directory where the images will be downloaded.
+
+        """
+
+        try:
+            copied_locations = []
+            cart_directory = input('Enter cart directory: ')
+            eodms_address = 'data.eodms-sgdot.nrcan-rncan.gc.ca'
+            ftp = FTP(eodms_address)
+            ftp.login()
+            ftp.cwd(cart_directory)
+            folders = ftp.nlst()
+
+            for folder in folders:
+                list = _download_eodms_folder(ftp, cart_directory, folder, output_directory)
+                for l in list:
+                    copied_locations.append(l)
+
+            ftp.close()
+            if len(copied_locations) > 0:
+                save_filepaths(output_directory, '_', 'eodms', copied_locations)
+        except Exception as e:
+            print('The following exception occurred when downloading the EODMS cart:')
+            print(e)
+        return
+
+
 def queryEODMS_MB(roiDir, roi, collection):
         """
             Calls EodmsAPI to download images from copernicus.
@@ -982,7 +1061,7 @@ def get_Sentinel_ids_from_csv(filename):
         return records
 
 
-    # Called from download_images_from_sentinel
+# Called from download_images_from_sentinel
 def get_Sentinel_ids_from_table(connection, tablename):
         """
             Obtain the images uuids from a local table which contains the results of a query to Sentinel.
@@ -1247,8 +1326,13 @@ def query_menu(connection, roiDir, outputDir, table_to_query, roi, roiSRID, spat
     print("8: Copernicus: Download")
     print("9: Execute Raw Sql Query")
     print("0: Exit")
-    ans = input("Please select the desired query method (1,2,3,4,5,6,7,8,9):\t")
-    method = query_methods[ans]
+    try:
+        ans = input("Please select the desired query method (0,1,2,3,4,5,6,7,8,9):\t")
+        method = query_methods[ans]
+    except:
+        print ('That is not a valid option.')
+        return
+
     if method == 'metadata':
         query_local_table(connection, outputDir, roi, table_to_query, spatialrel, roiSRID, method)
         return
@@ -1265,7 +1349,7 @@ def query_menu(connection, roiDir, outputDir, table_to_query, roi, roiSRID, spat
     elif method == 'SENTINEL':
         query_sentinel(connection, roi, roiDir, method, outputDir)
     elif method == 'DOWNLOAD_EODMS':
-        download_images_from_eodms(outputDir)
+        download_eodms_cart(outputDir)
     elif method == 'DOWNLOAD_SENTINEL':
         download_images_from_sentinel(connection, outputDir)
     elif method == 'RAW_SQL':

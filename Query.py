@@ -13,6 +13,7 @@ from eodms_api_client import EodmsAPI
 from sentinelsat import SentinelAPI, read_geojson, geojson_to_wkt
 import csv
 import shutil
+from ftplib import FTP
 
 
 class Query(object):
@@ -72,11 +73,13 @@ class Query(object):
         elif method == 'SENTINEL':
             self.query_sentinel(db, self.roi, self.roiDir, method, self.outputDir)
         elif method =='DOWNLOAD_EODMS':
-            self.download_images_from_eodms(self.outputDir)
+            self.download_eodms_cart(self.outputDir)
         elif method =='DOWNLOAD_SENTINEL':
             self.download_images_from_sentinel(db, self.outputDir)
         elif method == 'RAW_SQL':
             self.execute_raw_query(db,self.outputDir)
+        elif method == 'EXIT':
+            return
         else:
             self.logger.error("Valid Query Method not selected, cannot complete task.")
             return
@@ -613,6 +616,83 @@ class Query(object):
 
         except Exception as e:
             print('The following exception occurred when downloading images from eodms:')
+            print(e)
+        return
+
+    def _download_eodms_folder(self, ftp, cart_directory, image_folder, output_directory):
+
+        """
+             Downloads all images in a specific folder location from a public eodms directory.
+
+             **Parameters**
+
+                 *ftp* : FTP connection
+                 *cart_directory* : folder of the cart
+                 *image_folder* : folder of the images to download
+                 *output_directory*: where the images will be donwloaded
+
+             **Returns**
+                 *record_id* : A list of images id from EODMS
+         """
+
+        copied_locations = []
+        start = datetime.now()
+        path = os.path.join(cart_directory, image_folder)
+        ftp.cwd(path)
+
+        # Get All Files
+        files = ftp.nlst()
+
+        os.chdir(output_directory)
+        for file in files:
+            if not os.path.isfile(file):
+                print("Downloading..." + file)
+                try:
+                    ftp.retrbinary("RETR " + file, open(file, 'wb').write)
+                    copied_locations.append(os.path.join(output_directory, file))
+                except Exception as e:
+                    print ('Problem when downloading file. ')
+                    print (e)
+            else:
+                print(file + ' already exists on directory.')
+                copied_locations.append(os.path.join(output_directory, file))
+
+        end = datetime.now()
+        diff = end - start
+        print('All files downloaded for ' + str(diff.seconds) + 's')
+        return copied_locations
+
+
+    def download_eodms_cart(self, output_directory):
+        """
+            Downloads all images from an eodms cart.
+            It also outputs the list of downloaded images into a txt file. One image per line.
+
+            **Parameters**
+
+                *ouput_directory* : The directory where the images will be downloaded..
+
+        """
+
+        try:
+            copied_locations = []
+            cart_directory = input('Enter cart directory: ')
+            eodms_address = 'data.eodms-sgdot.nrcan-rncan.gc.ca'
+            ftp = FTP(eodms_address)
+            ftp.login()
+            ftp.cwd(cart_directory)
+            folders = ftp.nlst()
+
+            for folder in folders:
+                list = self._download_eodms_folder(ftp, cart_directory, folder, output_directory)
+                for l in list:
+                    copied_locations.append(l)
+
+            ftp.close()
+            if len(copied_locations) > 0:
+                self.save_filepaths(output_directory, '_', 'eodms', copied_locations)
+        except Exception as e:
+            print('The following exception occurred when downloading the EODMS cart:')
             print(e)
         return
 
