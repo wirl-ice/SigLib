@@ -14,6 +14,7 @@ from sentinelsat import SentinelAPI, read_geojson, geojson_to_wkt
 import csv
 import shutil
 from ftplib import FTP
+import re
 
 
 class Query(object):
@@ -87,8 +88,13 @@ class Query(object):
     def create_filename(self, outputDir, roi, method, extension):
 
         now = datetime.now()
-        dt_string = now.strftime("%d-%m-%Y %H:%M:%S")
-        filename = roi + '_' + method + '_' + dt_string + extension
+        dt_string = now.strftime("%d-%m-%Y_%H-%M")
+        filename =  roi + '_' + method + '_' + dt_string + extension
+        print ('\nFilename will be: {}'.format(filename))
+        answer = input ('Press [Enter] to accept this name or Introduce a new filename (add .csv extension): ')
+        if answer !='':
+            filename = answer
+
         fullpath = os.path.join(outputDir,filename)
         return fullpath
 
@@ -96,7 +102,16 @@ class Query(object):
 
         now = datetime.now()
         dt_string = now.strftime("%d%m%Y_%H%M")
-        tablename = roi + '_' + method + '_' + dt_string
+        tablename = 'q_' + roi + '_' + method + '_' + dt_string
+        print('\nTablename will be: {}'.format(tablename))
+        answer = input('Press [Enter] to accept this name or Introduce a new tablename: ')
+        if answer != '':
+            while re.findall(r'[^A-Za-z0-9_]', answer):
+                print ('Name is not valid. Introduce only [A-Za-z0-9_] in name.')
+                answer = input('Press [Enter] to accept this name or Introduce a new tablename: ')
+                if answer=='':
+                    answer = tablename
+            tablename=answer
         return tablename
 
 
@@ -319,12 +334,14 @@ class Query(object):
             typOut = input('Enter your option (1,2,3): ')
 
             downloaded=False
+            asked = False
             if typOut == '1' or typOut == '3':
                 filename = self.create_filename(self.outputDir, roi, self.table_to_query, '.csv')
                 db.exportDict_to_CSV(instimg, filename)
                 print('Results saved to {} '.format(filename))
 
                 answer = input('Download {} images to output directory [Y/N]? '.format(len(copylist)))
+                asked = True
                 if answer.lower() == 'y':
                     self.download_from_csv_tblmetadata(self.outputDir, filename, roi, method)
                     downloaded = True
@@ -334,8 +351,9 @@ class Query(object):
                 success = db.create_table_from_dict(tablename, instimg)
                 if success:
                     success = db.insert_table_from_dict(tablename, instimg)
-                    print('{} at creating Table {}'.format(success,tablename))
-                    if success and not downloaded:
+                    if success:
+                        print('Table {} created sucessfully.'.format(tablename))
+                    if success and not downloaded and not asked:
                         answer = input('Download {} images to output directory [Y/N]? '.format(len(copylist)))
                         if answer.lower() == 'y':
                             self.download_from_table_tblmetadata(db, self.outputDir, tablename, roi, method)
@@ -543,6 +561,7 @@ class Query(object):
 
         # 3. Query EODMS
         client = EodmsAPI(collection=collection)
+        print ('Querying EODMS...')
         client.query(start=fromdate, end=todate, geometry=geojsonFilename)
         len(client.results)
 
@@ -564,7 +583,6 @@ class Query(object):
                 record_id = self.get_EODMS_ids_from_table(db, sourcename.lower())
 
             print('Ordering {} images: '.format(len(record_id)))
-            print(record_id)
             submit_order = input("Would you like to order {} images? [Y/N]\t".format(len(record_id)))
             if submit_order.lower() == 'y':
                 self._order_to_eodms(record_id)
@@ -1000,7 +1018,7 @@ class Query(object):
             print ('Try next file.')
 
         if len(offline_uuids)>0:
-            print ('There were {} offline images. Retry to download thme later.'.format(len(offline_uuids)))
+            print ('There were {} offline images. Retry to download them later.'.format(len(offline_uuids)))
 
         if len(copied_locations)>0:
             self.save_filepaths(output_dir, '_', 'sentinel', copied_locations)

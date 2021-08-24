@@ -1,3 +1,4 @@
+import geopandas
 import psycopg2
 import psycopg2.extras
 import os
@@ -7,12 +8,15 @@ from datetime import datetime, timedelta
 import pandas as pd
 import shutil
 import csv
-import geopandas
+import requests
+from osgeo import ogr, osr
 from eodms_api_client import EodmsAPI
 import json
 from sentinelsat import SentinelAPI, read_geojson, geojson_to_wkt
 import getpass
 from ftplib import FTP
+import re
+
 
 def read_config():
 
@@ -359,8 +363,6 @@ def insert_table_from_dict(connection, table_name, list):
 
 
    #Creates a table that will contain records from a query
-
-
 def create_query_table(connection, table_name, records):
         """
                Creates a table to store results from a query. The structure of the table follows the information from records.
@@ -547,16 +549,30 @@ def exportDict_to_CSV(qryOutput, outputName):
 def create_filename(outputDir, roi, method, extension):
 
         now = datetime.now()
-        dt_string = now.strftime("%d-%m-%Y %H:%M:%S")
-        filename = roi + '_' + method + '_' + dt_string + extension
+        dt_string = now.strftime("%d-%m-%Y_%H-%M")
+        filename =  roi + '_' + method + '_' + dt_string + extension
+        print ('\nFilename will be: {}'.format(filename))
+        answer = input ('Press [Enter] to accept this name or Introduce a new filename (add .csv extension): ')
+        if answer !='':
+            filename = answer
+
         fullpath = os.path.join(outputDir,filename)
         return fullpath
 
-def create_tablename(roi, method):
 
+def create_tablename(roi, method):
         now = datetime.now()
         dt_string = now.strftime("%d%m%Y_%H%M")
-        tablename = roi + '_' + method + '_' + dt_string
+        tablename = 'q_' + roi + '_' + method + '_' + dt_string
+        print('\nTablename will be: {}'.format(tablename))
+        answer = input('Press [Enter] to accept this name or Introduce a new tablename: ')
+        if answer != '':
+            while re.findall(r'[^A-Za-z0-9_]', answer):
+                print('Name is not valid. Introduce only [A-Za-z0-9_] in name.')
+                answer = input('Press [Enter] to accept this name or Introduce a new tablename: ')
+                if answer == '':
+                    answer = tablename
+            tablename = answer
         return tablename
 
 
@@ -682,23 +698,27 @@ def query_local_table(connection, outputDir, roi, table_to_query, spatialrel, ro
             typOut = input('Enter your option (1,2,3): ')
 
             downloaded=False
+            asked = False
             if typOut == '1' or typOut == '3':
                 filename = create_filename(outputDir, roi, table_to_query, '.csv')
                 exportDict_to_CSV(instimg, filename)
                 print('Results saved to {} '.format(filename))
 
                 answer = input('Download {} images to output directory [Y/N]? '.format(len(copylist)))
+                asked = True
                 if answer.lower() == 'y':
                     download_from_csv_tblmetadata(outputDir, filename, roi, method)
                     downloaded = True
+
 
             if typOut == '2' or typOut == '3':
                 tablename = create_tablename(roi, method)
                 success = create_table_from_dict(connection,tablename, instimg)
                 if success:
                     success = insert_table_from_dict(connection, tablename,  instimg)
-                    print('{} at creating Table {}'.format(success,tablename))
-                    if success and not downloaded:
+                    if success:
+                        print('Table {} created sucessfully.'.format(tablename))
+                    if success and not downloaded and not asked:
                         answer = input('Download {} images to output directory [Y/N]? '.format(len(copylist)))
                         if answer.lower() == 'y':
                             download_from_table_tblmetadata(connection, outputDir, tablename, roi, method)
@@ -809,7 +829,6 @@ def order_eodms(connection):
                 record_id = get_EODMS_ids_from_table(connection, sourcename.lower())
 
             print('Ordering {} images: '.format(len(record_id)))
-            print(record_id)
             submit_order = input("Would you like to order {} images? [Y/N]\t".format(len(record_id)))
             if submit_order.lower() == 'y':
                 _order_to_eodms(record_id)
@@ -976,12 +995,192 @@ def queryEODMS_MB(roiDir, roi, collection):
 
         # 3. Query EODMS
         client = EodmsAPI(collection=collection)
+        print ('Querying EODMS...')
         client.query(start=fromdate, end=todate, geometry=geojsonFilename)
         len(client.results)
 
         record_ids = client.results.to_dict()
 
         return record_ids
+
+
+def readShpFile(filename):
+    """
+    extracts coordinate geometry and fromdate/todate from an ESRI shapefile
+
+    **Parameters**
+
+        *filename*  : (string) path+name of roi shpfile
+
+    """
+
+    driver = ogr.GetDriverByName('ESRI Shapefile')
+    shpfile = driver.Open(filename + '.shp')
+    shape = shpfile.GetLayer(0)
+
+    # Ensure query is done in WGS84
+    sourceSR = shape.GetSpatialRef()
+    targetSR = osr.SpatialReference()
+    targetSR.ImportFromEPSG(4326)  # WGS84
+    coordTrans = osr.CoordinateTransformation(sourceSR, targetSR)
+
+    query_dict = {}
+
+    for i in range(len(shape)):
+        feature = shape.GetNextFeature()
+        geom = feature.GetGeometryRef()
+        geom.Transform(coordTrans)
+
+        jsn = feature.ExportToJson()
+        dct = json.loads(jsn)
+
+        geom = dct["geometry"]
+        coords = geom["coordinates"]
+        properties = dct["properties"]
+
+        shape_id = str(properties['OBJ']) + str(properties['INSTID'])
+        fromdate = properties["FROMDATE"]
+        todate = properties["TODATE"]
+
+        query_dict[shape_id] = {'geom': coords[0], 'fromdate': fromdate, 'todate': todate}
+
+    return query_dict
+
+
+def queryEODMS(queryParams):
+    """
+    Query the EODMS database for records matching a given spatial and
+    temperoral region
+
+    **Parameters**
+
+        *queryParams*  : (dict) geometrical and temporal parameters to query on
+
+    """
+
+    session = requests.Session()
+    print("Querying the EODMS database.")
+    username = input("Enter your EODMS username: ")
+    password = getpass.getpass("Enter your EODMS password: ")
+    session.auth = (username, password)
+
+    # Query EODMS
+    records = []
+    for query_id, item in queryParams.items():
+        start_date = datetime.strptime(item['fromdate'], "%Y/%m/%d")
+        # if start_date.tzinfo is None:
+        #    start_date = start_date.replace(tzinfo=timezone.utc)
+        end_date = datetime.strptime(item['todate'], '%Y/%m/%d')
+        # if end_date.tzinfo is None:
+        #    end_date = end_date.replace(tzinfo=timezone.utc)
+
+        print('ROI start date: {}  end date: {}'.format(start_date, end_date))
+        coordinates = item['geom']
+        records.append(getEODMSRecords(session, start_date, end_date, coordinates))
+
+    order = []
+    for record in records:
+        for item in record:
+            order.append(item)
+    n = len(order)
+    print("Found {} records!".format(n))
+
+    # Submit Order
+    submit_order = input("Would you like to order {} images? [Y/N]\t".format(n))
+    if submit_order.lower() == 'y':
+        orderquery = buildQuery(records)
+        submit_post(orderquery)
+
+    return records
+
+
+def buildQuery(records):
+    """
+    builds query to order records
+
+        **Parameters**
+
+            *records*   : (list) record and collection ids from EODMS query result
+
+    """
+
+    query = {"destinations": [], "items": []}
+
+    for item in records:
+        query['items'].append({"collectionId": item[1], "recordId": item[0]})
+
+    return query
+
+
+def submit_post(session, query):
+    """
+    submits order to EODMS
+
+        **Parameters**
+
+            *query*     : (dict) query with record and collection ids
+
+    """
+
+    rest_url = "https://www.eodms-sgdot.nrcan-rncan.gc.ca/wes/rapi/order"
+    response = session.post(rest_url, data=str(query))
+
+
+def getEODMSRecords(session, start_date, end_date, coords):
+    """
+    query EODMS database for records within region and date range
+
+        **Parameters**
+
+            *session*       : requests session for HTTP requests
+
+            *start_date*    : (datetime) find images after this date
+
+            *end_date*      : (datetime) find images before this date
+
+            *coords*        : region on interest
+
+    """
+
+    # convert coordiantes to string
+    polygon_coordinates = ''
+    for i in range(len(coords)):
+        polygon_coordinates += str(coords[i][0]) + '+' + str(coords[i][1])
+        if i < len(coords) - 1:
+            polygon_coordinates += '%2C'
+
+    # query EODMS database
+    query_url = '''https://www.eodms-sgdot.nrcan-rncan.gc.ca/wes/rapi/search?collection=Radarsat1&''' + \
+                '''query=CATALOG_IMAGE.THE_GEOM_4326+INTERSECTS+POLYGON+%28%28''' + \
+                polygon_coordinates + '''%29%29&''' + \
+                '''resultField=RSAT1.BEAM_MNEMONIC&maxResults=5000&format=json'''
+
+    response = session.get(query_url)
+    rsp = response.content
+    response_dict = json.loads(rsp.decode('utf-8'))
+
+    results = response_dict['results']
+    n = len(results)
+    if n == 1000:
+        print("Warning: limit of records has been reached, results may be incomplete")
+        print("Try reducing the region of interest to avoid reaching the query limit")
+
+    # Filter query results for specified daterange
+    records = []  # records to order
+
+    for result in results:
+        if result["isOrderable"]:
+            for item in result["metadata2"]:
+                if item["id"] == "CATALOG_IMAGE.START_DATETIME":
+                    # import pandas
+                    # date = pandas.to_datetime(item["value"])
+                    date = datetime.strptime(item["value"], "%Y-%m-%d %H:%M:%S %Z")
+            if date >= start_date and date <= end_date:
+                record_id = result["recordId"]
+                collection_id = result["collectionId"]
+                records.append([record_id, collection_id])
+
+    return records
 
 
 def query_eodms(connection, roi, roiDir, method, outputDir):
@@ -998,12 +1197,19 @@ def query_eodms(connection, roi, roiDir, method, outputDir):
                     *outputDir*: where the CSV will be saved.
         """
 
-        # query from EODMS
+        #query from EODMS
         try:
-            collection = input('Enter collection to query or press enter for default "Radarsat1": ')
-            if collection =='\n' or collection=='':
-                collection='Radarsat1'
-            records = queryEODMS_MB(roiDir, roi, collection)
+            allison = False
+            if allison:
+                roiShpFile = os.path.join(roiDir, roi)
+                queryParams = readShpFile(roiShpFile)
+                records = queryEODMS(queryParams)
+            else:
+                collection = input('Enter collection to query or press enter for default "Radarsat1": ')
+                if collection =='\n' or collection=='':
+                   collection='Radarsat1'
+                records = queryEODMS_MB(roiDir, roi, collection)
+
 
             # Options to output results
             print('Query completed. Write query results to: ')
@@ -1128,7 +1334,7 @@ def _download_images_from_sentinel(records, output_dir):
             print ('Try next file.')
 
         if len(offline_uuids)>0:
-            print ('There were {} offline images. Retry to download thme later.'.format(len(offline_uuids)))
+            print ('There were {} offline images. Retry to download them later.'.format(len(offline_uuids)))
 
         if len(copied_locations)>0:
             save_filepaths(output_dir, '_', 'sentinel', copied_locations)
