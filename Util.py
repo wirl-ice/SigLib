@@ -406,7 +406,7 @@ def az(pt1,pt2):
     return (az+360) % 360
 
 #KEEP
-def wkt2shp(shpname, vectdir, proj, projdir, wkt):
+def wkt2shp(shpname, vectdir, proj, projdir, wkt, projFile=False):
     """
     Takes a polygon defined by well-known-text and a projection name and outputs
     a shapefile into the current directory
@@ -427,15 +427,18 @@ def wkt2shp(shpname, vectdir, proj, projdir, wkt):
     if wkt == 0:
         return -1
 
+
     spatialReference = osr.SpatialReference()
-    
-    fname = os.path.join(projdir, proj+'.wkt')
-    fwkt = open(fname, 'r')
-    projwkt = fwkt.read()
-    
-    spatialReference.ImportFromWkt(projwkt)
-    
-    #spatialReference.SetWellKnownGeogCS('WGS84')
+
+    if projFile:
+        fname = os.path.join(projdir, proj+'.wkt')
+        fwkt = open(fname, 'r')
+        projwkt = fwkt.read()
+
+        spatialReference.ImportFromWkt(projwkt)
+    else:
+        spatialReference.ImportFromEPSG(int(proj))
+
     driver = ogr.GetDriverByName('ESRI Shapefile')
 
     extlist = ['.shp', '.dbf','.prj','.shx']

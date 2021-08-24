@@ -43,7 +43,6 @@ import Util
 class SigLib:
     def __init__(self):       
         self.cfg = os.path.expanduser((sys.argv[1]))
-        print(self.cfg)
         #config = ConfigParser.RawConfigParser()
         config = RawConfigParser() # Needs to be tested for python2 compatibility 
         config.read(self.cfg)
@@ -100,6 +99,7 @@ class SigLib:
         self.loghandler = None
         self.logger = 0
         self.sar_meta = None
+
     
     def createLog(self,zipfile=None):   
         """
@@ -395,7 +395,7 @@ class SigLib:
         os.chdir(newTmp)
             
         # Process the image
-        sar_img = func_timeout(600, Image, args=(fname, unzipdir, self.sar_meta, self.imgType, self.imgFormat, zipname, self.imgDir, newTmp, self.loghandler, self.elevation_correction))
+        sar_img = func_timeout(600, Image, args=(self.fname, self.unzipdir, self.sar_meta, self.imgType, self.imgFormat, self.zipname, self.imgDir, newTmp, self.projDir, self.loghandler, self.elevation_correction))
 
         
         if sar_img.status == "error":
@@ -407,9 +407,9 @@ class SigLib:
         else:
             try:    
                 if self.imgType == 'amp':
-                    ok = sar_img.projectImg(self.proj, self.projDir, resample='bilinear')
+                    ok = sar_img.projectImg(self.proj, self.projSRID, resample='bilinear')
                 else:  # no smoothing for quantitative images
-                    ok = sar_img.projectImg(self.proj, self.projDir, resample='near')
+                    ok = sar_img.projectImg(self.proj, self.projSRID, resample='near')
             except:
                 self.logger.error('ERROR: Issue with projection... will stop projecting this img')
                 self.issueString += "\n\nWARNING (image projection): " + zipfile
@@ -445,9 +445,6 @@ class SigLib:
             sar_img.makePyramids()
             self.logger.debug('Image pyramid ok')
             shutil.copy(os.path.join(newTmp, sar_img.FileNames[-1]), self.imgDir)
-            print(sar_img.FileNames[-1])
-            #sar_img.cleanFiles(levels=['nil','proj'])
-            #self.logger.debug('Intermediate file cleanup done')
             sar_img.removeHandler()
             self.sar_meta.removeHandler()
         print("Quatlitative Mode Complete.")
@@ -478,11 +475,16 @@ class SigLib:
             *unzipdir* : directory zipfile was unzipped into                            
         """
         print("Starting Quantitative Mode for:\n", zipname)
-        os.chdir(self.imgDir)
-        newTmp = os.path.join(self.tmpDir,zipname)
+        newTmp = os.path.join(self.tmpDir, zipname)
+        if os.path.isdir(newTmp):
+            pass
+        else:
+            os.makedirs(newTmp)
+
+        os.chdir(newTmp)
         
         # Process the image
-        sar_img = func_timeout(600, Image, args=(fname, unzipdir, self.sar_meta, self.imgType, self.imgFormat, zipname, self.imgDir, newTmp, self.loghandler))
+        sar_img = func_timeout(600, Image, args=(self.fname, self.unzipdir, self.sar_meta, self.imgType, self.imgFormat, self.zipname, self.imgDir, newTmp, self.projDir, self.loghandler))
 
         if sar_img.status == "error":
             self.logger.error("Image could not be opened or manipulated, moving to next image")
@@ -505,14 +507,13 @@ class SigLib:
 
             sar_img.FileNames = sar_img.tmpFiles   #reset list of filenames within Image.py each loop
 
-            #Crop!
             self.logger.debug('Processing '+ str(inst) + ' : ' + str(i+1) + ' of ' + str(len(instances)) + ' subsets')
 
             #PROJECT
             if self.imgType == 'amp':
-                ok = sar_img.projectImg(self.proj, self.projDir, resample='bilinear')
+                ok = sar_img.projectImg(self.proj, self.projSRID, resample='bilinear')
             else:  # no smoothing for quantitative_mode images
-                ok = sar_img.projectImg(self.proj, self.projDir, resample='near')
+                ok = sar_img.projectImg(self.proj, self.projSRID, resample='near')
 
             if ok != 0: # trap errors here 
                 self.logger.error('ERROR: Issue with projection... will stop processing this img')
@@ -525,20 +526,17 @@ class SigLib:
                 self.logger.error('ERROR: Issue with cropping... will stop processing this subset')
                 sar_img.cleanFiles(['nil', 'proj', 'crop'])
                 continue
-            
-            #Will need seperate function for Sentinel-1
+
             sar_img.vrt2RealImg(inst)
             
-            ### MASK FixMe!
-            if self.mask != '':     #If providing a mask, use that one
-                sar_img.maskImg(self.mask, self.vectDir, 'outside') 
-                sep = 'tog'
-                
-            else:            #If no mask provided, make one based on ROI and inst
-                #maskwkt = db.qryMaskZone(granule, self.roi, self.roiProjSRID, inst, self.table_to_query)
-                #Util.wkt2shp('instmask'+str(inst), self.tmpDir, self.proj, self.projDir, maskwkt)
-                #sar_img.maskImg('instmask'+str(inst), self.tmpDir, 'outside')
-                sep = 'sep' 
+            ### MASK
+            maskwkt = db.qryMaskZone(granule, self.roi, self.roiProjSRID, inst, self.table_to_query)
+            if self.proj == '':
+                Util.wkt2shp('instmask'+str(inst), newTmp, self.projSRID, self.projDir, maskwkt, projFile=False)
+            else:
+                Util.wkt2shp('instmask'+str(inst), newTmp, self.proj, self.projDir, maskwkt, projFile=True)
+            sar_img.maskImg('instmask'+str(inst), newTmp, 'outside')
+            sep = 'sep'
                 
             if self.uploadData == '1':  
                 for i, bandName in enumerate(sar_img.bandNames):
@@ -546,11 +544,11 @@ class SigLib:
                     imgData = sar_img.getBandData(band)                    
                     db.imgData2db(imgData, bandName, inst, sar_img.meta.dimgname, zipname)
             else:
-                stats = sar_img.getImgStats(save_stats = True)
-                sar_img.applyStretch(stats, procedure='std', sd=3, sep=sep, inst=inst)
-            sar_img.cleanFiles(levels=['proj', 'crop'])
-            
-        sar_img.cleanFiles(levels=['nil']) 
+                #stats = sar_img.getImgStats(save_stats = True)
+                #sar_img.applyStretch(stats, procedure='std', sd=3, sep=sep, inst=inst)
+                shutil.copy(os.path.join(newTmp, sar_img.FileNames[-1]), self.imgDir)
+            #sar_img.cleanFiles(levels=['proj', 'crop'])
+
         self.logger.debug('Intermediate file cleanup done')
         sar_img.removeHandler()
         print("Quantitative Mode Complete.")

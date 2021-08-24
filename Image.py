@@ -67,10 +67,7 @@ class Image(object):
             *zipname*  
     """
 
-    def __init__(self, fname, path, meta, imgType, imgFormat, zipname, imgDir, tmpDir, loghandler = None, eCorr = None, initOnly=False):
-
-        #assert imgType in ['amp','sigma','noise','theta']
-        assert imgFormat.lower() in ['gtiff','hfa','envi','vrt']
+    def __init__(self, fname, path, meta, imgType, imgFormat, zipname, imgDir, tmpDir, projDir, loghandler = None, eCorr = None, initOnly=False):
 
         self.status = "ok"  ### For testing
         self.tifname = ""   ### For testing
@@ -94,6 +91,7 @@ class Image(object):
         self.imgFormat = imgFormat
         self.FileNames = [os.path.splitext(zipname)[0]] # list of all generated files
         self.proj = 'nil' # initialize to nil (then change as appropriate)
+        self.projdir = projDir
         self.elevationCorrection = eCorr
             
         # if values might change make a local copy
@@ -341,7 +339,7 @@ class Image(object):
             self.logger.error('Could not reduce image')
         return ok
     
-    def projectImg(self, projout, projdir, format=None, resample='bilinear', clobber=True):
+    def projectImg(self, proj, projSRID, format=None, resample='bilinear', clobber=True):
         """
         Looks for a file, already created and projects it to a vrt file.
 
@@ -383,11 +381,17 @@ class Image(object):
 
         outname = os.path.splitext(inname)[0] + '_proj' + ext
 
+        if proj == '':
         #project R2 with gdalwarp
-        command = 'gdalwarp -of ' + imgFormat +  ' -t_srs ' +\
-                os.path.join(projdir, projout+'.wkt') + \
-                    ' -order 3 -dstnodata 0 -r ' + resample +' '+clobber+ \
-                    inname + ' ' + outname
+            command = 'gdalwarp -of ' + imgFormat +  ' -t_srs ' +\
+                    'EPSG:' + projSRID +\
+                        ' -order 3 -dstnodata 0 -r ' + resample +' '+clobber+ \
+                        inname + ' ' + outname
+        else:
+            command = 'gdalwarp -of ' + imgFormat + ' -t_srs ' + \
+                      os.path.join(self.projdir, proj + '.wkt') + \
+                      ' -order 3 -dstnodata 0 -r ' + resample + ' ' + clobber + \
+                      inname + ' ' + outname
 
         try:
             ok = subprocess.Popen(command).wait()  # run the other way on linux
@@ -396,8 +400,10 @@ class Image(object):
             ok = subprocess.Popen(cmd).wait()
 
         if ok == 0:
-            self.proj = projout
-            self.projdir = projdir
+            if proj == '':
+                self.proj = 'EPSG:' + projSRID
+            else:
+                self.proj = proj
             self.logger.info('Completed image projection')
             
             self.FileNames.append(outname)
@@ -500,34 +506,27 @@ class Image(object):
             *outname*  : New filename
         """
 
-        if self.imgType == "amp":      #Both snap and gdal compatible
+        if self.imgType == "amp":
             bands = self.n_bands
             if self.bitsPerSample == 8:
                 dataType = GDT_Byte
             else:
                 dataType = GDT_UInt16
             self.bandNames = None
-        if self.imgType == "sigma":   #Both snap and gdal Compatible
+        if self.imgType == "sigma":
             bands = self.n_bands
             dataType = GDT_Float32
             self.bandNames = None
-        if self.imgType == "beta":   #Snap-only datatype
-            bands = self.n_bands
             dataType = GDT_Float32
-            self.bandNames = None
-        if self.imgType == "gamma":  #Snap-only datatype
-            bands = self.n_bands           
-            self.bandNames = None
-            dataType = GDT_Float32
-        if self.imgType == "noise":    #gdal-only datatype
+        if self.imgType == "noise":
             bands = 1
             dataType = GDT_Float32
             self.bandNames['noise']
-        if self.imgType == "theta":    #gdal-only datatype
+        if self.imgType == "theta":
             bands = 1
             self.bandNames = ['theta']
             dataType = GDT_Float32
-        if self.imgType == "phase":    #gdal-only datatype
+        if self.imgType == "phase":
             bands = self.n_bands
             dataType = GDT_Float32
             self.bandNames = None
@@ -586,10 +585,17 @@ class Image(object):
         
         sep = ' '
         crop = str(llur[0][0]) +sep+ str(llur[0][1]) +sep+ str(llur[1][0]) +sep+ str(llur[1][1])
-        cmd = 'gdalwarp -of ' + imgFormat + ' -te ' + crop + ' -t_srs ' +\
-                os.path.join(self.projdir, self.proj+'.wkt') +\
-            ' -r near -order 1 -dstnodata 0 ' +\
-            inname + ' ' + outname
+
+        if 'EPSG:' in self.proj:
+            cmd = 'gdalwarp -of ' + imgFormat + ' -te ' + crop + ' -t_srs ' +\
+                    self.proj +\
+                ' -r near -order 1 -dstnodata 0 ' +\
+                inname + ' ' + outname
+        else:
+            cmd = 'gdalwarp -of ' + imgFormat + ' -te ' + crop + ' -t_srs ' + \
+                  os.path.join(self.projdir, self.proj + '.wkt') + \
+                  ' -r near -order 1 -dstnodata 0 ' + \
+                  inname + ' ' + outname
 
         command = shlex.split(cmd)
 

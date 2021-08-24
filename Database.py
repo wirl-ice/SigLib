@@ -420,14 +420,21 @@ class Database:
             self.logger.error("Can't query the database")
                 
         curs.execute(qryNewColInst)
-        curs.execute(qryUpdateInstField)      
-        curs.execute(qryLongerDate)
+        curs.execute(qryUpdateInstField)
 
-        if len(field) != 0: 
-            curs.execute('UPDATE ' + outTable+ qryImgRefFromDate)  #TODO test this
-            curs.execute('UPDATE ' + outTable+ qryImgRefToDate)
-        curs.execute(qryCastDate)
         self.connection.commit()
+
+        try:
+            curs.execute(qryLongerDate)
+
+            if len(field) != 0:
+                curs.execute('UPDATE ' + outTable+ qryImgRefFromDate)  #TODO test this
+                curs.execute('UPDATE ' + outTable+ qryImgRefToDate)
+            curs.execute(qryCastDate)
+            self.connection.commit()
+        except:
+            self.logger.info("No Date Column Found, skipping")
+            self.connection.rollback()
     
         curs.execute(qryKey1)
         self.connection.commit()
@@ -473,7 +480,7 @@ class Database:
             self.logger.error('ERROR(programming): Confirm the SQL statement is valid--> ' +str(e))
             self.connection.rollback()
             
-        except StandardError as e:
+        except Exception as e:
             self.logger.error('ERROR(standard): ' +str(e))   
             self.connection.rollback()
             
@@ -795,6 +802,8 @@ class Database:
         #make table selected from unhardcoded
         sql = '''SELECT ST_AsText(ST_Transform('''+roi+'''.geom, %(srid)s))
         FROM '''+roi+''' WHERE inst = %(inst)s AND %(dimgname)s LIKE imgref'''
+
+        curs.execute(sql,param)
         
         polytext = curs.fetchall()
         if len(polytext) > 0:
@@ -808,7 +817,7 @@ class Database:
         return polytext
 
     #UTIL FUNCTION
-    def imgData2db(self, imgData, bandName, inst, dimgname, granule):
+    def imgData2db(self, imgData, bandName, inst, dimgname, granule, table='tblbanddata'):
         """
         Upload image data as an array to a new database table
         
@@ -846,31 +855,24 @@ class Database:
             'skew' : str(stats.skew(polyData, None)),
             'kurtosis' : str(stats.kurtosis(polyData, None))
             }
-            
-            
-        #If table isn't created
-        '''
-        create table tblbanddata (granule varchar(100), bandname varchar(100), inst int, dimgname varchar(100), mean varchar(25), var varchar(25),
-        maxdata varchar(25), mindata varchar(25), median varchar(25), quart1 varchar (25), quart3 varchar(25), skew varchar (25), kurtosis varchar (25))
-        '''        
-        
+
+        curs = self.connection.cursor()
+
         #First, look to see if primary key exists, if so, overwrite record
-        sqlDel = '''DELETE FROM tblbanddata WHERE bandname = %(bandname)s 
-            AND granule = %(granule)s AND inst = %(inst)s'''
+        sqlDel = '''DELETE FROM {} WHERE bandname = %(bandname)s 
+            AND granule = %(granule)s AND inst = %(inst)s'''.format(table)
         
         delVals = {'granule' : granule,
             'bandname' : bandName,
             'inst' : inst,}
                 
-        sqlIns = '''INSERT INTO tblbanddata 
+        sqlIns = '''INSERT INTO {} 
             (granule, bandname, inst, dimgname, mean, var, 
             maxdata, mindata, median, quart1, quart3, skew, kurtosis) 
             VALUES 
             (%(granule)s, %(bandname)s, %(inst)s, %(dimgname)s, 
             %(mean)s, %(var)s, %(maxdata)s, %(mindata)s, 
-            %(median)s, %(quart1)s, %(quart3)s, %(skew)s, %(kurtosis)s)'''
-             
-        curs = self.connection.cursor()
+            %(median)s, %(quart1)s, %(quart3)s, %(skew)s, %(kurtosis)s)'''.format(table)
         
         try:
             curs.execute(sqlDel, delVals)

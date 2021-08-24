@@ -32,6 +32,18 @@ except:
 global FileNames
 global logger
 
+"""
+Polarimetry.py is a standalone script that utilizes the functionality of SigLib. The purpose of the script is to perform
+polarimetric calculations on quad-pol RADARSAT-2 scenes that contain ice islands (very large, often flat-topped icebergs).
+Ice islands in the Canadian Arctic have been tracked for numerous studies using satellite tracking beacons that ping their 
+location at a given interval. This data is used to find quad-pol images that contain ice islands. The script takes hand-drawn
+outlines of the ice islands found in a given quad-pol scene, and masks the scene to both the outline of the ice island, and
+to a 400 metre-wide donut around the ice island. Polarimetric variables available in SNAP-ESA are then computed onto each of the two
+masks one at a time, the statistics from which are uploaded to a database table. 
+
+
+"""
+
 
 def snapCalibration(img, siglib, tmpdir, outDataType='sigma', saveInComplex=False):
     '''
@@ -350,7 +362,7 @@ def polarimetric(db, siglib, img, zipfile, newTmp):
                 os.makedirs(uploads)
 
             shpname = 'instmask_' + siglib.zipname + '_' + str(beaconid) + '_' + type
-            Util.wkt2shp(shpname, finalsDir, siglib.proj, siglib.projDir, mask)
+            Util.wkt2shp(shpname, finalsDir, '4326', siglib.projDir, mask)
 
             for dirpath, dirnames, filenames in os.walk(finalsDir):
                 for filename in filenames:
@@ -368,7 +380,7 @@ def polarimetric(db, siglib, img, zipfile, newTmp):
                         name = os.path.splitext(filename)[0]
                         try:
                             imgData = img.getBandData(1, name + '.img')
-                            db.imgData2db(imgData, name + '_' + type, str(beaconid), siglib.sar_meta.dimgname, siglib.granule)
+                            db.imgData2db(imgData, name + '_' + type, str(beaconid), siglib.sar_meta.dimgname, siglib.granule, table='polarimetryData')
                         except:
                             logger.error("Unable to extract image data for {}! Skipping scene".format(name))
 
@@ -600,5 +612,48 @@ def main():
 
     db.removeHandler()
 
+def parallel(zipfile):
+    global FileNames
+    global logger
+    siglib = SigLib()
+    siglib.createLog()
+
+    loghandler = siglib.loghandler  # Logging setup if loghandler sent, otherwise, set up a console only logging system
+    logger = logging.getLogger(__name__)
+    logger.addHandler(loghandler)
+    logger.propagate = False
+    logger.setLevel(logging.DEBUG)
+
+    db = Database(siglib.table_to_query, siglib.dbName, loghandler=siglib.loghandler, host=siglib.dbHost)
+
+    FileNames = []
+    siglib.proc_File(zipfile, cleanup=False)
+
+    newTmp = os.path.join(siglib.tmpDir, siglib.granule)
+
+    img = Image(siglib.fname, siglib.unzipdir, siglib.sar_meta, siglib.imgType, siglib.imgFormat, siglib.zipname,
+                siglib.imgDir, newTmp, siglib.projDir, loghandler, initOnly=True)
+
+    if 'Q' not in siglib.sar_meta.beam:
+        logger.debug("This is not a quad-pol scene, skipping")
+        return Exception
+
+    polarimetric(db, siglib, img, zipfile, newTmp)
+
+    db.removeHandler()
+
 if __name__ == "__main__":
     main()
+    #parallel(os.path.abspath(os.path.expanduser(str(sys.argv[-1]))))
+
+    #Only run below if table to store results needs to be created (do before running either main() or parallel()
+    """
+    siglib = SigLib()
+    db = Database(siglib.table_to_query, siglib.dbName, loghandler=None, host=siglib.dbHost)
+
+    # create table to upload results
+    sql = 'create table polarimetryData (granule varchar(100), bandname varchar(100), inst int, dimgname varchar(100), mean varchar(25), var varchar(25),\
+            maxdata varchar(25), mindata varchar(25), median varchar(25), quart1 varchar (25), quart3 varchar(25), skew varchar (25), kurtosis varchar (25))'
+
+    db.qryFromText(sql)
+    """
