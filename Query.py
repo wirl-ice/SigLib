@@ -13,6 +13,8 @@ from eodms_api_client import EodmsAPI
 from sentinelsat import SentinelAPI, read_geojson, geojson_to_wkt
 import csv
 import shutil
+from ftplib import FTP
+import re
 
 
 class Query(object):
@@ -72,11 +74,13 @@ class Query(object):
         elif method == 'SENTINEL':
             self.query_sentinel(db, self.roi, self.roiDir, method, self.outputDir)
         elif method =='DOWNLOAD_EODMS':
-            self.download_images_from_eodms(self.outputDir)
+            self.download_eodms_cart(self.outputDir)
         elif method =='DOWNLOAD_SENTINEL':
             self.download_images_from_sentinel(db, self.outputDir)
         elif method == 'RAW_SQL':
             self.execute_raw_query(db,self.outputDir)
+        elif method == 'EXIT':
+            return
         else:
             self.logger.error("Valid Query Method not selected, cannot complete task.")
             return
@@ -84,8 +88,13 @@ class Query(object):
     def create_filename(self, outputDir, roi, method, extension):
 
         now = datetime.now()
-        dt_string = now.strftime("%d-%m-%Y %H:%M:%S")
-        filename = roi + '_' + method + '_' + dt_string + extension
+        dt_string = now.strftime("%d-%m-%Y_%H-%M")
+        filename =  roi + '_' + method + '_' + dt_string + extension
+        print ('\nFilename will be: {}'.format(filename))
+        answer = input ('Press [Enter] to accept this name or Introduce a new filename (add .csv extension): ')
+        if answer !='':
+            filename = answer
+
         fullpath = os.path.join(outputDir,filename)
         return fullpath
 
@@ -93,7 +102,16 @@ class Query(object):
 
         now = datetime.now()
         dt_string = now.strftime("%d%m%Y_%H%M")
-        tablename = roi + '_' + method + '_' + dt_string
+        tablename = 'q_' + roi + '_' + method + '_' + dt_string
+        print('\nTablename will be: {}'.format(tablename))
+        answer = input('Press [Enter] to accept this name or Introduce a new tablename: ')
+        if answer != '':
+            while re.findall(r'[^A-Za-z0-9_]', answer):
+                print ('Name is not valid. Introduce only [A-Za-z0-9_] in name.')
+                answer = input('Press [Enter] to accept this name or Introduce a new tablename: ')
+                if answer=='':
+                    answer = tablename
+            tablename=answer
         return tablename
 
 
@@ -316,12 +334,14 @@ class Query(object):
             typOut = input('Enter your option (1,2,3): ')
 
             downloaded=False
+            asked = False
             if typOut == '1' or typOut == '3':
                 filename = self.create_filename(self.outputDir, roi, self.table_to_query, '.csv')
                 db.exportDict_to_CSV(instimg, filename)
                 print('Results saved to {} '.format(filename))
 
                 answer = input('Download {} images to output directory [Y/N]? '.format(len(copylist)))
+                asked = True
                 if answer.lower() == 'y':
                     self.download_from_csv_tblmetadata(self.outputDir, filename, roi, method)
                     downloaded = True
@@ -331,8 +351,9 @@ class Query(object):
                 success = db.create_table_from_dict(tablename, instimg)
                 if success:
                     success = db.insert_table_from_dict(tablename, instimg)
-                    print('{} at creating Table {}'.format(success,tablename))
-                    if success and not downloaded:
+                    if success:
+                        print('Table {} created sucessfully.'.format(tablename))
+                    if success and not downloaded and not asked:
                         answer = input('Download {} images to output directory [Y/N]? '.format(len(copylist)))
                         if answer.lower() == 'y':
                             self.download_from_table_tblmetadata(db, self.outputDir, tablename, roi, method)
@@ -540,6 +561,7 @@ class Query(object):
 
         # 3. Query EODMS
         client = EodmsAPI(collection=collection)
+        print ('Querying EODMS...')
         client.query(start=fromdate, end=todate, geometry=geojsonFilename)
         len(client.results)
 
@@ -561,7 +583,6 @@ class Query(object):
                 record_id = self.get_EODMS_ids_from_table(db, sourcename.lower())
 
             print('Ordering {} images: '.format(len(record_id)))
-            print(record_id)
             submit_order = input("Would you like to order {} images? [Y/N]\t".format(len(record_id)))
             if submit_order.lower() == 'y':
                 self._order_to_eodms(record_id)
@@ -613,6 +634,83 @@ class Query(object):
 
         except Exception as e:
             print('The following exception occurred when downloading images from eodms:')
+            print(e)
+        return
+
+    def _download_eodms_folder(self, ftp, cart_directory, image_folder, output_directory):
+
+        """
+             Downloads all images in a specific folder location from a public eodms directory.
+
+             **Parameters**
+
+                 *ftp* : FTP connection
+                 *cart_directory* : folder of the cart
+                 *image_folder* : folder of the images to download
+                 *output_directory*: where the images will be donwloaded
+
+             **Returns**
+                 *record_id* : A list of images id from EODMS
+         """
+
+        copied_locations = []
+        start = datetime.now()
+        path = os.path.join(cart_directory, image_folder)
+        ftp.cwd(path)
+
+        # Get All Files
+        files = ftp.nlst()
+
+        os.chdir(output_directory)
+        for file in files:
+            if not os.path.isfile(file):
+                print("Downloading..." + file)
+                try:
+                    ftp.retrbinary("RETR " + file, open(file, 'wb').write)
+                    copied_locations.append(os.path.join(output_directory, file))
+                except Exception as e:
+                    print ('Problem when downloading file. ')
+                    print (e)
+            else:
+                print(file + ' already exists on directory.')
+                copied_locations.append(os.path.join(output_directory, file))
+
+        end = datetime.now()
+        diff = end - start
+        print('All files downloaded for ' + str(diff.seconds) + 's')
+        return copied_locations
+
+
+    def download_eodms_cart(self, output_directory):
+        """
+            Downloads all images from an eodms cart.
+            It also outputs the list of downloaded images into a txt file. One image per line.
+
+            **Parameters**
+
+                *ouput_directory* : The directory where the images will be downloaded..
+
+        """
+
+        try:
+            copied_locations = []
+            cart_directory = input('Enter cart directory: ')
+            eodms_address = 'data.eodms-sgdot.nrcan-rncan.gc.ca'
+            ftp = FTP(eodms_address)
+            ftp.login()
+            ftp.cwd(cart_directory)
+            folders = ftp.nlst()
+
+            for folder in folders:
+                list = self._download_eodms_folder(ftp, cart_directory, folder, output_directory)
+                for l in list:
+                    copied_locations.append(l)
+
+            ftp.close()
+            if len(copied_locations) > 0:
+                self.save_filepaths(output_directory, '_', 'eodms', copied_locations)
+        except Exception as e:
+            print('The following exception occurred when downloading the EODMS cart:')
             print(e)
         return
 
@@ -920,7 +1018,7 @@ class Query(object):
             print ('Try next file.')
 
         if len(offline_uuids)>0:
-            print ('There were {} offline images. Retry to download thme later.'.format(len(offline_uuids)))
+            print ('There were {} offline images. Retry to download them later.'.format(len(offline_uuids)))
 
         if len(copied_locations)>0:
             self.save_filepaths(output_dir, '_', 'sentinel', copied_locations)
