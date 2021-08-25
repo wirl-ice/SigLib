@@ -552,7 +552,8 @@ def create_filename(outputDir, roi, method, extension):
         dt_string = now.strftime("%d-%m-%Y_%H-%M")
         filename =  roi + '_' + method + '_' + dt_string + extension
         print ('\nFilename will be: {}'.format(filename))
-        answer = input ('Press [Enter] to accept this name or Introduce a new filename (add .csv extension): ')
+        msg = 'Press [Enter] to accept this name or Introduce a new filename (add {} extension):'.format(extension)
+        answer = input (msg)
         if answer !='':
             filename = answer
 
@@ -829,7 +830,7 @@ def order_eodms(connection):
                 record_id = get_EODMS_ids_from_table(connection, sourcename.lower())
 
             print('Ordering {} images: '.format(len(record_id)))
-            submit_order = input("Would you like to order {} images? [Y/N]\t".format(len(record_id)))
+            submit_order = input("Would you like to order {} images? [Y/N]\t ".format(len(record_id)))
             if submit_order.lower() == 'y':
                 _order_to_eodms(record_id)
                 print('Images ordered to EODMS. Wait for confirmation email.')
@@ -876,7 +877,7 @@ def download_images_from_eodms(output_dir):
                     print ('Problem when downloading order_item_id {}'.format(order_item_id))
 
             if len(copied_locations)>0:
-                save_filepaths(output_dir, '_', 'eodms', copied_locations)
+                save_filepaths(output_dir, '', 'eodms', copied_locations)
 
         except Exception as e:
             print('The following exception occurred when downloading images from eodms:')
@@ -955,7 +956,7 @@ def download_eodms_cart(output_directory):
 
             ftp.close()
             if len(copied_locations) > 0:
-                save_filepaths(output_directory, '_', 'eodms', copied_locations)
+                save_filepaths(output_directory, '', 'eodms', copied_locations)
         except Exception as e:
             print('The following exception occurred when downloading the EODMS cart:')
             print(e)
@@ -1086,7 +1087,7 @@ def queryEODMS(queryParams):
     print("Found {} records!".format(n))
 
     # Submit Order
-    submit_order = input("Would you like to order {} images? [Y/N]\t".format(n))
+    submit_order = input("Would you like to order {} images? [Y/N]\t ".format(n))
     if submit_order.lower() == 'y':
         orderquery = buildQuery(records)
         submit_post(orderquery)
@@ -1232,7 +1233,7 @@ def query_eodms(connection, roi, roiDir, method, outputDir):
                     print('Table {} created {}'.format(tablename, success))
 
             if len(records)>0:
-                submit_order = input("Would you like to order the images? [Y/N]")
+                submit_order = input("Would you like to order the images? [Y/N] ")
                 if submit_order.lower() == 'y':
                     _order_to_eodms(records)
                     print('Images ordered to EODMS. Wait for confirmation email.')
@@ -1337,7 +1338,7 @@ def _download_images_from_sentinel(records, output_dir):
             print ('There were {} offline images. Retry to download them later.'.format(len(offline_uuids)))
 
         if len(copied_locations)>0:
-            save_filepaths(output_dir, '_', 'sentinel', copied_locations)
+            save_filepaths(output_dir, '', 'sentinel', copied_locations)
 
 
 def download_images_from_sentinel(connection, outputDir):
@@ -1486,7 +1487,7 @@ def query_sentinel(connection, roi, roiDir, method, outputDir):
                 success = insert_query_table(connection, tablename, records_dict)
                 print('Table {} created {}'.format(tablename, success))
 
-        answer = input("Would you like to download {} images? [Y/N]\t".format(len(records)))
+        answer = input("Would you like to download {} images? [Y/N]\t ".format(len(records)))
         if answer == True:
             _download_images_from_sentinel(records, outputDir)
 
@@ -1519,7 +1520,7 @@ def execute_raw_query(connection, outputDir):
         return
 
 def query_menu(connection, roiDir, outputDir, table_to_query, roi, roiSRID, spatialrel):
-    query_methods = {'1': 'metadata', '2': 'download_metabdata', '3': 'cis', '4': 'EODMS', '5': 'ORDER_EODMS',
+    query_methods = {'1': 'metadata', '2': 'download_metadata', '3': 'cis', '4': 'EODMS', '5': 'ORDER_EODMS',
                      '6': 'DOWNLOAD_EODMS', '7': 'SENTINEL', '8': 'DOWNLOAD_SENTINEL', '9': 'RAW_SQL', '0': 'EXIT'}
     print("Available Query Methods:\n")
     print("1: {}: Query".format(table_to_query))
@@ -1542,7 +1543,7 @@ def query_menu(connection, roiDir, outputDir, table_to_query, roi, roiSRID, spat
     if method == 'metadata':
         query_local_table(connection, outputDir, roi, table_to_query, spatialrel, roiSRID, method)
         return
-    elif method == 'download_metabdata':
+    elif method == 'download_metadata':
         download_local_table(connection, outputDir, roi, method)
         return
     elif method == 'cis':
