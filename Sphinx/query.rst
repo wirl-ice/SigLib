@@ -162,6 +162,143 @@ To query the EODMS database (https://www.eodms-sgdot.nrcan-rncan.gc.ca/index-en.
 The user could order directly all the images returned by EODMS or alternatively he could filter the results first and order them in a separate step. 
 
 
+Order Images to EODMS
+======================
+
+Let us suppose we filtered the CSV file obtained in the previous example ``/home/outDir/ArcticBay_EODMS_24-08-2021_15-44.csv``. To order the images from EODMS, we select the option ``5: EODMS: Order``.  The program will ask the location and name of the file or alternatively table with the images to order.
+
+``Enter CSV filename or tablename of images to order: /home/outDir/ArcticBay_EODMS_24-08-2021_15-51.csv``.
+
+``Ordering 5 images:``
+``Would you like to order 5 images? [Y/N]	Y``
+``Enter collection to order or press enter for default "Radarsat1":`` 
+``Enter EODMS username: eodms_user``
+``Enter EODMS password: ******``
+
+``2021-08-25 08:53:20 | eodmsapi.main | INFO | Submitting order for 5 items``
+``Order [516096, 516097, 516093, 516094, 516095] submitted. Wait for confirmation email.``
+``Images ordered to EODMS. Wait for confirmation email.``
+
+
+Download EODMS
+==============
+
+Two emails are received from EODMS, the first one is a confirmation that the order was received, and the second one has the ftp location of the images. It should look something like the email below:
+
+To download all the ordered images, we select option ``6: EODMS: Download``.  This option prompt us to enter the cart directory. This directory corresponds to the “Directory” information under FTP section.  If the cart is still available, all the files will be downloaded to the output directory.
+
+``Enter cart directory: /public/carts/d1333e8c-72e2-4878-b948-69d6c25b61ed``
+
+``Downloading...RS1_A0627056_SCWA_20121015_124834_HH_SCW01f.zip``
+``All files downloaded for 181s``
+``Downloading...RS1_A0627101_SCWA_20121005_124016_HH_SCW01f.zip``
+``All files downloaded for 155s``
+``Downloading...RS1_A0626939_SCWA_20121011_130504_HH_SCW01f.zip``
+``All files downloaded for 169s``
+``Downloading...RS1_A0627215_SCWA_20121009_122350_HH_SCW01f.zip``
+``All files downloaded for 123s``
+``Downloading...RS1_A0627116_SCWA_20121016_221354_HH_SCW01f.zip``
+``All files downloaded for 39s``
+
+``Filename will be: _eodms_PATHS_25-08-2021_09-27.txt``
+``Press [Enter] to accept this name or Introduce a new filename (add .txt extension):``
+
+``List of downloaded images: /home/outDir/_eodms_PATHS_25-08-2021_09-27.txt``
+``The file /_eodms_PATHS_25-08-2021_09-27.txt contains the list of the filenames downloaded.``
+
+Query to Copernicus
+===================
+
+Similar as with EODMS, we must place all the ROI shapefiles (5 files) on the *vectDir* location. The config file must be modified as was explained in Section 1.
+
+After that we select ``7: Copernicus: Query``. Here is a sample of the execution:
+
+``Enter satellite to query or press enter for default "Sentinel-2":`` 
+
+``Enter product type or press enter for "None":``
+
+``Enter sensor type ("SM", "IW", "EW", "WV") or press enter for None:``
+
+``ROI start date 2010-05-01 end date 2015-12-31``
+
+``Enter your Copernicus username: copernicus_user``
+
+``Enter your Copernicus password: ******``
+
+``Querying products: 100%|██████████| 371/371 [00:06<00:00, 42.13 products/s]``
+
+``Query completed. Write query results to:``
+
+``1: CSV file``
+
+``2: Local table``
+
+``3: Both``
+
+``Enter your option (1,2,3): 1``
+
+``Filename will be: ArcticBay_SENTINEL_25-08-2021_10-01.csv``
+
+``Press [Enter] to accept this name or Introduce a new filename (add .csv extension):``
+
+``File saved to /home/outDir/ArcticBay_SENTINEL_25-08-2021_10-01.csv``
+
+``Would you like to download 371 images? [Y/N]	 N``
+
+Download Copernicus
+===================
+
+To download images from Copernicus, we select option ``8: Copernicus: Download`` from the menu. 
+Let us suppose we filtered the CSV file from the previous example. Below is the execution and interaction with the program for downloading images.
+
+``Enter CSV filename or tablename of images to download: /home /outDir/ArcticBay_SENTINEL_25-08-2021_10-01.csv``
+
+``Do you want to download 5 images [Y/N] Y``
+
+``Enter your Copernicus username: copernicus_user``
+
+``Enter your Copernicus password: ******``
+
+``S2A_MSIL2A_20201013T175311_N0214_R141_T16XEG_20201017T092049 is offline - Retry later.``
+
+``Try next file.``
+
+``S2A_MSIL2A_20201012T182321_N0214_R127_T16XEG_20201012T224404 is offline - Retry later.``
+
+``Try next file.``
+
+``S2B_MSIL2A_20201011T180259_N0214_R041_T16XEG_20201011T201358 is offline - Retry later.``
+
+``Try next file.``
+
+``S2A_MSIL2A_20190302T182251_N0211_R127_T16XEG_20190302T225351 is offline - Retry later.``
+
+``Try next file.``
+
+``S2B_MSIL2A_20190226T175309_N0211_R141_T16XEG_20190226T214409 is offline - Retry later.``
+
+``Try next file.``
+
+``There were 5 offline images. Retry to download them later.``
+
+For this example, all the images were offline and cannot be downloaded. However, since we attempted to download the images, some hours later they will be available to download. 
+
+Notice that even if some of the images were online, we don’t need to remove those records from the CSV file to attempt to download the offline images again. Images that are already downloaded will not be downloaded again (unless they are deleted from the directory *outDir*).
+
+Execute SQL query
+=================
+
+This option of the program simply executes blindly an SQL query. To execute an example select ``option 9: Execute Raw Sql Query`` from the menu. Below is an example of the execution:
+
+``Enter file with SQL query: /home/outDir/rawsql_.sql``
+
+``Filename will be: _SQL_25-08-2021_13-20.csv``
+
+``Press [Enter] to accept this name or Introduce a new filename (add .csv extension):``
+
+``Results saved to /home/outDir/_SQL_25-08-2021_13-20.csv``
+
+
 
 
 
