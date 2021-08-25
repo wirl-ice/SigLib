@@ -565,7 +565,7 @@ class SigLib:
         if self.queryProcess == "1": #note query mode is seperate from qualitative and quantitative
             #self.read_shp()
             db = Database(self.table_to_query, self.dbName, self.loghandler, host=self.dbHost)
-            query_methods = {'0': 'exit' , '1': 'metadata', '2': 'download_metabdata', '3': 'cis', '4':'EODMS', '5':'ORDER_EODMS', '6':'DOWNLOAD_EODMS', '7':'SENTINEL', '8':'DOWNLOAD_SENTINEL', '9': 'RAW_SQL'}
+            query_methods = {'0': 'exit' , '1': 'metadata', '2': 'download_metadata', '3': 'cis', '4':'EODMS', '5':'ORDER_EODMS', '6':'DOWNLOAD_EODMS', '7':'SENTINEL', '8':'DOWNLOAD_SENTINEL', '9': 'RAW_SQL'}
             print("Available Query Methods:\n")
             print("0: Exit")
             print("1: {}: Query".format(self.table_to_query))

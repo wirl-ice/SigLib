@@ -61,7 +61,7 @@ class Query(object):
         if method == 'metadata':
             self.query_local_table(db, self.roi, self.table_to_query, self.spatialrel, self.roiSRID, method)
             return
-        elif method =='download_metabdata':
+        elif method =='download_metadata':
             self.download_local_table(db, roi, method)
             return
         elif method == 'cis':
@@ -91,7 +91,8 @@ class Query(object):
         dt_string = now.strftime("%d-%m-%Y_%H-%M")
         filename =  roi + '_' + method + '_' + dt_string + extension
         print ('\nFilename will be: {}'.format(filename))
-        answer = input ('Press [Enter] to accept this name or Introduce a new filename (add .csv extension): ')
+        msg = 'Press [Enter] to accept this name or Introduce a new filename (add {} extension):'.format(extension)
+        answer = input(msg)
         if answer !='':
             filename = answer
 
@@ -169,7 +170,7 @@ class Query(object):
         print("Found {} records!".format(n))
         
         #Submit Order
-        submit_order = input("Would you like to order {} images? [Y/N]\t".format(n))
+        submit_order = input("Would you like to order {} images? [Y/N]\t ".format(n))
         if submit_order.lower() == 'y':
             orderquery = self.buildQuery(records)
             self.submit_post(orderquery)
@@ -518,7 +519,7 @@ class Query(object):
                     print('Table {} created {}'.format(tablename, success))
 
             if len(records)>0:
-                submit_order = input("Would you like to order the images? [Y/N]")
+                submit_order = input("Would you like to order the images? [Y/N] ")
                 if submit_order.lower() == 'y':
                     self._order_to_eodms(records)
                     print('Images ordered to EODMS. Wait for confirmation email.')
@@ -583,7 +584,7 @@ class Query(object):
                 record_id = self.get_EODMS_ids_from_table(db, sourcename.lower())
 
             print('Ordering {} images: '.format(len(record_id)))
-            submit_order = input("Would you like to order {} images? [Y/N]\t".format(len(record_id)))
+            submit_order = input("Would you like to order {} images? [Y/N]\t ".format(len(record_id)))
             if submit_order.lower() == 'y':
                 self._order_to_eodms(record_id)
                 print('Images ordered to EODMS. Wait for confirmation email.')
@@ -630,7 +631,7 @@ class Query(object):
                     print ('Problem when downloading order_item_id {}'.format(order_item_id))
 
             if len(copied_locations)>0:
-                self.save_filepaths(output_dir, '_', 'eodms', copied_locations)
+                self.save_filepaths(output_dir, '', 'eodms', copied_locations)
 
         except Exception as e:
             print('The following exception occurred when downloading images from eodms:')
@@ -708,7 +709,7 @@ class Query(object):
 
             ftp.close()
             if len(copied_locations) > 0:
-                self.save_filepaths(output_directory, '_', 'eodms', copied_locations)
+                self.save_filepaths(output_directory, '', 'eodms', copied_locations)
         except Exception as e:
             print('The following exception occurred when downloading the EODMS cart:')
             print(e)
@@ -820,14 +821,13 @@ class Query(object):
 
         if typOut == '2' or typOut == '3':
             tablename = self.create_tablename(roi, method)
-            #tablename = 'EXAMPLE_SENTINEL'
             records_dict = records.to_dict()
             success = db.create_query_table(tablename, records_dict)
             if success:
                 success = db.insert_query_table(tablename, records_dict)
                 print('Table {} created {}'.format(tablename, success))
 
-        answer = input("Would you like to download {} images? [Y/N]\t".format(len(records)))
+        answer = input("Would you like to download {} images? [Y/N]\t ".format(len(records)))
         if answer == True:
             self._download_images_from_sentinel(records, self.outputDir)
 
@@ -1021,7 +1021,7 @@ class Query(object):
             print ('There were {} offline images. Retry to download them later.'.format(len(offline_uuids)))
 
         if len(copied_locations)>0:
-            self.save_filepaths(output_dir, '_', 'sentinel', copied_locations)
+            self.save_filepaths(output_dir, '', 'sentinel', copied_locations)
 
 
     def execute_raw_query(self, db, outputDir):
