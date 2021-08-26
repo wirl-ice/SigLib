@@ -37,17 +37,14 @@ If the scripts successfully run, the following menu should appear on the screen:
 
 Setup the config file to run the query mode
 ============================================
-
 The first step to run the query mode is to update the config file (config.cfg) as follows. Under the section *MISC*, update the parameters *roi*, *roiprojSRID*, and *spatialrel* with the name of the ROI shapefile (as it is found in the database), the projection, and the spatial relation (either *ST_Intersects* or *ST_Overlaps*). 
 
-In addition, under the section *Database*, the parameter *table* should contain the name of the local table to be queried (this only applies when querying local tables). Finally, an additional parameter should be added to the config file, *outDir* under the section *Directories*. This parameter should contain the directory where the images will be downloaded. Notice that such directory should exists on disk. 
+In addition, under the section *Database*, the parameter *table* should contain the name of the local table to be queried (this only applies when querying local tables). Finally, an additional parameter should be added to the config file is *outDir* under the section *Directories*. This parameter should contain the directory where the images will be downloaded. Notice that such directory should exists on disk. 
 
 
 Querying a ROI shapefile on a local table
 ==========================================
-
-We consider for this example that the ROI shapefile is already on the local database. For details about how to upload a ROI on the local database please consult **Section X?**.
-
+We clarify that the ROI shapefile and the table to be queried should already exists on the local database. For details about how to upload a ROI and how to create a local table on the local database please consult **Section X?**.
 
 Let us suppose we would like to query a ROI shapefile called ArcticBay with roiprojSRID=4326 and ST_Intersects as spatialrel. The local table that we want to query is tblmetadata. After updating the config file as explained in the initial section of this tutorial, the config file should look as follows:
 
@@ -89,7 +86,7 @@ We expect the following output, if there were no errors when executing the query
 
 With this menu, the user can select either to output the results to a CSV file or to a local table. 
 
-Suppose we choose option 1: CSV file, the program will output a standard filename. The user can accept that name or type one of its own. Notice that only the filename with extension should be provided (no path). 
+Suppose we choose option *1: CSV file*, the program will output a standard filename. The user can accept that name or type one of its own. Notice that only the filename with extension should be provided (no path). 
 
 ``Filename will be: ArcticBay_tblmetadata_24-08-2021_13-44.csv``
 
@@ -184,6 +181,9 @@ Download EODMS
 ==============
 
 Two emails are received from EODMS, the first one is a confirmation that the order was received, and the second one has the ftp location of the images. It should look something like the email below:
+
+.. figure:: eodms_email.jpeg
+	:scale: 30%
 
 To download all the ordered images, we select option ``6: EODMS: Download``.  This option prompt us to enter the cart directory. This directory corresponds to the “Directory” information under FTP section.  If the cart is still available, all the files will be downloaded to the output directory.
 
