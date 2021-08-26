@@ -1012,8 +1012,11 @@ class Query(object):
                 else:
                     print(title + ' is offline - Retry later.')
                     offline_uuids.append(id)
-                    api.download(id, output_dir)
-
+                    #Attempt to download twice - to activate the robot.
+                    try:
+                        api.download(id, output_dir)
+                    except:
+                        api.download(id, output_dir)
          except:
             print ('Try next file.')
 
