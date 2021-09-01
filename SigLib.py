@@ -29,6 +29,7 @@ from configparser import ConfigParser, RawConfigParser
 import logging
 import shutil
 import time
+import csv
 from time import localtime, strftime
 from glob import glob
 from func_timeout import func_timeout
@@ -183,11 +184,39 @@ class SigLib:
         for dirpath, dirnames, filenames in os.walk(path):
             ziproots.extend(glob(os.path.join(dirpath,pattern)))
 
-        self.logger.info('Found %i files in %s matching pattern %s', len(ziproots), path, pattern)
+        if pattern != '*.zip':
+            fileList = []
+            if pattern == '*.csv':
+                for csvFile in ziproots:
+                    with open(csvFile, newline='') as f:
+                        reader = csv.reader(f)
+                        paths = list(reader)
+                        [fileList.append(str(i[0])) for i in paths]
+
+                    f.close()
+
+            elif pattern == '*.txt':
+                for txtFile in ziproots:
+                    with open(txtFile, 'r') as f:
+                        paths = f.readlines()
+                        [fileList.append(i.strip()) for i in paths]
+
+                    f.close()
+
+            else:
+                self.logger.error("Unaccepted pattern, aborting!")
+                return Exception
+
+            ziproots = fileList
+            print(ziproots)
+
+
+        self.logger.info('Found %i files to process', len(ziproots))
         ziproots.sort() # Nice to have this in some kind of order
         
         # Process every zipfile in ziproots 1 by 1
         for zipfile in ziproots:
+            print(zipfile)
             formatter = logging.Formatter('')        
             self.loghandler.setFormatter(formatter)
             self.logger.info('')
@@ -495,7 +524,7 @@ class SigLib:
         else:
             self.logger.debug('Image read ok')  
     
-        instances = db.qryGetInstances(granule, self.roi, self.table_to_query)
+        instances = db.qryGetInstances(granule, self.roi)
 
         if instances == -1:
             self.logger.error('No instances!')
