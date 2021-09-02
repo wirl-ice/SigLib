@@ -990,19 +990,20 @@ class Query(object):
 
 
                 try:
-                    #products = api.query(footprint,
-                    #                 date=(fromdate_obj, todate_obj),
-                    #                 platformname=satellite,
-                    #                 producttype=product,
-                    #                 sensoroperationalmode=sensoroperationalmode)
-                    #records_p = api.to_dataframe(products)
-
-                    #records.append(records_p)
-
                     products = api.query(footprint,
-                                         date=('20170101', '20171230'),
-                                         platformname=satellite,
-                                         producttype=product)
+                                     date=(fromdate_obj, todate_obj),
+                                     platformname=satellite,
+                                     producttype=product,
+                                     sensoroperationalmode=sensoroperationalmode)
+
+
+
+                    #debugging purposes.
+                    #products = api.query(footprint,
+                    #                     date=('20170101', '20171230'),
+                    #                     platformname=satellite,
+                    #                     producttype=product)
+
                     try:
                         inst = poly['features'][0]['properties']['OBJ'] + str(poly['features'][0]['properties']['INSTID'])
                         for key in products:
