@@ -1,8 +1,0 @@
-future
-psycopg2
-GDAL
-geopandas
-func-timeout
-numpy
-scipy
-configparser

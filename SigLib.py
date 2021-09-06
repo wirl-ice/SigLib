@@ -59,9 +59,8 @@ class SigLib:
         self.dbHost = str(config.get("Database", "host"))
         self.create_tblmetadata = str(config.get("Database", "create_tblmetadata")) 
         self.uploadROI = str(config.get("Database", "uploadROI"))
-        self.table_to_query = str(config.get("Database", "table"))
-        
-        self.scanQuery = str(config.get("Input", "query"))
+        self.table_to_query = str(config.get("Database", "metatable_name"))
+
         self.scanPath = str(config.get("Input", "path"))
         self.scanFile = str(config.get("Input", "file"))
         self.scanFor = str(config.get("Input", "scanFor"))
