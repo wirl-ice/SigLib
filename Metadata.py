@@ -276,7 +276,7 @@ class Metadata(object):
                     return
             else:
                 self.clean_metaASF(ceos_meta)
-                pass
+
 
         elif self.sattype == 'RS2':
             self.getCornerPoints()
@@ -652,7 +652,7 @@ class Metadata(object):
         mid = []
         last = []
 
-        line_num =-1;
+        line_num =-1
         n_gcps = 0
         record_offset = 0
 
@@ -660,7 +660,7 @@ class Metadata(object):
         while record_offset < file_size:
 
             #Increase the number of lines
-            line_num = line_num + 1;
+            line_num = line_num + 1
 
             fp.seek(record_offset,0)
             header_data = fp.read(12)
@@ -768,6 +768,28 @@ class Metadata(object):
         
         self.satellite = xmldoc.getElementsByTagName('safe:familyName')[0].firstChild.data + xmldoc.getElementsByTagName('safe:number')[0].firstChild.data
         self.copyright = "ESA"     #hardcoded
+
+        pathToCal = os.path.join(self.path, 'annotation\\calibration')
+        calFile = os.listdir(pathToCal)[0]
+
+        caldoc = minidom.parse(os.path.join(pathToCal, calFile))
+
+        s1CalPixels = caldoc.getElementsByTagName('pixel')[0].firstChild.data
+        s1CalPixels = s1CalPixels.split(' ')
+        s1CalPixels = [int(i) for i in s1CalPixels]
+        s1CalVals = caldoc.getElementsByTagName('sigmaNought')[0].firstChild.data
+        s1CalVals = s1CalVals.split(' ')
+        s1CalVals = [float(i) for i in s1CalVals]
+
+        numCals = numpy.arange(0, self.n_cols, 1)
+        calgain = numpy.interp(numCals, s1CalPixels, s1CalVals)
+
+        self.calgain = calgain.astype(numpy.float32)
+
+        #if self.order_Rg.lower() == 'decreasing':
+        #    self.calgain = self.calgain[::-1].copy()  # REVERSE!!
+
+        caldoc.unlink()
 
         xmldoc.unlink()
         self.getDimgname()   #CHECK TO SEE IF THIS WORKS
@@ -959,8 +981,8 @@ class Metadata(object):
         self.n_bands = 1  # since we have HH
         self.lineSpacing = float(result['line_spacing'])
         self.pixelSpacing = float(result['pix_spacing'])
-        assert self.lineSpacing > 0 and type(self.lineSpacing) == type(1.2)
-        assert self.pixelSpacing > 0 and type(self.pixelSpacing) == type(1.2)
+        #assert self.lineSpacing > 0 and type(self.lineSpacing) == type(1.2)
+        #assert self.pixelSpacing > 0 and type(self.pixelSpacing) == type(1.2)
 
         self.beams = result['beam_type1']+result['beam_type2']+result['beam_type3']+result['beam_type4']
         self.beams = self.beams.strip()
@@ -1032,8 +1054,8 @@ class Metadata(object):
             self.logger.debug("Warning! could not determine satellite altitude (line 1160 metadata.py)")
 
         #Save these to check the projections
-        self.ellip_maj = result['ellip_maj']
-        self.ellip_min = result['ellip_min']
+        self.ellip_maj = float(result['ellip_maj'])
+        self.ellip_min = float(result['ellip_min'])
 
         self.lutApplied = None
         self.order_Az = result["time_dir_lin"]
@@ -1068,8 +1090,10 @@ class Metadata(object):
 
         ok = subprocess.Popen(command, stdout = subprocess.PIPE)
 
+        results = list(ok.stdout)
+        decoded = [i.decode('utf-8') for i in results]
 
-        for line in ok.stdout:
+        for line in decoded:
             if " PRODUCT TYPE" in line:
                 self.productType = line[15:]
 
@@ -1088,8 +1112,10 @@ class Metadata(object):
 
         ok = subprocess.Popen(command, stdout = subprocess.PIPE)
 
+        results = list(ok.stdout)
+        decoded = [i.decode('utf-8') for i in results]
 
-        for line in ok.stdout:
+        for line in decoded:
             if "Lat at start of image frame in near swath" in line:
                 ulLat = line[45:]
             elif "Long at start of image frame in near swath" in line:
@@ -1193,8 +1219,8 @@ class Metadata(object):
         self.n_bands = 1  # since we have HH
         self.lineSpacing = result['line_spacing']
         self.pixelSpacing = result['pix_spacing']
-        assert self.lineSpacing > 0 and type(self.lineSpacing) == type(1.2)
-        assert self.pixelSpacing > 0 and type(self.pixelSpacing) == type(1.2)
+        #assert self.lineSpacing > 0 and type(self.lineSpacing) == type(1.2)
+        #assert self.pixelSpacing > 0 and type(self.pixelSpacing) == type(1.2)
 
         self.beams = result['beam_type1']+result['beam_type2']+result['beam_type3']+result['beam_type4']
         self.beams = self.beams.strip()
@@ -1205,7 +1231,7 @@ class Metadata(object):
             self.bitsPerSample = None
 
         self.copyright = 'Copyright CSA ' + self.acDateTime.strftime('%Y')
-        self.freqSAR = 0.29979e9/result['wave_length'] # in Hz
+        self.freqSAR = 0.29979e9/float(result['wave_length']) # in Hz
         self.looks_Az = result['n_azilok']
         self.looks_Rg = result['n_rnglok']
         self.n_beams = result['n_beams']

@@ -29,8 +29,10 @@ from configparser import ConfigParser, RawConfigParser
 import logging
 import shutil
 import time
+import csv
 from time import localtime, strftime
 from glob import glob
+from func_timeout import func_timeout
 #from builtins import input
 
 from Database import Database
@@ -42,7 +44,6 @@ import Util
 class SigLib:
     def __init__(self):       
         self.cfg = os.path.expanduser((sys.argv[1]))
-
         #config = ConfigParser.RawConfigParser()
         config = RawConfigParser() # Needs to be tested for python2 compatibility 
         config.read(self.cfg)
@@ -59,18 +60,15 @@ class SigLib:
         self.dbHost = str(config.get("Database", "host"))
         self.create_tblmetadata = str(config.get("Database", "create_tblmetadata")) 
         self.uploadROI = str(config.get("Database", "uploadROI"))
-        self.table_to_query = str(config.get("Database", "table"))
-        
-        self.scanQuery = str(config.get("Input", "query"))
+        self.table_to_query = str(config.get("Database", "metatable_name"))
+
         self.scanPath = str(config.get("Input", "path"))
         self.scanFile = str(config.get("Input", "file"))
         self.scanFor = str(config.get("Input", "scanFor"))
-        self.uploadData = str(config.get("Input", "uploadData"))
 
-        self.processData2db = str(config.get("Process", "data2db"))
-        self.qualitativeProcess = str(config.get("Process", "data2img"))
-        self.quantitativeProcess = str(config.get("Process", "scientific"))
-        self.polarimetricProcess = str(config.get("Process", "polarimetric"))
+        self.processData2db = str(config.get("Process", "metaUpload"))
+        self.qualitativeProcess = str(config.get("Process", "qualitative"))
+        self.quantitativeProcess = str(config.get("Process", "quanitative"))
         self.queryProcess = str(config.get("Process", "query"))
         
         self.proj = str(config.get('MISC',"proj"))
@@ -82,10 +80,17 @@ class SigLib:
         self.spatialrel = str(config.get('MISC',"spatialrel"))
         self.imgType = str(config.get('MISC',"imgTypes"))
         self.imgFormat = str(config.get('MISC',"imgFormat"))
+        self.uploadData = str(config.get("MISC", "uploadResults"))
 
         self.elevation_correction = str(config.get('MISC', "elevationCorrection"))
 
         self.issueString = ""
+        self.zipname = None
+        self.unzipdir = None
+        self.fname = None
+        self.sattype = None
+        self.granule = None
+        self.imgname = None
         self.count_img = 0            # Number of images processed
         self.bad_img = 0             # Number of bad images processed
         self.starttime = strftime('%Y%m%d_%H%M%S', localtime())
@@ -93,10 +98,17 @@ class SigLib:
             self.starttime +'.cfg')) # make a copy of the cfg file
         self.length_time = 0
         self.loghandler = None
+<<<<<<< HEAD
+        self.logger = 0
+        self.sar_meta = None
+
+    
+=======
         self.logger = 0        
 
 
 
+>>>>>>> ef83fab6a8c75d14d8bb061c8e3d47e895306a4d
     def createLog(self,zipfile=None):   
         """
         Creates log file that will be used to report progress and errors
@@ -120,10 +132,9 @@ class SigLib:
         self.logger.propagate = False
                 
         self.logger.info("SigLib Run w/ config: %s", self.cfg)
-        self.logger.info("User: %s",os.getenv('USER'))        
+        self.logger.info("User: %s",os.getenv('USER'))
 
-
-    def proc_File(self, zipfile):
+    def proc_File(self, zipfile, cleanup=True):
         """
         Locates a single satellite image zip file and processes it according 
         to the config file.  Note this cannot be nested in proc_dir since the 
@@ -134,41 +145,30 @@ class SigLib:
             *zipfile* 
         """      
 
-        self.logger = self.createLog(zipfile)
-        self.logger = logging.getLogger(__name__)
-        self.count_img += 1      
+        self.count_img = 1      
                            
         self.logger.info('Started processing image %s', zipfile) 
         
         try:
-            start_time = time.time()
             self.retrieve(zipfile)
             self.logger.debug('image retrieved')
-            # Do clean-up
                             
         except Exception as e: #Normally Exception, e
             self.logger.error('Image failed %s, due to: %s', zipfile, e, exc_info=True)
             self.logger.error("Image processing exception, moving to next image")
-            self.issueString += "\n\nERROR (exception): " + zipfile
-            self.bad_img += 1
-    
-        end_time = time.time()
-        self.logger.info("Image Processing Time: " + str(int((end_time-start_time)/60)) + " Minutes " + str(int((end_time-start_time)%60)) + " Seconds")
-        os.chdir(self.tmpDir)
-        #os.system("rm -r " +os.path.splitext(os.path.basename(zipfile))[0])
-        try:
-            shutil.rmtree(os.path.splitext(os.path.basename(zipfile))[0])
-        except Exception as e:
-            self.logger.debug("Warning: could not remove file from temp directory; {}".format(e))
-        self.logger.debug('cleaned zip dir')
+            self.bad_img = 1
+
+        if cleanup:
+            os.chdir(self.tmpDir)
+            try:
+                shutil.rmtree(os.path.splitext(os.path.basename(zipfile))[0])
+            except Exception as e:
+                self.logger.debug("Warning: could not remove file from temp directory; {}".format(e))
+            self.logger.debug('cleaned zip dir')
 
         good_img = self.count_img - self.bad_img
-        self.logger.info("%i images where successfully processed out of %i", good_img, self.count_img)
+        self.logger.info("%i images were successfully processed out of %i", good_img, self.count_img)
 
-        if self.bad_img > 0:
-            # Write the issue file
-            self.logger.error(self.issueString)
-          
     def proc_Dir(self, path, pattern):
         """
         Locates satelite image raw data files (zipfiles) using a
@@ -191,11 +191,39 @@ class SigLib:
         for dirpath, dirnames, filenames in os.walk(path):
             ziproots.extend(glob(os.path.join(dirpath,pattern)))
 
-        self.logger.info('Found %i files in %s matching pattern %s', len(ziproots), path, pattern)
+        if pattern != '*.zip':
+            fileList = []
+            if pattern == '*.csv':
+                for csvFile in ziproots:
+                    with open(csvFile, newline='') as f:
+                        reader = csv.reader(f)
+                        paths = list(reader)
+                        [fileList.append(str(i[0])) for i in paths]
+
+                    f.close()
+
+            elif pattern == '*.txt':
+                for txtFile in ziproots:
+                    with open(txtFile, 'r') as f:
+                        paths = f.readlines()
+                        [fileList.append(i.strip()) for i in paths]
+
+                    f.close()
+
+            else:
+                self.logger.error("Unaccepted pattern, aborting!")
+                return Exception
+
+            ziproots = fileList
+            print(ziproots)
+
+
+        self.logger.info('Found %i files to process', len(ziproots))
         ziproots.sort() # Nice to have this in some kind of order
         
         # Process every zipfile in ziproots 1 by 1
         for zipfile in ziproots:
+            print(zipfile)
             formatter = logging.Formatter('')        
             self.loghandler.setFormatter(formatter)
             self.logger.info('')
@@ -207,39 +235,30 @@ class SigLib:
             self.count_img += 1
             
             try:
-                start_time = time.time()
-                tmpname = self.retrieve(zipfile)
+                self.retrieve(zipfile)
                 self.logger.debug('image retrieved') #TODO move to retrieve and return meaningful info.
-            except Exception: #Normally Exception
-                self.logger.error('Image failed %s', zipfile)
+            except Exception as e: #Normally Exception
+                self.logger.error('Image failed %s, due to: %s', zipfile, e, exc_info=True)
                 self.logger.error("Image processing exception, moving to next image")
-                self.issueString += "\n\nERROR (exception): " + zipfile
                 self.bad_img += 1
                   
             # Do clean-up
-            end_time = time.time()
-            self.logger.info("Image Processing Time: " + str(int((end_time-start_time)/60)) + " Minutes " + str(int((end_time-start_time)%60)) + " Seconds")
             os.chdir(self.tmpDir)
-            #os.system("rm -r " +os.path.splitext(os.path.basename(zipfile))[0])
             try:
-                shutil.rmtree(os.path.splitext(os.path.basename(tmpname))[0])
+                shutil.rmtree(os.path.splitext(os.path.basename(self.zipname))[0])
             except Exception as e:
                 self.logger.debug("Warning: could not remove file from temp directory; {}".format(e))
             self.logger.debug('cleaned zip dir')
 
         good_img = self.count_img - self.bad_img
-        self.logger.info("%i images where successfully processed out of %i", good_img, self.count_img)
-
-        if self.bad_img > 0:
-            # Write the issue file
-            self.logger.error(self.issueString)
+        self.logger.info("%i images were successfully processed out of %i", good_img, self.count_img)
             
-        self.logger.handlers = []
-        logging.shutdown()
-        del sys.modules['Image']
-        del sys.modules['Metadata']
-        del sys.modules['Database']
-        del sys.modules['Util']
+        #self.logger.handlers = []
+        #logging.shutdown()
+        #del sys.modules['Image']
+        #del sys.modules['Metadata']
+        #del sys.modules['Database']
+        #del sys.modules['Util']
 
     def retrieve(self, zipfile):
         """
@@ -252,20 +271,35 @@ class SigLib:
         """
         
         # Verify if zipfile has its own subdirectory before unzipping
-        unzipdir, zipname, nested, granule = Util.getZipRoot(os.path.join(self.scanDir,zipfile), self.tmpDir)            
+        unzipdir, zipname, nested, granule = Util.getZipRoot(os.path.join(self.scanDir,zipfile), self.tmpDir)
+
+        self.zipname = zipname
+        self.unzipdir = unzipdir
+        self.granule = granule
+
         self.logger.debug("Zipfile %s will unzip to %s. Granule is %s and Nested is %s", zipfile, unzipdir, granule, nested)        
 
         # Unzip the zip file into the unzip directory
         Util.unZip(zipfile, unzipdir)
         self.logger.debug("Unzip ok")
         
-        if unzipdir == self.tmpDir:      # If files have been unzipped in their own subdirectory
-            unzipdir = os.path.join(self.tmpDir, zipname)    # Then correct the name of unzipdir
+        if self.unzipdir == self.tmpDir:      # If files have been unzipped in their own subdirectory
+            self.unzipdir = os.path.join(self.tmpDir, self.zipname)    # Then correct the name of unzipdir
             if nested == 1:   # If zipfile has nested directories
-                unzipdir = os.path.join(unzipdir, zipname)    # Then correct the name of unzipdir
+                self.unzipdir = os.path.join(self.unzipdir, self.zipname)    # Then correct the name of unzipdir
                 
         # Parse zipfile
-        fname, imgname, sattype = Util.getFilename(granule, unzipdir, self.loghandler)
+        fname, imgname, sattype = Util.getFilename(self.granule, self.unzipdir, self.loghandler)
+
+        self.fname = fname
+        self.imgname = imgname
+        self.sattype = sattype
+
+        if sattype == 'SEN-1':
+            self.granule = self.granule.split('.')[0]
+            self.zipname = self.granule
+            os.rename(self.unzipdir, os.path.join(self.tmpDir, self.granule))
+            self.unzipdir = os.path.join(self.tmpDir, self.granule)
         
         formatter = logging.Formatter('')        
         self.loghandler.setFormatter(formatter)
@@ -276,15 +310,15 @@ class SigLib:
         formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')         
         self.loghandler.setFormatter(formatter)
         
-        if fname == "error":
+        if self.fname == "error":
             self.logger.error("File not valid or available, moving to next file")
             self.issueString += "\n\nERROR (retrieve): " + zipfile    # Take note
             self.bad_img += 1
 
         else:#begin processing data ...
-            sar_meta = Metadata(granule, imgname, unzipdir, zipfile, sattype, self.loghandler)   # Retrieve metadata          
+            self.sar_meta = func_timeout(300, Metadata, args=(self.granule, self.imgname, self.unzipdir, zipfile, self.sattype, self.loghandler))   # Retrieve metadata
 
-            if sar_meta.status != "ok":       # Meta class unsuccessful
+            if self.sar_meta.status != "ok":       # Meta class unsuccessful
                 self.logger.error("Creating an instance of the meta class failed, moving to next image")
                 self.bad_img += 1
                 self.issueString += "\n\nERROR (meta class): " + zipfile
@@ -292,31 +326,37 @@ class SigLib:
             else:
                 formatter = logging.Formatter('')        
                 self.loghandler.setFormatter(formatter)
-                self.logger.info('\n' + 'Dimgname: %s', sar_meta.dimgname + '\n')
+                self.logger.info('\n' + 'Dimgname: %s', self.sar_meta.dimgname + '\n')
                 formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')         
                 self.loghandler.setFormatter(formatter)
 
-            sar_meta.saveMetaFile(self.imgDir)
+            #sar_meta.saveMetaFile(self.imgDir)
 
-            #"Utility" function, to be replaced by Query            
-            if self.processData2db == "1":
-                db = Database(self.table_to_query, self.dbName, loghandler=self.loghandler, host=self.dbHost)  # Connect to the database
-                self.data2db(sar_meta, db, zipfile)
-                db.removeHandler()
+            #"Utility" function, to be replaced by Query
+            if "1" in {self.processData2db, self.qualitativeProcess, self.quantitativeProcess}:
+                start_time = time.time()
 
-            if self.qualitativeProcess == "1":
-                self.logger.debug("processing data to image")
-                self.qualitative_mode(fname, imgname, zipname, sattype, granule, zipfile, sar_meta, unzipdir)
-                
-            if self.quantitativeProcess == "1":
-                db = Database(self.table_to_query, self.dbName, loghandler=self.loghandler, host=self.dbHost)
-                self.quantitative_mode(db, fname, imgname, zipname, sattype, granule, zipfile, sar_meta, unzipdir)
-                db.removeHandler()
-                
-        return zipname #for temp folder cleanup
+                if self.processData2db == "1":
+                    db = Database(self.table_to_query, self.dbName, loghandler=self.loghandler, host=self.dbHost)  # Connect to the database
+                    self.data2db(db, zipfile)
+                    db.removeHandler()
+
+                if self.qualitativeProcess == "1":
+                    self.logger.debug("processing data to image")
+                    self.qualitative_mode(fname, imgname, zipname, sattype, granule, zipfile, unzipdir)
+
+                if self.quantitativeProcess == "1":
+                    db = Database(self.table_to_query, self.dbName, loghandler=self.loghandler, host=self.dbHost)
+                    self.quantitative_mode(db, fname, imgname, zipname, sattype, granule, zipfile, unzipdir)
+                    db.removeHandler()
+
+                end_time = time.time()
+
+                self.logger.info("Image Processing Time: " + str(int((end_time - start_time) / 60)) + " Minutes " + str(
+                    int((end_time - start_time) % 60)) + " Seconds")
 
     #This will be moved to a utility? rather than a mode        
-    def data2db(self, meta, db, zipfile):
+    def data2db(self, db, zipfile):
         """
         Adds the image file metadata to tblmetadata table in the specified database.
         Will create/overwrite the table tblmetadata if prompted (be carefull)
@@ -330,8 +370,8 @@ class SigLib:
         #TODO: implement ROI filtering such that only images within the ROI
         #are uploaded to tblmetadata
         print("Starting data2db")
-        if meta.status == "ok":
-            meta_dict = meta.createMetaDict()  # Create dictionary of all the metadata fields
+        if self.sar_meta.status == "ok":
+            meta_dict = self.sar_meta.createMetaDict()  # Create dictionary of all the metadata fields
             db.meta2db(meta_dict)       # Upload metadata to database
           
         else:
@@ -358,7 +398,7 @@ class SigLib:
         return
 
 
-    def qualitative_mode(self, fname, imgname, zipname, sattype, granule, zipfile, sar_meta, unzipdir):
+    def qualitative_mode(self, fname, imgname, zipname, sattype, granule, zipfile, unzipdir):
         """
         Opens an image file and converts it to the format given in the config file
 
@@ -381,18 +421,19 @@ class SigLib:
             *unzipdir* : directory zipfiles were unzipped into     
         """
         print("Starting Qualitative Mode for:\n", zipname)
-        # Change working directories so that processed image can be stored in imgDir
-        os.chdir(self.imgDir)
-        
+
         newTmp = os.path.join(self.tmpDir,zipname)
         if os.path.isdir(newTmp):
             pass
         else:
             os.makedirs(newTmp)
+
+        os.chdir(newTmp)
             
         # Process the image
-        sar_img = Image(fname, unzipdir, sar_meta, self.imgType, self.imgFormat, zipname, self.imgDir, newTmp, loghandler = self.loghandler, eCorr = self.elevation_correction)
+        sar_img = func_timeout(600, Image, args=(self.fname, self.unzipdir, self.sar_meta, self.imgType, self.imgFormat, self.zipname, self.imgDir, newTmp, self.projDir, self.loghandler, self.elevation_correction))
 
+        
         if sar_img.status == "error":
             self.logger.error("Image could not be opened or manipulated, moving to next image")
             sar_img.cleanFiles(levels=['nil']) 
@@ -402,9 +443,9 @@ class SigLib:
         else:
             try:    
                 if self.imgType == 'amp':
-                    ok = sar_img.projectImg(self.proj, self.projDir, resample='bilinear')
-                else:  # no smoothing for quantitative_mode images
-                    ok = sar_img.projectImg(self.proj, self.projDir, resample='near')
+                    ok = sar_img.projectImg(self.proj, self.projSRID, resample='bilinear')
+                else:  # no smoothing for quantitative images
+                    ok = sar_img.projectImg(self.proj, self.projSRID, resample='near')
             except:
                 self.logger.error('ERROR: Issue with projection... will stop projecting this img')
                 self.issueString += "\n\nWARNING (image projection): " + zipfile
@@ -439,14 +480,13 @@ class SigLib:
             sar_img.compress()
             sar_img.makePyramids()
             self.logger.debug('Image pyramid ok')
-            sar_img.cleanFiles(levels=['nil','proj']) 
-            self.logger.debug('Intermediate file cleanup done')
+            shutil.copy(os.path.join(newTmp, sar_img.FileNames[-1]), self.imgDir)
             sar_img.removeHandler()
-            sar_meta.removeHandler()
+            self.sar_meta.removeHandler()
         print("Quatlitative Mode Complete.")
     
                  
-    def quantitative_mode(self, db, fname, imgname, zipname, sattype, granule, zipfile, sar_meta, unzipdir):          
+    def quantitative_mode(self, db, fname, imgname, zipname, sattype, granule, zipfile, unzipdir):
         """
         Process images quantitative_modely, based on an ROI in the database, and per zipfile:
             -Qry to find what polygons in the ROI overlap this image
@@ -471,11 +511,16 @@ class SigLib:
             *unzipdir* : directory zipfile was unzipped into                            
         """
         print("Starting Quantitative Mode for:\n", zipname)
-        os.chdir(self.imgDir)
-        newTmp = os.path.join(self.tmpDir,zipname)
+        newTmp = os.path.join(self.tmpDir, zipname)
+        if os.path.isdir(newTmp):
+            pass
+        else:
+            os.makedirs(newTmp)
+
+        os.chdir(newTmp)
         
         # Process the image
-        sar_img = Image(fname, unzipdir, sar_meta, self.imgType, self.imgFormat, zipname, self.imgDir, newTmp, self.loghandler)
+        sar_img = func_timeout(600, Image, args=(self.fname, self.unzipdir, self.sar_meta, self.imgType, self.imgFormat, self.zipname, self.imgDir, newTmp, self.projDir, self.loghandler))
 
         if sar_img.status == "error":
             self.logger.error("Image could not be opened or manipulated, moving to next image")
@@ -486,7 +531,7 @@ class SigLib:
         else:
             self.logger.debug('Image read ok')  
     
-        instances = db.qryGetInstances(granule, self.roi, self.table_to_query)
+        instances = db.qryGetInstances(granule, self.roi)
 
         if instances == -1:
             self.logger.error('No instances!')
@@ -498,14 +543,13 @@ class SigLib:
 
             sar_img.FileNames = sar_img.tmpFiles   #reset list of filenames within Image.py each loop
 
-            #Crop!
             self.logger.debug('Processing '+ str(inst) + ' : ' + str(i+1) + ' of ' + str(len(instances)) + ' subsets')
 
             #PROJECT
             if self.imgType == 'amp':
-                ok = sar_img.projectImg(self.proj, self.projDir, resample='bilinear')
+                ok = sar_img.projectImg(self.proj, self.projSRID, resample='bilinear')
             else:  # no smoothing for quantitative_mode images
-                ok = sar_img.projectImg(self.proj, self.projDir, resample='near')
+                ok = sar_img.projectImg(self.proj, self.projSRID, resample='near')
 
             if ok != 0: # trap errors here 
                 self.logger.error('ERROR: Issue with projection... will stop processing this img')
@@ -518,20 +562,17 @@ class SigLib:
                 self.logger.error('ERROR: Issue with cropping... will stop processing this subset')
                 sar_img.cleanFiles(['nil', 'proj', 'crop'])
                 continue
-            
-            #Will need seperate function for Sentinel-1
+
             sar_img.vrt2RealImg(inst)
             
-            ### MASK FixMe!
-            if self.mask != '':     #If providing a mask, use that one
-                sar_img.maskImg(self.mask, self.vectDir, 'outside') 
-                sep = 'tog'
-                
-            else:            #If no mask provided, make one based on ROI and inst
-                #maskwkt = db.qryMaskZone(granule, self.roi, self.roiProjSRID, inst, self.table_to_query)
-                #Util.wkt2shp('instmask'+str(inst), self.tmpDir, self.proj, self.projDir, maskwkt)
-                #sar_img.maskImg('instmask'+str(inst), self.tmpDir, 'outside')
-                sep = 'sep' 
+            ### MASK
+            maskwkt = db.qryMaskZone(granule, self.roi, self.roiProjSRID, inst, self.table_to_query)
+            if self.proj == '':
+                Util.wkt2shp('instmask'+str(inst), newTmp, self.projSRID, self.projDir, maskwkt, projFile=False)
+            else:
+                Util.wkt2shp('instmask'+str(inst), newTmp, self.proj, self.projDir, maskwkt, projFile=True)
+            sar_img.maskImg('instmask'+str(inst), newTmp, 'outside')
+            sep = 'sep'
                 
             if self.uploadData == '1':  
                 for i, bandName in enumerate(sar_img.bandNames):
@@ -539,12 +580,11 @@ class SigLib:
                     imgData = sar_img.getBandData(band)                    
                     db.imgData2db(imgData, bandName, inst, sar_img.meta.dimgname, zipname)
             else:
-                stats = sar_img.getImgStats(save_stats = True)
-                #db.stats2db(stats, inst, granule, self.roi)
-                sar_img.applyStretch(stats, procedure='std', sd=3, sep=sep, inst=inst)   
-            sar_img.cleanFiles(levels=['proj', 'crop'])
-            
-        sar_img.cleanFiles(levels=['nil']) 
+                #stats = sar_img.getImgStats(save_stats = True)
+                #sar_img.applyStretch(stats, procedure='std', sd=3, sep=sep, inst=inst)
+                shutil.copy(os.path.join(newTmp, sar_img.FileNames[-1]), self.imgDir)
+            #sar_img.cleanFiles(levels=['proj', 'crop'])
+
         self.logger.debug('Intermediate file cleanup done')
         sar_img.removeHandler()
         print("Quantitative Mode Complete.")
@@ -582,6 +622,8 @@ class SigLib:
         if self.scanPath == "1":
             self.proc_Dir(self.scanDir, self.scanFor)      # Scan by path pattern
         elif self.scanFile == "1":
+            self.logger = self.createLog(os.path.abspath(os.path.expanduser(str(sys.argv[-1]))))
+            self.logger = logging.getLogger(__name__)
             self.proc_File(os.path.abspath(os.path.expanduser(str(sys.argv[-1]))))  #assume this is the last arg (after 'jobid')
         else:
             print("\nPlease specify one method to scan the data in the config file.\n")
