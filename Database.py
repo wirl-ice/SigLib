@@ -34,6 +34,7 @@ import getpass
 import logging
 import sys
 import pandas as pd
+import math
 
 class Database:
     """
@@ -514,121 +515,132 @@ class Database:
         sql = fp.read()
         data = self.qryFromText(sql, output)
         if output:
-            return(data)       
+            return(data)
 
-    #OBSOLETE        
+
     def qrySelectFromAvailable(self, roi, selectFrom, spatialrel, srid):
         """
         Given a roi table name (with polygons, from/todates), determine the scenes that cover the area
         from start (str that looks like iso date) to end (same format).
-        
-        Eventually include criteria:
-            subtype - a single satellite name: ALOS_AR, RADAR_AR, RSAT2_AR (or ANY)        
-            beam - a beam mode
-    
-        Returns a list of images+inst - the bounding box
-        
-        **Parameters**
-            
-            *roi*        : region of interest table in the database                
 
-            *spatialrel* : spatial relationship (i.e. ST_Contains or ST_Intersect).  Does the image contain the ROI polygon or just intersect with it?               
+        Eventually include criteria:
+            subtype - a single satellite name: ALOS_AR, RADAR_AR, RSAT2_AR (or ANY)
+            beam - a beam mode
+
+        Returns a list of images+inst - the bounding box
+
+        **Parameters**
+
+            *roi*        : region of interest table in the database
+
+            *spatialrel* : spatial relationship (i.e. ST_Contains or ST_Intersect).  Does the image contain the ROI polygon or just intersect with it?
 
             *srid*       : srid of desired projecton
-            
+
             *selectFrom* : table in the database to find the scenes
-                
+
         **Returns**
 
-            *copylist* : a list of image catalog ids                
+            *copylist* : a list of image catalog ids
 
             *instimg*  : a list of each instance and the images that correspond
         """
-    
+
         assert spatialrel.lower() == 'st_contains' or spatialrel.lower() == 'st_intersects'
-       
-        curs = self.connection.cursor()       
+
+        curs = self.connection.cursor()
+
+        # Check if local table to query exists
+        # Tablenames are stored in lower case and are case sensistive
+        curs.execute("select exists(select * from information_schema.tables where table_name=%s)",
+                     (selectFrom.lower(),))
+        table_exists = curs.fetchone()[0]
+        if not table_exists:
+            return None, None
+
+        # Check if ROI table exists
+        curs.execute("select exists(select * from information_schema.tables where table_name=%s)", (roi.lower(),))
+        table_exists = curs.fetchone()[0]
+        if not table_exists:
+            return None, None
 
         curs.execute('SELECT inst, fromdate, todate FROM ' + roi + ';')
-        
+
         instances = curs.fetchall()
-          
-        
+
         n_poly = len(instances)
-    
+
         instimg = [] # make a list of dictionaries to create the instimg table
         copyfiles = [] # make a list to contain all the files to copy
-        
-        # The query is set up to take the most recent addition to the archive of 
-            # the SAME file - ie the date/time and satellite match fully, however, it 
+
+        # The query is set up to take the most recent addition to the archive of
+            # the SAME file - ie the date/time and satellite match fully, however, it
             # is desirable to match on more than one image as the time span allows.
         #Note DO NOT do this comparison in WGS84-lat.lon  - use a projection)
-        
+
         for i in range(n_poly): # for each polygon in tblROI, get images that
-          
+
             inst = instances[i][0]
-                         
+
             fromdate = instances[i][1] + datetime.timedelta(seconds=1)
             fromdate = fromdate.strftime('%Y-%m-%d')
-                       
-            #allow for truncation errors
-            todate = instances[i][2] + datetime.timedelta(seconds=1) 
-            todate = todate.strftime('%Y-%m-%d')   #%H:%M:%S'          
-            
-            param = {'inst': inst, 'fromdate' : fromdate, 'todate' : todate, 'srid' : srid}
 
-            if selectFrom == 'tblArchive':             
-                sql1 = """SELECT DISTINCT ON (substring("file name", 1, 27)) 
-                "file name", "file path", "subtype", "beam mode", "valid time", "catalog id" """
-                sql4 = 'AND "valid time" >= %(fromdate)s '
-                sql5 = 'AND "valid time" <= %(todate)s '
-                sql9 = """ORDER BY substring("file name", 1, 27), "file name" DESC"""
-                
+            #allow for truncation errors
+            todate = instances[i][2] + datetime.timedelta(seconds=1)
+            todate = todate.strftime('%Y-%m-%d')   #%H:%M:%S'
+
+            param = {'inst': inst, 'fromdate' : fromdate, 'todate' : todate, 'srid' : int(srid)}
+            print('ROI start date: {}  end date: {}'.format(fromdate, todate))
+
+            if selectFrom == 'tblcisarchive':
+                sql1 = """SELECT DISTINCT ON (substring("File Name", 1, 27)) 
+                "File Name", "File Path", "SubType", "Valid Time", "Catalog Id" """
+                sql4 = 'AND "Valid Time" >= %(fromdate)s '
+                sql5 = 'AND "Valid Time" <= %(todate)s '
+                sql9 = """ORDER BY substring("File Name", 1, 27), "File Name" DESC"""
+
             else:
                 sql1 = """SELECT DISTINCT ON (substring("granule", 1, 27)) 
                 "granule", "location", "sattype", "beam", "acdatetime" """
                 sql4 = 'AND "acdatetime" >= %(fromdate)s '
                 sql5 = 'AND "acdatetime" <= %(todate)s '
                 sql9 = """ORDER BY substring("granule", 1, 27), "granule" DESC"""
-                
+
             sql2 = 'FROM ' + selectFrom +', ' +roi+ ' '
             sql3 = 'WHERE ' + roi + '.inst = %(inst)s '
             sql6 = 'AND ' + spatialrel + ' '
             sql7 = '(ST_Transform('+selectFrom+'.geom, %(srid)s), ST_Transform('
             sql8 =  roi+'.geom, %(srid)s)) '
             qry = sql1 + sql2 + sql3 + sql4 + sql5 + sql6 + sql7 + sql8+ sql9
-                            
+
             curs.execute(qry,param)
-            self.connection.commit()   
+            self.connection.commit()
             rows = curs.fetchall()
-            
+
             for i in range(len(rows)):
-                
-                if selectFrom == 'tblArchive':
-    
+
+                if selectFrom == 'tblcisarchive':
+
                     granule= rows[i][0]
-                    catid= rows[i][5]
-                    acTime= rows[i][4]
-    
+                    catid= rows[i][4]
+                    acTime= rows[i][3]
+
                     copyfiles.append(catid)
-                
+
                     instimg.append({"inst": inst, "granule": granule, "catid": catid, "time": acTime})
-                    
+
                 else:
                     granule = rows[i][0]
                     location = rows[i][1]
                     acTime = rows[i][4]
-                    
+
                     copyfiles.append(location)
-                    
-                    instimg.append({"inst" : inst, "granule" : granule, "location" : location, "time": acTime})                   
-    
+
+                    instimg.append({"inst" : inst, "granule" : granule, "location" : location, "time": acTime})
+
         # make sure there are no repeat occurrances of the files to copy
-        copylist = dict.fromkeys(copyfiles).keys()
-        
-        copylist.sort()
+        copylist = sorted(dict.fromkeys(copyfiles))
         copylist.reverse()
-        
         return copylist, instimg
 
     #OBSOLETE
@@ -1035,4 +1047,377 @@ class Database:
     #KEEP    
     def removeHandler(self):
         self.logger.handlers = []
-        
+
+
+
+    def exportDict_to_CSV(self, qryOutput, outputName):
+        """
+        Given a dictionary of results from the database and a filename puts all the results
+        into a csv with the filename outputName
+
+        **Parameters**
+
+            *qryOutput*  : output from a query - needs to be a tupple - numpy data and list of column names
+
+            *outputName* : the file name
+        """
+
+        tmp = pd.DataFrame.from_dict(qryOutput)
+        for col in tmp.columns:
+            if tmp[col].dtype == 'O' or tmp[col].dtype == 'S':
+                stripped = tmp[col].str.rstrip()  # somehow there are plenty of spaces in some cols
+                if not stripped.isnull().all():  # sometimes this goes horribly wrong (datetimes)
+                    tmp[col] = stripped
+        tmp.to_csv(outputName, index=False)
+
+        # DATABASE UTILITY FUNCTION
+
+    # Creates a table that will contain records from a query
+    def create_table_from_dict (self, table_name, list):
+
+        """
+                Creates a table to store results from a query. The structure of the table follows the information from list.
+
+                    **Parameters**
+
+                        *table_name* : The name of the table to be created.
+                        *list*: A list of records from where the table structure (name and data type of columns) will be obtained.
+
+
+                    **Returns**
+                        *success* : True if the records were inserted into the table
+                """
+
+        success = True
+        curs = self.connection.cursor()
+
+        try:
+            sql_query = 'DROP TABLE IF EXISTS {}'.format(table_name)
+            curs.execute(sql_query)
+            self.connection.commit()
+        except Exception as e:
+            print(e)
+            self.connection.rollback()
+            success = False
+
+        if len(list) > 0:
+            dict = list[0]
+
+
+        # Get columns and its types
+        columns = tuple(dict)
+        columns_name = []
+        total_columns = len(dict)
+        types = []
+
+        for i in range(total_columns):
+            name = columns[i]
+            name = name.replace(' ', '_')
+            name = name.replace('(', '')
+            name = name.replace(')', '')
+            columns_name.append(name)
+            value = dict[name]
+            types.append(type(value).__name__)
+
+        sql_types = []
+
+        for t in types:
+            if t == 'int':
+                sql_types.append('integer')
+            elif t == 'str':
+                sql_types.append('varchar')
+            elif t == 'float':
+                sql_types.append('double precision')
+            elif t.lower() == 'polygon':
+                sql_types.append('varchar')
+            elif t.lower() =='datetime':
+                sql_types.append(' timestamp')
+            else:
+                sql_types.append(t)
+
+        sql_query = 'CREATE TABLE {} ('.format(table_name)
+        for i in range(0, total_columns - 1):
+            sql_query = sql_query + columns_name[i] + ' ' + sql_types[i] + ', '
+
+        sql_query = sql_query + columns_name[total_columns - 1] + ' ' + sql_types[total_columns - 1] + ");"
+
+        try:
+            curs.execute(sql_query)
+            self.connection.commit()
+        except Exception as e:
+            print(e)
+            self.connection.rollback()
+            success = False
+
+        return success
+
+    # Inserts records into a insert_table
+    # The records are in a different format as in insert_query_table
+    def insert_table_from_dict(self, table_name, list):
+        """
+               Inserts records into a table to store results from a query. The structure of the table follows the information from records.
+
+                   **Parameters**
+
+                       *table_name* : The name of the table to be created.
+                       *list*: A list of records from where the table structure (name and data type of columns) will be obtained.
+
+
+                   **Returns**
+                       *success* : True if the records were inserted into the table
+               """
+
+        try:
+            success = True
+
+            if len(list) > 0:
+                dict = list[0]
+
+                # Get columns and its types
+            columns = tuple(dict)
+            columns_name = []
+            total_columns = len(dict)
+
+            for i in range(total_columns):
+                name = columns[i]
+                name = name.replace(' ', '_')
+                name = name.replace('(', '')
+                name = name.replace(')', '')
+                columns_name.append(name)
+
+            total_rows = len(list)
+
+            for row in range(0, total_rows):
+                sql_query = 'INSERT INTO {} ('.format(table_name)
+                for i in range(0, total_columns - 1):
+                    sql_query = sql_query + columns_name[i] + ', '
+
+                sql_query = sql_query + columns_name[total_columns - 1] + ') VALUES ('
+
+                values = []
+                dict = list[row]
+                for i in range(total_columns - 1):
+                        if (type(dict[columns_name[i]]).__name__) == 'Polygon':
+                            v = dict[columns_name[i]]
+                            p = v.wkt
+                            values.append(p)
+                        else:
+                            values.append(dict[columns_name[i]])
+                        sql_query = sql_query + '%s, '
+
+                if (type(dict[columns_name[total_columns-1]]).__name__) == 'Polygon':
+                    v = dict[columns_name[total_columns-1]]
+                    p = v.wkt
+                    values.append(p)
+                else:
+                    values.append(dict[columns_name[total_columns-1]])
+
+                sql_query = sql_query + '%s)'
+
+                curs = self.connection.cursor()
+
+                try:
+                    curs.execute(sql_query, values)
+                    self.connection.commit()
+                except Exception as e:
+                    print(e)
+                    self.connection.rollback()
+                    success = False
+        except Exception as e:
+            print(e)
+            self.connection.rollback()
+            success = False
+
+        return success
+
+
+
+    #Creates a table that will contain records from a query
+    def create_query_table(self, table_name, records):
+        """
+               Creates a table to store results from a query. The structure of the table follows the information from records.
+
+                   **Parameters**
+
+                       *table_name* : The name of the table to be created.
+                       *records*: A list of records from where the table structure (name and data type of columns) will be obtained.
+
+
+                   **Returns**
+                       *success* : True if the records were inserted into the table
+               """
+        try:
+            success = True
+            curs = self.connection.cursor()
+
+            try:
+                sql_query = 'DROP TABLE IF EXISTS {}'.format(table_name)
+                curs.execute(sql_query)
+                self.connection.commit()
+            except Exception as e:
+                print(e)
+                self.connection.rollback()
+                success = False
+
+            # Get columns and its types
+            columns = tuple(records)
+            columns_name = []
+            total_columns = len(records)
+            types = []
+
+            for i in range(total_columns):
+                name = columns[i]
+                name = name.replace(' ', '_')
+                name = name.replace('(', '')
+                name = name.replace(')', '')
+                columns_name.append(name)
+                if (type(records[columns[i]]).__name__) == 'dict':
+                    dict = records[columns[i]]
+                    dict_cols = tuple(dict)
+                    value = dict[dict_cols[0]]
+                    typeD = type(dict[dict_cols[0]]).__name__
+                    if typeD=='float' and math.isnan(value):
+                        types.append('str')
+                    else:
+                        types.append(typeD)
+
+            sql_types = []
+
+            for t in types:
+                if t == 'int':
+                    sql_types.append('integer')
+                elif t == 'str':
+                    sql_types.append('varchar')
+                elif t == 'float':
+                    sql_types.append('double precision')
+                elif t.lower() == 'polygon':
+                    sql_types.append('varchar')
+                else:
+                    sql_types.append(t)
+
+            sql_query = 'CREATE TABLE {} ('.format(table_name)
+            for i in range(0, total_columns - 1):
+                sql_query = sql_query + columns_name[i] + ' ' + sql_types[i] + ', '
+
+            sql_query = sql_query + columns_name[total_columns - 1] + ' ' + sql_types[total_columns - 1] + ");"
+
+            try:
+                curs.execute(sql_query)
+                self.connection.commit()
+            except Exception as e:
+                print(e)
+                self.connection.rollback()
+                success=False
+
+        except Exception as e:
+            print(e)
+            success = False
+
+        return success
+
+
+    #Inserts records into a table.
+    #The records are in a different format as in insert_table_from_dict.
+    def insert_query_table(self, table_name,records):
+        """
+               Inserts records in a table_name.
+
+                   **Parameters**
+
+                       *table_name* : The name of the table in which the records will be inserted.
+
+
+                   **Returns**
+                       *success* : True if the records were inserted into the table
+               """
+
+        try:
+            success = True
+            #Get columns and its types
+            columns = tuple(records)
+            columns_name = []
+            total_columns = len(records)
+
+            for i in range(total_columns):
+                name = columns[i]
+                name = name.replace(' ', '_')
+                name = name.replace('(', '')
+                name = name.replace(')', '')
+                columns_name.append(name)
+
+
+            total_rows = len(records[columns[0]])
+
+            for row in range(0, total_rows):
+                sql_query = 'INSERT INTO {} ('.format(table_name)
+                for i in range(0, total_columns-1):
+                    sql_query = sql_query + columns_name[i] + ', '
+
+                sql_query = sql_query + columns_name[total_columns-1] + ') VALUES ('
+
+                values = []
+                for i in range(total_columns-1):
+                    if (type(records[columns[i]]).__name__) == 'dict':
+                        dict = records[columns[i]]
+                        dict_cols = tuple(dict)
+                        if (type(dict[dict_cols[row]]).__name__) == 'Polygon':
+                            v = dict[dict_cols[row]]
+                            p = v.wkt
+                            values.append(p)
+                        else:
+                            values.append(dict[dict_cols[row]])
+                        sql_query = sql_query +  '%s, '
+
+
+                dict = records[columns[total_columns - 1]]
+                dict_cols = tuple(dict)
+                if (type(dict[dict_cols[row]]).__name__) == 'Polygon':
+                    v = dict[dict_cols[row]]
+                    p = v.wkt
+                    values.append(p)
+                else:
+                    values.append(dict[dict_cols[row]])
+
+                sql_query = sql_query + '%s)'
+
+                curs = self.connection.cursor()
+
+                try:
+                    curs.execute(sql_query, values)
+                    self.connection.commit()
+                except Exception as e:
+                    print(e)
+                    self.connection.rollback()
+                    success = False
+        except Exception as e:
+            success = False
+            print(e)
+            self.connection.rollback()
+
+        return success
+
+
+
+    def execute_raw_sql_query(self, sql_query):
+        """
+           Executes a sql query passed as a parameter.
+
+               **Parameters**
+
+                   *sql_query* : The sql_query to be executed
+
+               **Returns**
+                   *result* : The result of the sql query or empty string if failed.
+           """
+
+        result = ''
+        curs = self.connection.cursor()
+        try:
+            curs.execute(sql_query)
+            result = curs.fetchall()
+
+        except Exception as e:
+            print(e)
+            self.connection.rollback()
+        return result
+
