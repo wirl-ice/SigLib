@@ -34,6 +34,7 @@ import getpass
 import logging
 import sys
 import pandas as pd
+import math
 
 class Database:
     """
@@ -1331,7 +1332,12 @@ class Database:
                 if (type(records[columns[i]]).__name__) == 'dict':
                     dict = records[columns[i]]
                     dict_cols = tuple(dict)
-                    types.append(type(dict[dict_cols[0]]).__name__)
+                    value = dict[dict_cols[0]]
+                    typeD = type(dict[dict_cols[0]]).__name__
+                    if typeD=='float' and math.isnan(value):
+                        types.append('str')
+                    else:
+                        types.append(typeD)
 
             sql_types = []
 

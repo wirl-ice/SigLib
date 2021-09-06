@@ -354,7 +354,7 @@ class SigLib:
         """
 
         # ROI needs to be in the Query Mode format.
-        Query(db, self.roi, self.roiProjSRID, self.vectDir, self.table_to_query, self.spatialrel, self.outDir, method)
+        Query(db, self.roi, self.roiProjSRID, self.vectDir, self.scanDir, self.table_to_query, self.spatialrel, self.outDir, method)
         return
 
 
