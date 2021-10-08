@@ -115,5 +115,7 @@ An example config file for this mode is depicted in the figure below.
 	Example config file settings for Quanitative Mode. 
 
 For this example, the *uploadResults* parameter is set to 1, meaning the image statistics for each ROI polygon will be uploaded to a results table in the database. 
-Changing this parameter to 0 will instead output cropped and masked image data for each ROI polygon to the *IMGDIR*.
+If uploading results, you must create the results table called 'tblbanddata'. This can be done by running the "CreateResultsTable.sql" script located in 
+the Extras folder in PGAdmin. Changing this parameter to 0 will instead output cropped and masked image data for each ROI polygon to the *IMGDIR*. Functionality
+to export image statistics as a csv is a work in progress. 
 
