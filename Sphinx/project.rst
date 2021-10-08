@@ -4,7 +4,7 @@ Overview of SigLib.py and its Dependencies
 Dependencies
 ------------
 
-You will need a computer running linux or windows along with:
+You will need a computer running Linux, Windows, or MacOS along with:
 
 Python 2.x or 3.x (preferred).  It is recommended you install the Python Anaconda package manager as it contains pretty well everything you will need related to Python. The following libraries are needed, and can be installed individually using your preferred package manager (eg. pip, conda).
 
@@ -27,16 +27,17 @@ Other requirements include:
 
 * gdal/ogr libraries - (https://gdal.org/)
 * PostrgreSQL/PostGIS (could be on another computer) (https://www.postgresql.org/ and https://postgis.net/)
+
 Note that it is possible to run the software without PosgresSQL/PostGIS but functionality will be limited.  
 
 Nice to have:
 
 * It is highly recommended that you have access to QGIS or ArcGIS to manipulate shapefiles
 * You should have a good Python Integrated Development Environment (IDE) - for example: Spyder, which can be installed via Anadonda
-* To work with ASF CEOS Files, you will need ASF MapReady software
-* If you want to take advantage of multiple cores on your **linux** machine to greatly enhance processing speed you will need GNU Parallel
+* To work with ASF CEOS Files, you will need ASF MapReady software (https://asf.alaska.edu/how-to/data-tools/data-tools/)
+* For Linux users, GNU Parallel (https://www.gnu.org/software/parallel/) can be used to drastically reduce runtimes by running SigLib on multiple computer cores.
 
-Sorry, but details on how to install and set up these dependencies is out of scope for this manual.
+Details on how to install and set up these dependencies is out of scope for this manual.
 
 Setup
 -----
@@ -44,16 +45,18 @@ Setup
 Once all the dependencies are met you can set up the SigLib software
 
 SigLib
-------
+******
 
-Depending on your level of experience with coding and, in particular, Python, this portion of the the setup should take about an hour for those who are familiar with setting up code repositories. If you are a novice programmer you may want to set aside more time then that.
+Depending on your level of experience with coding and, in particular, Python, this portion of the the setup should take about an hour for those 
+who are familiar with setting up code repositories. If you are a novice programmer you may want to set aside more time then that.
+
 - Download or clone the latest version of SigLib from Github (https://github.com/wirl-ice/SigLib - N.B. link is private to WIRL members for now)
-- Install Python Libraries: The ideal method for doing is via conda to create a new Python environment with the SigLib dependancies. Read up on Anaconda to learn how this is done.  
+- Install Python Libraries: The ideal method for doing this is via conda to create a new Python environment with the SigLib dependancies. Read up on Anaconda to learn how this is done.  
 - Setup Directories: you will need to create a set of directories (folders) that SigLib will access through the config.cfg file. The contents of each folder will be explained later on, for now you just need to create empty folders. They should be named to reflect the associated variable in the config.cfg file, for example, create a folder named 'ScanDirectory' to link to the 'scanDir' variable.
 - Config File Setup: Enter the paths to the directories you just created into your config file in the **Directories** section. If you know the name and host of the database you would like to use, enter these now into the **Database** section. If you are creating a new database, then refer to the *PostGIS* section.
 
 Postgres/PostGIS
-----------------
+****************
 
 Whether you are accessing an external or local PostGIS database, you will need to take steps to set up your PostGIS database in such a way that SigLib.py can connect to it. The following provides an overview on how to add new users, create a new database, and add new projections. For those who are familiar with PostGres/PostGIS this setup should only take about an hour; if you are new to PostGres/PostGIS you will likely want to set aside a few hours.
 
@@ -66,32 +69,45 @@ Whether you are accessing an external or local PostGIS database, you will need t
 
 **psql**
 This method is for Linux users only, if you are using Windows see the above steps for adding new users in PGAdmin. 
-- At the command line type (where newuser is the new username) to create a user that can create databases: 
- createuser -d newuser
-- Enter psql by specifying the database you want (use default database 'postgres' if you have not created one yet)
- psql -d postgres
-- Give the user a password like so: 
- \password username
+
+- At the command line type (where newuser is the new username) to create a user that can create databases:
+
+createuser -d newuser
+
+- Enter psql by specifying the database you want (use default database 'postgres' if you have not created one yet):
+
+psql -d postgres
+
+- Give the user a password like so:
+ 
+\password username
 
 Once a user is set up, they can be automatically logged in when connecting to the Postgres server if you follow these steps (recommended). If not, the user will either have to type in credentials or store them hardcoded in the Python scripts (bad idea!). 
 
 **Windows**
 The PostgreSQL server needs to have access to the users password so that SigLib can access the database. This achieved through the pgpass.conf file, which you will need to create. 
-- Navigate to the Application data subdirectory
- cd %APPDATA%
-- Create a directory called postgresql and enter it
- mkdir postgresql
- cd postgresql
-- Create a plain text file called pgpass.conf
- notepad pgpass.conf
-- Enter the following information separated by colons --host:port:database:username:password -- for example the following gives user *person* access to the postgres server on the localhost to all databases (*).  The port number 5432 is standard
- localhost:5432:*:person:password_person
+- Navigate to the Application data subdirectory:
+
+cd %APPDATA%
+
+- Create a directory called postgresql and enter it:
+
+mkdir postgresql
+cd postgresql	
+
+- Create a plain text file called pgpass.conf:
+
+notepad pgpass.conf
+	
+- Enter the following information separated by colons --host:port:database:username:password -- for example the following gives user *person* access to the postgres server on the localhost to all databases (*).  The port number 5432 is standard:
+
+localhost:5432:*:person:passwordforperson
+	
 - Save the file
 
 **Linux**
 - Make a file called .pgpass in your home directory and edit it to include host:port:database:username:password (see above for details and example)
-- Save the file then type the following to make this info private: 
- chmod 600 .pgpass 
+- Save the file then type the following to make this info private: chmod 600 .pgpass 
 
 **Permissions**
 
@@ -99,7 +115,8 @@ If you are the first or only user on the postgres server then you can create dat
 
 - **PGAdmin** -- Under Tools, select Query tool, type the following and execute - lightning icon or F5:
 - **psql** -- At the pqsl prompt, type the following and press enter: 
- GRANT ALL PRIVILEGES ON DATABASE databasename TO username;
+
+GRANT ALL PRIVILEGES ON DATABASE databasename TO username;
 
 **Creating a New Database**
 
@@ -107,30 +124,34 @@ To create a new database you will need to have PostGIS installed on your machine
 - Open a server in PGAdmin and create a new database. Set the '''db''' variable in the config file to the name of your new database. 
 - Set the *host* variable in the config file to the 'Owner' of the database, this is typically your username for a local database setup.
 - Check that the 'spatial_ref_sys' table has been automatically created under '''Schemas|Tables'''. This table contains thousands of default projections; additionally new projections can be added (See *A Note on Projections*. If the table has yet to been created, you will have to add it manually. Under Tools in PGAdmin, select Query Tool, type the following and execute:
- CREATE EXTENSION postgis;
-- In the config file, set the *create_tblmetadata* variable to *1*
+
+CREATE EXTENSION postgis;
+
+- In the SigLib config file, set the *create_tblmetadata* variable to *1*. Leave all options in [Process] equal to 0.
 - Save your config file with these changes and run SigLib.py
- python /path_to_script/SigLib.py /path_to_file/config_file.cfg
+
+'''python /path_to_script/SigLib.py /path_to_file/config_file.cfg'''
+
 - You will be prompted in the terminal to create/overwrite **tblMetadata**. Select yes to create a new metadata table.
 
 Modules
--------
+*******
 
 There are several modules that are organized according to core
 functionality.
 
 #. **Util.py** - Several utilities for manipulating files,
    shapefiles, etc
-#. **Metadata.py** - used to discover and extract metadata from image
+#. **Metadata.py** - Used to discover and extract metadata from image
    files
-#. **Database.py** - used to interface between the PostGIS database for
+#. **Database.py** - Used to interface between the PostGIS database for
    storage and retrieval of information
-#. **Image.py** - used to manipulate images, project, calibrate, crop,
+#. **Image.py** - Used to manipulate images, project, calibrate, crop,
    etc.
-#. **Query.py** - Used to discover and accumulate desired SAR imagery for a project (work in progress).
+#. **Query.py** - Used to discover and accumulate desired SAR imagery for a project.
 
 **SigLib.py** is the front-end of the software. It calls the modules
-listed above and is, in turn controlled by a configuration file. To run,
+listed above and is controlled by a configuration file. To run,
 simply edit the \*.cfg file with the paths and inputs you want and then
 run SigLib.py.
 
@@ -140,7 +161,7 @@ of the modules if you wish. An example of this is included:
 #. **Polarimetry.py** - An independant script used generate polarimetric variables for SAR imagery using SNAP-ESA..
 
 Config File
------------
+***********
 
 The ".cfg" file is how you interface with SigLib. It needs to be edited properly so that the job you want done will happen! Leave entry blank if you are not sure. Do not add comments or any additional text to the config file as this will prevent the program from interpreting the contents. Only update the variables as suggested in their descriptions. There are several categories of parameters and these are: 
 
@@ -167,8 +188,8 @@ The ".cfg" file is how you interface with SigLib. It needs to be edited properly
 *Note* that these are mutually exclusive options - sum of **Input** options must = 1
 
 * path = 1 for scan a certain path and operate on all files within; 0 otherwise
-* file = 1 for run process on a certain file, which is passed as a command line argument (note this enables parallelized code); 0 otherwise 
-* scanFor = a file pattern to search for (eg. *.zip)  - use when path=1
+* file = 1 for run process on a certain file, which is passed as a command line argument (note this enables parallelized code), 0 otherwise 
+* scanFor = a file pattern to search for (eg. *.zip, *.csv, or *.txt), use when path is 1
 
 **Process**
 
@@ -192,7 +213,7 @@ The ".cfg" file is how you interface with SigLib. It needs to be edited properly
 * uploadResults = 1 to upload descriptive statistics of subscenes generated by Quanitative mode to database
 
 Using a Config in an IDE
-------------------------
+************************
 
 You can run SigLib inside an integrated development environment (Spyder,
 IDLE, etc) or at the command line. In either case you must specify the
@@ -270,21 +291,21 @@ Table: **ROI.shp fields**
 +---------------+------------+-------------------------------------------------------------------------------------------------------+------------------------------------------------+--------------+
 | Field         | Var. Type  | Description                                                                                           | Example                                        | ROI Format   |
 +===============+============+=======================================================================================================+================================================+==============+
-|    OBJ        | String     | A unique identifier for each polygon object you are interested in                                     | 00001, 00002                                   | Both         |
+|    OBJ        | String     | A unique identifier for each polygon object you are interested in                                     | '00001', '00002'                               | Both         |
 +---------------+------------+-------------------------------------------------------------------------------------------------------+------------------------------------------------+--------------+
-|    INSTID     | String     | An iterator for each new row of the same OBJ                                                          | 0,1,2,3,4                                      | Both         |
+|    INSTID     | String     | An iterator for each new row of the same OBJ                                                          | '0','1','2','3','4'                            | Both         |
 +---------------+------------+-------------------------------------------------------------------------------------------------------+------------------------------------------------+--------------+
-|    FROMDATE   | String     | ISO Date-time denoting the start of the time period of interest                                       | 2002-04-15 00:00:00                            | Query        |
+|    FROMDATE   | String     | ISO Date-time denoting the start of the time period of interest                                       | '2002-04-15 00:00:00'                          | Query        |
 +---------------+------------+-------------------------------------------------------------------------------------------------------+------------------------------------------------+--------------+
-|    TODATE     | String     | ISO Date-time denoting the end of the time period of interest                                         | 2002-09-15 23:59:59                            | Query        |
+|    TODATE     | String     | ISO Date-time denoting the end of the time period of interest                                         | '2002-09-15 23:59:59'                          | Query        |
 +---------------+------------+-------------------------------------------------------------------------------------------------------+------------------------------------------------+--------------+
-|    IMGREF     | String     | dimgname of a specific image known to contain the OBJ polygon (Spaces are underscores)                | 20020715 135903 r1 scwa  hh s                  | Quanitative  |
+|    IMGREF     | String     | dimgname of a specific image known to contain the OBJ polygon (Spaces are underscores)                | '20020715 135903 r1 scwa  hh s'                | Quanitative  |
 +---------------+------------+-------------------------------------------------------------------------------------------------------+------------------------------------------------+--------------+
-|    Name       | String     | A name for the OBJ is nice to have                                                                    | Ward Hunt, Milne, Ayles                        | Optional     |
+|    Name       | String     | A name for the OBJ is nice to have                                                                    | 'Ward Hunt', 'Milne', 'Ayles'                  | Optional     |
 +---------------+------------+-------------------------------------------------------------------------------------------------------+------------------------------------------------+--------------+
 |    Area       | Float      | You can calculate the Area of each polygon and put it here (choose whatever units you want)           | 23.42452                                       | Optional     |
 +---------------+------------+-------------------------------------------------------------------------------------------------------+------------------------------------------------+--------------+
-|    Notes      | String     | Comment field to explain the OBJ                                                                      | Georeferencing may be slightly off here?       | Optional     |
+|    Notes      | String     | Comment field to explain the OBJ                                                                      | 'Georeferencing may be slightly off here?'     | Optional     |
 +---------------+------------+-------------------------------------------------------------------------------------------------------+------------------------------------------------+--------------+
 
 -  See folder ROISamples for example ROIs
@@ -302,9 +323,19 @@ use may be confusing, so here are some further details with examples.
 A Note on Projections:
 ----------------------
 
-SigLib uses projections in two ways; either as .wkt files during image processing outside the database, or SRID values when using PostgreSQL/PostGIS. For when Database.py is not being used, projections should be downloaded as .wkt files from spatialreference.org and placed into a projection directory. If using Database.py functionality, make sure the spatial_ref_sys table is defined in your database. This table has a core of over 3000 spatial reference systems ready to use, but custom projections can be added very easily! 
+SigLib accepts projections in two ways; either as .wkt files or as SRID codes. An SRID value is 
+required when working with PosgresSQL/PostGIS, but otherwise either is accepted. Within the config,
+there is an option to specify the name of a projection file (minus the path or extension) in the PROJ directory (*proj*), 
+and an option to specify an SRID (*projSRID*). 
+Warning! If both options are presented, the .wkt projection will supersede the SRID 
+for all image manipulation! The only time both options are nessesary is if you are performing image manipuation
+with a .wkt projection, and need to specify the SRID for PostGIS. If this is the case, your projection is most-likely
+a custom one with an SRID not recognised by GDAL/OGR. If so, make sure it has been added to the spatial_ref_sys table in the database!
 
-To add a custom spatial reference, download the desired projection in "PostGIS spatial_ref_sys INSERT statement" format from spatialreference.org. This option is an sql executable that can be run within PostgreSQL to add the desired projection into the spatial_ref_sys table. 
+To add a custom spatial reference, download the desired projection in 
+"PostGIS spatial_ref_sys INSERT statement" format from spatialreference.org. 
+This option is an sql executable that can be run within PostgreSQL to add the 
+desired projection into the spatial_ref_sys table. 
 
 
 Example workflow:

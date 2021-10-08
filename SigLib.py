@@ -98,17 +98,9 @@ class SigLib:
             self.starttime +'.cfg')) # make a copy of the cfg file
         self.length_time = 0
         self.loghandler = None
-<<<<<<< HEAD
         self.logger = 0
         self.sar_meta = None
 
-    
-=======
-        self.logger = 0        
-
-
-
->>>>>>> ef83fab6a8c75d14d8bb061c8e3d47e895306a4d
     def createLog(self,zipfile=None):   
         """
         Creates log file that will be used to report progress and errors
