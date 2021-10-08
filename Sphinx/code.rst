@@ -6,7 +6,6 @@ SigLib
 .. automodule:: SigLib
    :members: 
 
-
 Metadata
 --------
 .. automodule:: Metadata
@@ -22,8 +21,13 @@ Database
 .. automodule:: Database
    :members:
 
-
 Utilities
 ---------
 .. automodule:: Util
+   :members:
+
+   
+Query
+---------
+.. automodule:: Query
    :members:
