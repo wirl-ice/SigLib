@@ -1,0 +1,2 @@
+CREATE TABLE tblbanddata (granule varchar(100), bandname varchar(100), inst varchar(25), dimgname varchar(100), mean varchar(25), var varchar(25),
+            maxdata varchar(25), mindata varchar(25), median varchar(25), quart1 varchar (25), quart3 varchar(25), skew varchar (25), kurtosis varchar (25))

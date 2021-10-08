@@ -12,6 +12,7 @@ Welcome to SigLib's documentation!
    intro
    project
    tutorial
+   query
    code
 
 

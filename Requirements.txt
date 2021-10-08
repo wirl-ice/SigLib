@@ -1,7 +1,10 @@
 future
 psycopg2
-GDAL
+gdal
 numpy
 scipy
-ctypes_snappy
 configparser
+pandas
+geopandas
+eodms_api_client
+sentinelsat

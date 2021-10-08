@@ -4,7 +4,7 @@ Overview of the Project
 Introduction
 ------------
 
-SigLib stands for Signature Library and is a suite of tools to query, manipulate and process remote sensing imagery (primarily Synthetic Aperture Radar (SAR) imagery) and store the data in a geodatabse.  It uses open source libraries and can be run on Windows or Linux.  
+SigLib stands for Signature Library and is a suite of tools to query, manipulate and process remote sensing imagery (primarily Synthetic Aperture Radar (SAR) imagery) and store the data in a geodatabse.  It uses open source libraries and can be run on Windows, Mac, or Linux.  
 
 
 There are 3 main ''modes'' that it can run in (or combinations of these)  
@@ -44,6 +44,7 @@ CIS he benefited from discussions with Ron Saper, Angela Cheng and his salary
 was provided via a CSA GRIP project (PI Roger De Abreu).
 
 At Carleton this code was modified further and others have worked to
-improve it since the early days at CIS: Cindy Lopes, Sougal Bouh-Ali, Cameron Fitzpatrick, and Allison Plourde.
+improve it since the early days at CIS: Cindy Lopes, Sougal Bouh-Ali, 
+Cameron Fitzpatrick, Allison Plourde, and Jazmin Romero.
 Ron Saper, Anna Crawford and Greg Lewis-Paley helped out as well (indirectly).
 
