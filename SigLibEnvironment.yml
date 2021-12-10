@@ -1,0 +1,17 @@
+name: SigLib
+channels:
+- conda-forge
+- defaults
+dependencies:
+  - python
+  - gdal
+  - psycopg2
+  - postgresql
+  - scipy
+  - future
+  - numpy
+  - configparser
+  - geopandas
+  - func_timeout
+  - eodms-api-client
+  - sentinelsat    

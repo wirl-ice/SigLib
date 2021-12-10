@@ -425,7 +425,6 @@ class SigLib:
         # Process the image
         sar_img = func_timeout(600, Image, args=(self.fname, self.unzipdir, self.sar_meta, self.imgType, self.imgFormat, self.zipname, self.imgDir, newTmp, self.projDir, self.loghandler, self.elevation_correction))
 
-        
         if sar_img.status == "error":
             self.logger.error("Image could not be opened or manipulated, moving to next image")
             sar_img.cleanFiles(levels=['nil']) 
@@ -591,7 +590,8 @@ class SigLib:
         if self.uploadROI == "1":
             db = Database(self.table_to_query, self.dbName, self.loghandler, host=self.dbHost)
             db.updateROI(self.roi, self.roiProjSRID, self.vectDir)  #Refer to this function in documentation before running to confirm convension
-            ans = input("Create image references from {}? [Y/N]\t".format(self.table_to_query))
+        if self.quantitativeProcess == "1":
+            ans = input("Create image references from {}? [Y/N]\t".format(self.table_to_query)) 
             if ans.lower() == 'y':
                 db.findInstances(self.roi)
         if self.queryProcess == "1": #note query mode is seperate from qualitative and quantitative
@@ -611,14 +611,16 @@ class SigLib:
             print("9: Execute Raw Sql Query")
             ans = input("Please select the desired query method (0,1,2,3,4,5,6,7,8,9):\t")
             self.query_mode(db, query_methods[ans])
-        if self.scanPath == "1":
-            self.proc_Dir(self.scanDir, self.scanFor)      # Scan by path pattern
-        elif self.scanFile == "1":
-            self.logger = self.createLog(os.path.abspath(os.path.expanduser(str(sys.argv[-1]))))
-            self.logger = logging.getLogger(__name__)
-            self.proc_File(os.path.abspath(os.path.expanduser(str(sys.argv[-1]))))  #assume this is the last arg (after 'jobid')
-        else:
-            print("\nPlease specify one method to scan the data in the config file.\n")
+        if self.qualitativeProcess == "1" or self.quantitativeProcess == "1":
+            if self.scanPath == "1":
+                self.proc_Dir(self.scanDir, self.scanFor)      # Scan by path pattern
+            elif self.scanFile == "1":
+                self.logger = self.createLog(os.path.abspath(os.path.expanduser(str(sys.argv[-1]))))
+                self.logger = logging.getLogger(__name__)
+                self.proc_File(os.path.abspath(os.path.expanduser(str(sys.argv[-1]))))  #assume this is the last arg (after 'jobid')
+            else:
+                print("\nPlease specify one method to scan the data in the config file.\n")
+                
 
 if __name__ == "__main__":   
     SigLib().run()
