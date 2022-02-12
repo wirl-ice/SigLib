@@ -581,7 +581,8 @@ class SigLib:
         print("Quantitative Mode Complete.")
 
          
-    def run(self):      
+    def run(self):     
+        #import pdb; pdb.set_trace()     
         if self.create_tblmetadata == "1":
             ans = input("Confirm you want to create/overwrite {} in database {}? [Y/N]\t".format(self.table_to_query, self.dbName))
             if ans.lower() == 'y':
@@ -610,7 +611,9 @@ class SigLib:
             print("8: Copernicus: Download")
             print("9: Execute Raw Sql Query")
             ans = input("Please select the desired query method (0,1,2,3,4,5,6,7,8,9):\t")
+                        
             self.query_mode(db, query_methods[ans])
+        
         if self.qualitativeProcess == "1" or self.quantitativeProcess == "1":
             if self.scanPath == "1":
                 self.proc_Dir(self.scanDir, self.scanFor)      # Scan by path pattern
