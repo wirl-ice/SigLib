@@ -9,13 +9,20 @@ import requests
 import json
 from osgeo import ogr, osr
 import geopandas
-from eodms_api_client import EodmsAPI
-from sentinelsat import SentinelAPI, read_geojson, geojson_to_wkt
 import csv
 import shutil
 from ftplib import FTP
 import pandas as pd
 import re
+
+try: 
+	from eodms_api_client import EodmsAPI
+except:
+	print("EODMS not available, so you cannot query or download from NRCan... \n ...to activate, install the package") 
+try: 	
+	from sentinelsat import SentinelAPI, read_geojson, geojson_to_wkt
+except:
+	print("Sentinelsat not available, so you cannot query or download from ESA... \n ...to activate, install the package")
 
 
 class Query(object):
@@ -966,7 +973,7 @@ class Query(object):
             username = input("Enter your Copernicus username: ")
             password = getpass.getpass("Enter your Copernicus password: ")
             api = SentinelAPI(username, password, 'https://scihub.copernicus.eu/dhus')
-
+            
             frames = []
             for features in data["features"]:
                 poly = {}
@@ -976,22 +983,22 @@ class Query(object):
 
                 fromdate = poly['features'][0]['properties']['FROMDATE']
                 todate = poly['features'][0]['properties']['TODATE']
-                print('ROI start date {} end date {}'.format(fromdate, todate))
-
+                print('ROI start date {} end date {} - Note the search is by date only (not time)'.format(fromdate, todate))
+                
                 with open(geojsonFilename_p, 'w') as fp:
                     json.dump(poly, fp)
 
-                fromdate_obj = datetime.strptime(fromdate, '%Y-%m-%d')
-                todate_obj = datetime.strptime(todate, '%Y-%m-%d')
-              
-
+                fromdate_obj = datetime.strptime(fromdate, '%Y-%m-%d %H:%M:%S')
+                todate_obj = datetime.strptime(todate, '%Y-%m-%d %H:%M:%S')
+                
+                
                 # 3. Query Sentinel
                 footprint = geojson_to_wkt(read_geojson(geojsonFilename_p))
 
 
                 try:
                     products = api.query(footprint,
-                                     date=(fromdate_obj, todate_obj),
+                                     date=(fromdate_obj.strftime("%Y%m%d"), todate_obj.strftime("%Y%m%d")),
                                      platformname=satellite,
                                      producttype=product,
                                      sensoroperationalmode=sensoroperationalmode)

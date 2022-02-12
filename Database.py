@@ -582,11 +582,12 @@ class Database:
 
             inst = instances[i][0]
 
-            fromdate = instances[i][1] + datetime.timedelta(seconds=1)
+            fromdate = instances[i][1] + datetime.timedelta(seconds=1)  # TODO: Why +1 seconds? 
+            
             fromdate = fromdate.strftime('%Y-%m-%d')
 
             #allow for truncation errors
-            todate = instances[i][2] + datetime.timedelta(seconds=1)
+            todate = instances[i][2] + datetime.timedelta(seconds=1)  # TODO: Why +1 seconds?
             todate = todate.strftime('%Y-%m-%d')   #%H:%M:%S'
 
             param = {'inst': inst, 'fromdate' : fromdate, 'todate' : todate, 'srid' : int(srid)}
@@ -617,22 +618,22 @@ class Database:
             self.connection.commit()
             rows = curs.fetchall()
 
-            for i in range(len(rows)):
+            for j in range(len(rows)):
 
                 if selectFrom == 'tblcisarchive':
 
-                    granule= rows[i][0]
-                    catid= rows[i][4]
-                    acTime= rows[i][3]
+                    granule= rows[j][0]
+                    catid= rows[j][4]
+                    acTime= rows[j][3]
 
                     copyfiles.append(catid)
 
                     instimg.append({"inst": inst, "granule": granule, "catid": catid, "time": acTime})
 
                 else:
-                    granule = rows[i][0]
-                    location = rows[i][1]
-                    acTime = rows[i][4]
+                    granule = rows[j][0]
+                    location = rows[j][1]
+                    acTime = rows[j][4]
 
                     copyfiles.append(location)
 
