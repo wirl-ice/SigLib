@@ -131,7 +131,7 @@ class Database:
             )'''
         
         elif metaDict['sattype'] == 'SEN-1':
-            sqlIns = '''INSERT INTO ''' + "tblmetadata_ai_s1" + ''' 
+            sqlIns = '''INSERT INTO ''' + self.table_to_query + ''' 
             (acDOY, geom, acDateTime, beam, bitsPerSample, 
             notes, copyright, dimgname, granule, lineSpacing, n_bands, n_cols, n_geopts, n_rows, 
             passDirection, pixelSpacing, polarization,
@@ -170,7 +170,6 @@ class Database:
         """
 
         #TODO - make SRID an option (default to 4326)
-        
         name = self.table_to_query            
         curs = self.connection.cursor()  
         
@@ -212,7 +211,7 @@ class Database:
         geoColumnSql = """SELECT AddGeometryColumn('""" + self.table_to_query + """', 'geom', 4326, 'POLYGON', 2)"""
         
         #Now setup the primary key and index on dimgname
-        alterSql = 'ALTER TABLE ' + self.table_to_query + ' OWNER TO postgres, ADD PRIMARY KEY (granule), ADD UNIQUE (dimgname);'
+        alterSql = 'ALTER TABLE ' + self.table_to_query + ' ADD PRIMARY KEY (granule), ADD UNIQUE (dimgname);'
 
         indexSql = 'CREATE INDEX ' + self.table_to_query + '_geeom_gist ON ' + self.table_to_query + ' USING gist (geom);'
 

@@ -512,7 +512,7 @@ class SigLib:
         
         # Process the image
         sar_img = func_timeout(600, Image, args=(self.fname, self.unzipdir, self.sar_meta, self.imgType, self.imgFormat, self.zipname, self.imgDir, newTmp, self.projDir, self.loghandler))
-
+        
         if sar_img.status == "error":
             self.logger.error("Image could not be opened or manipulated, moving to next image")
             os.remove(sar_img.tifname)
@@ -574,6 +574,7 @@ class SigLib:
                 #stats = sar_img.getImgStats(save_stats = True)
                 #sar_img.applyStretch(stats, procedure='std', sd=3, sep=sep, inst=inst)
                 shutil.copy(os.path.join(newTmp, sar_img.FileNames[-1]), self.imgDir)
+                #Actually you may want to run this every time. So if you want upload and a tiff.... 
             #sar_img.cleanFiles(levels=['proj', 'crop'])
 
         self.logger.debug('Intermediate file cleanup done')
@@ -613,7 +614,7 @@ class SigLib:
             ans = input("Please select the desired query method (0,1,2,3,4,5,6,7,8,9):\t")
                         
             self.query_mode(db, query_methods[ans])
-        
+        #TODO - make sure that there is a way to run siglib for upload meta only (without making images)
         if self.qualitativeProcess == "1" or self.quantitativeProcess == "1":
             if self.scanPath == "1":
                 self.proc_Dir(self.scanDir, self.scanFor)      # Scan by path pattern
