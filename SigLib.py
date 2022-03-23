@@ -286,7 +286,7 @@ class SigLib:
         self.fname = fname
         self.imgname = imgname
         self.sattype = sattype
-
+        
         if sattype == 'SEN-1':
             self.granule = self.granule.split('.')[0]
             self.zipname = self.granule
@@ -297,7 +297,7 @@ class SigLib:
         self.loghandler.setFormatter(formatter)
         self.logger.info('\n' + 'Zipname: %s', zipname)
         self.logger.info('Imgname: %s', imgname)
-        self.logger.info("granule:  %s", granule)
+        self.logger.info("granule:  %s", self.granule)
         self.logger.info("sat type:  %s", sattype + '\n')
         formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')         
         self.loghandler.setFormatter(formatter)
@@ -308,7 +308,7 @@ class SigLib:
             self.bad_img += 1
 
         else:#begin processing data ...
-            self.sar_meta = func_timeout(300, Metadata, args=(self.granule, self.imgname, self.unzipdir, zipfile, self.sattype, self.loghandler))   # Retrieve metadata
+            self.sar_meta = func_timeout(600, Metadata, args=(self.granule, self.imgname, self.unzipdir, zipfile, self.sattype, self.loghandler))   # Retrieve metadata
 
             if self.sar_meta.status != "ok":       # Meta class unsuccessful
                 self.logger.error("Creating an instance of the meta class failed, moving to next image")
@@ -335,11 +335,11 @@ class SigLib:
 
                 if self.qualitativeProcess == "1":
                     self.logger.debug("processing data to image")
-                    self.qualitative_mode(fname, imgname, zipname, sattype, granule, zipfile, unzipdir)
+                    self.qualitative_mode(fname, imgname, zipname, sattype, self.granule, zipfile, unzipdir)
 
                 if self.quantitativeProcess == "1":
                     db = Database(self.table_to_query, self.dbName, loghandler=self.loghandler, host=self.dbHost)
-                    self.quantitative_mode(db, fname, imgname, zipname, sattype, granule, zipfile, unzipdir)
+                    self.quantitative_mode(db, fname, imgname, zipname, sattype, self.granule, zipfile, unzipdir)
                     db.removeHandler()
 
                 end_time = time.time()
@@ -423,7 +423,7 @@ class SigLib:
         os.chdir(newTmp)
             
         # Process the image
-        sar_img = func_timeout(600, Image, args=(self.fname, self.unzipdir, self.sar_meta, self.imgType, self.imgFormat, self.zipname, self.imgDir, newTmp, self.projDir, self.loghandler, self.elevation_correction))
+        sar_img = func_timeout(1200, Image, args=(self.fname, self.unzipdir, self.sar_meta, self.imgType, self.imgFormat, self.zipname, self.imgDir, newTmp, self.projDir, self.loghandler, self.elevation_correction))
 
         if sar_img.status == "error":
             self.logger.error("Image could not be opened or manipulated, moving to next image")
@@ -509,9 +509,9 @@ class SigLib:
             os.makedirs(newTmp)
 
         os.chdir(newTmp)
-        
+
         # Process the image
-        sar_img = func_timeout(600, Image, args=(self.fname, self.unzipdir, self.sar_meta, self.imgType, self.imgFormat, self.zipname, self.imgDir, newTmp, self.projDir, self.loghandler))
+        sar_img = func_timeout(2400, Image, args=(self.fname, self.unzipdir, self.sar_meta, self.imgType, self.imgFormat, self.zipname, self.imgDir, newTmp, self.projDir, self.loghandler))
         
         if sar_img.status == "error":
             self.logger.error("Image could not be opened or manipulated, moving to next image")
@@ -535,7 +535,6 @@ class SigLib:
             sar_img.FileNames = sar_img.tmpFiles   #reset list of filenames within Image.py each loop
 
             self.logger.debug('Processing '+ str(inst) + ' : ' + str(i+1) + ' of ' + str(len(instances)) + ' subsets')
-
             #PROJECT
             if self.imgType == 'amp':
                 ok = sar_img.projectImg(self.proj, self.projSRID, resample='bilinear')
@@ -583,7 +582,7 @@ class SigLib:
 
          
     def run(self):     
-        #import pdb; pdb.set_trace()     
+           
         if self.create_tblmetadata == "1":
             ans = input("Confirm you want to create/overwrite {} in database {}? [Y/N]\t".format(self.table_to_query, self.dbName))
             if ans.lower() == 'y':

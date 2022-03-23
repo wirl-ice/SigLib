@@ -306,6 +306,7 @@ class Database:
     
         # retrieve the dimgname/imgref1 by querying granule that maps to the wanted imgref1
         curs = self.connection.cursor()
+
         param = {'granule' : granule}
         
         sql = "SELECT dimgname FROM " + self.table_to_query + " WHERE granule LIKE %(granule)s"
@@ -318,7 +319,7 @@ class Database:
             instances = -1
             return instances
             
-        # retrieve all the instances of polygons that relate to image       
+        # retrieve all the instances of polygons that relate to image
         param = {'dimgname' : dimgname}
         sql = "SELECT inst FROM "+roi+" WHERE %(dimgname)s LIKE imgref"  
         curs.execute(sql,param)
