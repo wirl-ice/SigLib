@@ -568,11 +568,11 @@ class SigLib:
                 for i, bandName in enumerate(sar_img.bandNames):
                     band = i+1
                     imgData = sar_img.getBandData(band)                    
-                    db.imgData2db(imgData, bandName, inst, sar_img.meta.dimgname, zipname)
-            else:
+                    db.imgData2db(imgData, bandName, inst, sar_img.meta.dimgname, self.granule)
+            #else:
                 #stats = sar_img.getImgStats(save_stats = True)
                 #sar_img.applyStretch(stats, procedure='std', sd=3, sep=sep, inst=inst)
-                shutil.copy(os.path.join(newTmp, sar_img.FileNames[-1]), self.imgDir)
+            shutil.copy(os.path.join(newTmp, sar_img.FileNames[-1]), self.imgDir)
                 #Actually you may want to run this every time. So if you want upload and a tiff.... 
             #sar_img.cleanFiles(levels=['proj', 'crop'])
 
