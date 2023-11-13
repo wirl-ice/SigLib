@@ -175,6 +175,8 @@ class Image(object):
             options = ['COMPRESS=LZW']
             if self.n_bands > 3:
                     options = ['PHOTOMETRIC=MINISBLACK'] #probs here if you LZW compress
+            if self.imgType == 'sigma':
+                    options.append('BIGTIFF=YES')
         elif format.lower() == 'hfa':
             ext = '.img'
             driver = gdal.GetDriverByName('HFA')
@@ -190,6 +192,8 @@ class Image(object):
                 options = ['COMPRESS=LZW']
                 if self.n_bands > 3:
                     options = ['PHOTOMETRIC=MINISBLACK']
+                if self.imgType == 'sigma':
+                    options.append('BIGTIFF=YES')
         
         else:
             self.logger.error('That image type is not supported')
@@ -382,7 +386,6 @@ class Image(object):
         outname = os.path.splitext(inname)[0] + '_proj' + ext
 
         if proj == '':
-        #project R2 with gdalwarp
             command = 'gdalwarp -of ' + imgFormat +  ' -t_srs ' +\
                     'EPSG:' + projSRID +\
                         ' -order 3 -dstnodata 0 -r ' + resample +' '+clobber+ \
@@ -517,7 +520,6 @@ class Image(object):
             bands = self.n_bands
             dataType = GDT_Float32
             self.bandNames = None
-            dataType = GDT_Float32
         if self.imgType == "noise":
             bands = 1
             dataType = GDT_Float32
@@ -1057,6 +1059,7 @@ class Image(object):
         elif self.sattype == 'SEN-1':
             datachunk = numpy.float32(datachunk)**2 # convert to float, prevent integer overflow
             gains = self.meta.calgain**2
+            
 
         else:       # magnitude detected data
             datachunk = numpy.float32(datachunk)**2 # convert to float, prevent integer overflow
@@ -1065,7 +1068,8 @@ class Image(object):
             
         for i, gain in enumerate(gains):
                 caldata[:, i] = datachunk[:, i] / gain
-                
+
+            
         return caldata
 
 

@@ -887,7 +887,7 @@ class Query(object):
 
         if typOut == '1' or typOut == '3':
             filename = self.create_filename(outputDir, roi, method, '.csv')
-            db.exportDict_to_CSV(records, filename)
+            self.exportDict_to_CSV(records, filename)
             print('File saved to {}'.format(filename))
 
         if typOut == '2' or typOut == '3':
@@ -907,6 +907,30 @@ class Query(object):
             self._download_images_from_sentinel(records, self.outputDir, self.scanDir)
 
         return
+        
+    def exportDict_to_CSV(self, qryOutput, outputName):
+        """
+        Given a dictionary of results from the database and a filename puts all the results
+        into a csv with the filename outputName
+
+        **Parameters**
+
+            *qryOutput*  : output from a query - needs to be a tupple - numpy data and list of column names
+
+            *outputName* : the file name
+        """
+
+        tmp = pd.DataFrame.from_dict(qryOutput)
+        for col in tmp.columns:
+            if tmp[col].dtype == 'O' or tmp[col].dtype == 'S':
+                stripped = tmp[col].str.rstrip()  # somehow there are plenty of spaces in some cols
+                if not stripped.isnull().all():  # sometimes this goes horribly wrong (datetimes)
+                    tmp[col] = stripped
+        tmp.to_csv(outputName, index=False)
+
+        # DATABASE UTILITY FUNCTION
+
+    # Creates a table that will contain records from a query
 
 
     def download_images_from_sentinel(self, db, outputDir, listDir):

@@ -4,13 +4,15 @@ from Image import Image
 import Util
 import logging
 from glob import glob
+from osgeo import gdal
 import os
 import shutil
 import gc
 import sys
+import numpy as np
 
 try:
-    sys.path.append('C:\\Users\\Cameron\\.snap\\snap-python')
+    sys.path.append('/tank/SCRATCH/cfitzpatrick/snappy_linux/snappy')
     import snappy
     from snappy import ProductIO
     from snappy import GPF
@@ -45,7 +47,7 @@ masks one at a time, the statistics from which are uploaded to a database table.
 """
 
 
-def snapCalibration(img, siglib, tmpdir, outDataType='sigma', saveInComplex=False):
+def snapCalibration(img, output, outDataType='sigma', saveInComplex=False):
     '''
     This fuction calibrates radarsat images into sigma, beta, or gamma
 
@@ -56,22 +58,15 @@ def snapCalibration(img, siglib, tmpdir, outDataType='sigma', saveInComplex=Fals
         *saveInComplex* : Output complex sigma data (for polarimetric mode)
     '''
 
-    global FileNames
 
-    os.chdir(tmpdir)
-    img.openDataset(img.fname, img.path)
-    outname = img.fnameGenerate()[2]
-
-    img = os.path.join(img.path, img.fname)
     sat = ProductIO.readProduct(img)
-
-    output = os.path.join(tmpdir, outname)
 
     parameters = HashMap()
     if saveInComplex:
         parameters.put('outputImageInComplex', 'true')
     else:
         parameters.put('outputImageInComplex', 'false')
+        parameters.put('outputImageScaleInDb', True)
 
         if outDataType == 'sigma':
             parameters.put('outputSigmaBand', True)
@@ -88,9 +83,12 @@ def snapCalibration(img, siglib, tmpdir, outDataType='sigma', saveInComplex=Fals
             return Exception
 
     target = GPF.createProduct("Calibration", parameters, sat)
-    ProductIO.writeProduct(target, output, 'GeoTiff')
 
-    FileNames.append(outname + '.tif')
+    if saveInComplex:
+        ProductIO.writeProduct(target, output, 'GeoTiff')
+        FileNames.append(output + '.tif')
+    else:
+        ProductIO.writeProduct(target, output, 'BEAM-DIMAP')
 
 def makeAmp(siglib, img, newFile=True, save=True):
     '''
@@ -153,16 +151,16 @@ def beaconIntersections(db, beacontable, granule):
         *rows* : all beacon pings that meet requirements. Each row has three columns: beacon id, lat, and long
     """
 
-    sql = """SELECT """ + beacontable + """.beacnid, """+ beacontable + """.latitud, """ + beacontable + """.longitd """ +\
+    sql = """SELECT """ + beacontable + """.beacon_id, """+ beacontable + """.latitude, """ + beacontable + """.longitude """ +\
     """FROM """ + db.table_to_query +""", """ + beacontable + \
     """ WHERE """ + db.table_to_query + """.granule = %(granule)s """ + \
-    """AND """ + beacontable + """.dtd_utc <= """ + db.table_to_query + """.acdatetime + interval '91 minutes' """ +\
-    """AND """ + beacontable + """.dtd_utc >= """ + db.table_to_query + """.acdatetime - interval '91 minutes' """ +\
+    """AND """ + beacontable + """.datetime_data AT TIME ZONE 'UTC' <= """ + db.table_to_query + """.acdatetime + interval '90 minutes' """ +\
+    """AND """ + beacontable + """.datetime_data AT TIME ZONE 'UTC' >= """ + db.table_to_query + """.acdatetime - interval '90 minutes' """ +\
     """AND ST_Contains(ST_Transform(""" + db.table_to_query + """.geom, 4326), ST_Transform(""" + beacontable + """.geom, 4326)) """ +\
-    """ORDER BY """ + beacontable + """.beacnid, ((DATE_PART('day', """ + beacontable + """.dtd_utc - """ + db.table_to_query + """.acdatetime)*24 + """ +\
-    """DATE_PART('hour', """ + beacontable + """.dtd_utc - """ + db.table_to_query + """.acdatetime))*60 + """ +\
-    """DATE_PART('minute', """ + beacontable + """.dtd_utc - """ + db.table_to_query + """.acdatetime))*60 + """ +\
-    """DATE_PART('second', """ + beacontable + """.dtd_utc - """ + db.table_to_query + """.acdatetime) ASC"""
+    """ORDER BY """ + beacontable + """.beacon_id, ((DATE_PART('day', """ + beacontable + """.datetime_data AT TIME ZONE 'UTC' - """ + db.table_to_query + """.acdatetime)*24 + """ +\
+    """DATE_PART('hour', """ + beacontable + """.datetime_data AT TIME ZONE 'UTC' - """ + db.table_to_query + """.acdatetime))*60 + """ +\
+    """DATE_PART('minute', """ + beacontable + """.datetime_data AT TIME ZONE 'UTC' - """ + db.table_to_query + """.acdatetime))*60 + """ +\
+    """DATE_PART('second', """ + beacontable + """.datetime_data AT TIME ZONE 'UTC' - """ + db.table_to_query + """.acdatetime) ASC"""
 
     param = {'granule': granule}
     curs = db.connection.cursor()
@@ -204,7 +202,7 @@ def polarimetricDonuts(db, granule, beaconid):
     param = {'beacnid': beaconid, 'dimgname': dimgname, 'srid': '4326'}
 
     sql2 = """SELECT ST_AsText(ST_Transform(ST_Buffer(ii_polygons.geom, -30), 4326)) FROM ii_polygons """ + \
-           """WHERE ii_polygons.beaconid = %(beacnid)s AND %(dimgname)s LIKE ii_polygons.imgref"""
+           """WHERE %(beacnid)s ~ ii_polygons.beaconid::varchar(25) AND %(dimgname)s ~ ii_polygons.imgref"""
 
     results = []
     # How to execute each command and get buffer polygon back to add to results above
@@ -219,7 +217,7 @@ def polarimetricDonuts(db, granule, beaconid):
     results.append(result)
 
     sql3 = """SELECT ST_AsText(ST_Transform(ST_Multi(ST_Difference(ST_Buffer(ii_polygons.geom, 400), ST_Buffer(ii_polygons.geom, 30))), 4326)) """ + \
-           """FROM ii_polygons WHERE ii_polygons.beaconid = %(beacnid)s AND %(dimgname)s LIKE ii_polygons.imgref"""
+           """FROM ii_polygons WHERE %(beacnid)s ~ ii_polygons.beaconid::varchar(25)  AND %(dimgname)s ~ ii_polygons.imgref"""
 
     try:
         curs.execute(sql3, param)
@@ -260,11 +258,17 @@ def polarimetric(db, siglib, img, zipfile, newTmp):
 
         *unzipdir* : location zipfiles were unzipped into
     """
+    
+    os.chdir(newTmp)
+    img.openDataset(img.fname, img.path)
+    outname = img.fnameGenerate()[2]
+    imgpath = os.path.join(img.path, img.fname)
+    output = os.path.join(newTmp, outname)
+    
+    snapCalibration(imgpath, output, saveInComplex=True)
 
-    snapCalibration(img, siglib, newTmp, saveInComplex=True)
 
-
-    beaconTable = 'beacon_tracks'
+    beaconTable = 'beacon'
     beacons = beaconIntersections(db, beaconTable, siglib.granule)  # Get beacon instances that overlap this image
 
     if len(beacons) == 0:
@@ -274,13 +278,13 @@ def polarimetric(db, siglib, img, zipfile, newTmp):
     logger.debug("Found " + str(len(beacons)) + " beacons in this image!")
 
     seenBeacons = []
-    FileNames = []
+    #FileNames = []
     for i in range(len(beacons)):
         os.chdir(newTmp)
 
         r = len(FileNames) - 1
 
-        while r > 1:
+        while r > 0:
             FileNames.remove(FileNames[r])
             r -= 1
 
@@ -304,17 +308,23 @@ def polarimetric(db, siglib, img, zipfile, newTmp):
 
         try:
             snapSubset(siglib, img, newTmp, beaconid, latitude, longitude, finalsDir)  # subset
-        except:
+        except Exception as e:
             logger.error("Problem with subset, moving on")
+            logger.error(e)
             continue
 
-        # sar_img.makeAmp(newFile = False, save = False)
+        #sar_img.makeAmp(newFile = False, save = False)
+        #logger.info(FileNames[-1])
+        output = os.path.splitext(FileNames[-1])[0] + '_sigma'
+        snapCalibration(imgpath, output)
+        polarimetricParams()
 
         matrices = ['C3', 'T3']
+        #matrices = []
 
-        tmpArr = FileNames
+        #tmpArr = FileNames
         for matrix in matrices:
-            FileNames = tmpArr
+            #FileNames = tmpArr
             matrix_generation(matrix)  # Generate each type of matrix, one at a time
 
         logger.debug("All matrices generated!")
@@ -323,6 +333,8 @@ def polarimetric(db, siglib, img, zipfile, newTmp):
                           'Yamaguchi Decomposition', 'van Zyl Decomposition', 'H-A-Alpha Quad Pol Decomposition',
                           'Cloude Decomposition', 'Touzi Decomposition']
 
+        #decompositions = []
+        
         for decomposition in decompositions:
             try:
                 if decomposition == "H-A-Alpha Quad Pol Decomposition":
@@ -378,13 +390,29 @@ def polarimetric(db, siglib, img, zipfile, newTmp):
                     if filename.endswith('.img'):
                         os.chdir(dirpath)
                         name = os.path.splitext(filename)[0]
+                        if 'Touzi' in dirpath:
+                            bandname = 'Touzi_' + name + '_' + type
+                        elif 'H-A-Alpha' in dirpath:
+                            bandname = 'HAA_' + name + '_' + type
+                        else:
+                            bandname = name + '_' + type
+                            
                         try:
+                            #First, set No-Data value to 0
+                            ras = gdal.Open(name + '.img')
+                            ras.GetRasterBand(1).SetNoDataValue(0)
+                            ras = None
+                         
                             imgData = img.getBandData(1, name + '.img')
-                            db.imgData2db(imgData, name + '_' + type, str(beaconid), siglib.sar_meta.dimgname, siglib.granule, table='polarimetryData')
-                        except:
+                            imgData = np.nan_to_num(imgData, nan=0, posinf=0, neginf=0)
+                            
+                            db.imgData2db(imgData, bandname, str(beaconid), siglib.sar_meta.dimgname, siglib.granule, table='polarimetryData2')
+                        except Exception as e:
                             logger.error("Unable to extract image data for {}! Skipping scene".format(name))
+                            logger.error(e)
 
             count += 1
+    logger.info("Done with image")
 
 # POLARIMETRIC SPECIFIC?
 def matrix_generation(matrix):
@@ -421,7 +449,7 @@ def matrix_generation(matrix):
 
     logger.debug(matrix + ' generated sucessfully')
 
-    FileNames.append(output + '.dim')
+    #FileNames.append(output + '.dim')
 
 # POLARIMETRIC SPECIFIC
 def decomposition_generation(decomposition, outputType=0):
@@ -443,6 +471,8 @@ def decomposition_generation(decomposition, outputType=0):
 
     output = os.path.splitext(FileNames[-1])[0] + '_' + decomposition
     inname = FileNames[-1]
+    
+    logger.info('Product: {}'.format(inname))
 
     rsat = ProductIO.readProduct(inname)
     parameters = HashMap()
@@ -482,7 +512,29 @@ def decomposition_generation(decomposition, outputType=0):
     ProductIO.writeProduct(target, output, 'BEAM-DIMAP')
 
     logger.debug(decomposition + ' generated sucessfully')
+    
 
+def polarimetricParams():
+    output = os.path.splitext(FileNames[-1])[0] + '_ratios'
+    inname = FileNames[-1]
+    
+    logger.info('Product: {}'.format(inname))
+
+    rsat = ProductIO.readProduct(inname)
+    parameters = HashMap()
+
+    parameters.put('useMeanMatrix', True)
+    parameters.put('windowSizeXStr', "5")
+    parameters.put('windowSizeYStr', "5")
+    parameters.put('outputSpan', True)
+    parameters.put('outputHHVVRatio', True)
+    parameters.put('outputHHHVRatio', True)
+    parameters.put('outputVVVHRatio', True)
+
+    target = GPF.createProduct('Polarimetric-Parameters', parameters, rsat)
+    ProductIO.writeProduct(target, output, 'BEAM-DIMAP')
+
+    logger.debug('Pol Ratios generated sucessfully')
 
 def slantRangeMask(mask, inname, workingDir, uploads):
     '''
@@ -539,8 +591,11 @@ def snapSubset(siglib, img, tmpDir, idNum, lat, longt, dir):
 
     '''
 
-    inname = os.path.join(tmpDir, FileNames[-1])
-    output = os.path.join(dir, os.path.splitext(FileNames[-1])[0] + '__' + str(idNum) + '_subset')
+    inname = FileNames[-1]
+    output = os.path.join(dir, os.path.splitext(os.path.split(FileNames[-1])[1])[0] + '__' + str(idNum) + '_subset')
+    
+    logger.info("Input: {}".format(inname))
+    logger.info("Output: {}".format(output))
 
     rsat = ProductIO.readProduct(inname)
     info = rsat.getSceneGeoCoding()
@@ -553,16 +608,16 @@ def snapSubset(siglib, img, tmpDir, idNum, lat, longt, dir):
     x = int(round(pixel_pos.x))
     y = int(round(pixel_pos.y))
 
-    topL_x = x - 600
+    topL_x = x - 1000
     if topL_x <= 0:
         topL_x = 0
-    topL_y = y - 600
+    topL_y = y - 1000
     if topL_y <= 0:
         topL_y = 0
-    width = 1200
+    width = 2000
     if (x + width) > img.n_cols:
         width = img.n_cols
-    height = 1200
+    height = 2000
     if (x + height) > img.n_rows:
         height = img.n_rows
 
@@ -608,7 +663,14 @@ def main():
             logger.debug("This is not a quad-pol scene, skipping")
             return Exception
 
-        polarimetric(db, siglib, img, zipfile, newTmp)
+        try:
+            polarimetric(db, siglib, img, zipfile, newTmp)
+        except Exception as e:
+            logger.error(e)
+        
+        del img
+        os.chdir(siglib.tmpDir)
+        shutil.rmtree(newTmp, ignore_errors=True)
 
     db.removeHandler()
 
@@ -616,7 +678,7 @@ def parallel(zipfile):
     global FileNames
     global logger
     siglib = SigLib()
-    siglib.createLog()
+    siglib.createLog(zipfile=zipfile)
 
     loghandler = siglib.loghandler  # Logging setup if loghandler sent, otherwise, set up a console only logging system
     logger = logging.getLogger(__name__)
@@ -638,22 +700,31 @@ def parallel(zipfile):
         logger.debug("This is not a quad-pol scene, skipping")
         return Exception
 
-    polarimetric(db, siglib, img, zipfile, newTmp)
+    try:
+        polarimetric(db, siglib, img, zipfile, newTmp)
+    except Exception as e:
+        logger.error(e)
+
+    del img
+    
+    os.chdir(siglib.tmpDir)
+    shutil.rmtree(newTmp, ignore_errors=True)
 
     db.removeHandler()
 
 if __name__ == "__main__":
-    main()
-    #parallel(os.path.abspath(os.path.expanduser(str(sys.argv[-1]))))
+    #main()
+    parallel(os.path.abspath(os.path.expanduser(str(sys.argv[-1]))))
 
     #Only run below if table to store results needs to be created (do before running either main() or parallel()
-    """
+    '''
     siglib = SigLib()
     db = Database(siglib.table_to_query, siglib.dbName, loghandler=None, host=siglib.dbHost)
 
     # create table to upload results
-    sql = 'create table polarimetryData (granule varchar(100), bandname varchar(100), inst int, dimgname varchar(100), mean varchar(25), var varchar(25),\
+    sql = 'create table polarimetryData2 (granule varchar(100), bandname varchar(100), inst varchar(50), dimgname varchar(100), mean varchar(25), var varchar(25),\
             maxdata varchar(25), mindata varchar(25), median varchar(25), quart1 varchar (25), quart3 varchar(25), skew varchar (25), kurtosis varchar (25))'
 
     db.qryFromText(sql)
-    """
+    '''
+    

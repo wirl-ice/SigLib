@@ -414,16 +414,16 @@ class SigLib:
         """
         print("Starting Qualitative Mode for:\n", zipname)
 
-        newTmp = os.path.join(self.tmpDir,zipname)
-        if os.path.isdir(newTmp):
-            pass
-        else:
-            os.makedirs(newTmp)
+        newTmp = self.unzipdir
+        #if os.path.isdir(newTmp):
+        #    pass
+        #else:
+        #    os.makedirs(newTmp)
 
         os.chdir(newTmp)
             
         # Process the image
-        sar_img = func_timeout(600, Image, args=(self.fname, self.unzipdir, self.sar_meta, self.imgType, self.imgFormat, self.zipname, self.imgDir, newTmp, self.projDir, self.loghandler, self.elevation_correction))
+        sar_img = func_timeout(800, Image, args=(self.fname, self.unzipdir, self.sar_meta, self.imgType, self.imgFormat, self.zipname, self.imgDir, newTmp, self.projDir, self.loghandler, self.elevation_correction))
 
         if sar_img.status == "error":
             self.logger.error("Image could not be opened or manipulated, moving to next image")
@@ -463,10 +463,11 @@ class SigLib:
   
             if self.mask != '':     #If providing a mask, mask
                 sar_img.maskImg(self.mask, self.vectDir, 'outside') 
-                                              
-            stats = sar_img.getImgStats()
-            sar_img.applyStretch(stats, procedure='std', sd=3, sep=True)
-            self.logger.debug('Image stretch ok')
+            
+            #if self.imgType == 'amp':                                  
+            #	stats = sar_img.getImgStats()
+            #	sar_img.applyStretch(stats, procedure='std', sd=3, sep=True)
+            #	self.logger.debug('Image stretch ok')
             
             sar_img.compress()
             sar_img.makePyramids()
@@ -597,7 +598,10 @@ class SigLib:
                 db.findInstances(self.roi)
         if self.queryProcess == "1": #note query mode is seperate from qualitative and quantitative
             #self.read_shp()
-            db = Database(self.table_to_query, self.dbName, self.loghandler, host=self.dbHost)
+            try:
+            	db = Database(self.table_to_query, self.dbName, self.loghandler, host=self.dbHost)
+            except:
+            	db = None
             query_methods = {'0': 'exit' , '1': 'metadata', '2': 'download_metadata', '3': 'cis', '4':'EODMS', '5':'ORDER_EODMS', '6':'DOWNLOAD_EODMS', '7':'SENTINEL', '8':'DOWNLOAD_SENTINEL', '9': 'RAW_SQL'}
             print("Available Query Methods:\n")
             print("0: Exit")
