@@ -297,7 +297,7 @@ class SigLib:
         self.loghandler.setFormatter(formatter)
         self.logger.info('\n' + 'Zipname: %s', zipname)
         self.logger.info('Imgname: %s', imgname)
-        self.logger.info("granule:  %s", granule)
+        self.logger.info("granule:  %s", self.granule)  # works better with SEN data
         self.logger.info("sat type:  %s", sattype + '\n')
         formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')         
         self.loghandler.setFormatter(formatter)
