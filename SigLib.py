@@ -570,11 +570,11 @@ class SigLib:
                 for i, bandName in enumerate(sar_img.bandNames):
                     band = i+1
                     imgData = sar_img.getBandData(band)                    
-                    db.imgData2db(imgData, bandName, inst, sar_img.meta.dimgname, zipname)
+                    db.imgData2db(imgData, bandName, inst, sar_img.meta.dimgname, self.granule)  # self.granule or could be zipname
             else:
                 #stats = sar_img.getImgStats(save_stats = True)
                 #sar_img.applyStretch(stats, procedure='std', sd=3, sep=sep, inst=inst)
-                shutil.copy(os.path.join(newTmp, sar_img.FileNames[-1]), self.imgDir)
+            shutil.copy(os.path.join(newTmp, sar_img.FileNames[-1]), self.imgDir)
             #sar_img.cleanFiles(levels=['proj', 'crop'])
 
         self.logger.debug('Intermediate file cleanup done')
@@ -583,7 +583,6 @@ class SigLib:
 
          
     def run(self):     
-        #import pdb; pdb.set_trace()     
         if self.create_tblmetadata == "1":
             ans = input("Confirm you want to create/overwrite {} in database {}? [Y/N]\t".format(self.table_to_query, self.dbName))
             if ans.lower() == 'y':
@@ -618,6 +617,7 @@ class SigLib:
                         
             self.query_mode(db, query_methods[ans])
         
+        #TODO - make sure that there is a way to run siglib for upload meta only (without making images)
         if self.qualitativeProcess == "1" or self.quantitativeProcess == "1":
             if self.scanPath == "1":
                 self.proc_Dir(self.scanDir, self.scanFor)      # Scan by path pattern
