@@ -40,7 +40,7 @@ def read_config():
 
 def connect_to_db(dbname, port, host, user=None):
 
-    password = "dbpass"
+    password = "XXXX" # put password here
 
     if user == None:
         connectionSetUp = "dbname=" + dbname + " port=" + port + " host=" + host
