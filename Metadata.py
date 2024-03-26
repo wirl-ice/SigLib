@@ -769,7 +769,7 @@ class Metadata(object):
         self.satellite = xmldoc.getElementsByTagName('safe:familyName')[0].firstChild.data + xmldoc.getElementsByTagName('safe:number')[0].firstChild.data
         self.copyright = "ESA"     #hardcoded
 
-        pathToCal = os.path.join(self.path, 'annotation\\calibration')
+        pathToCal = os.path.join(os.path.join(self.path, 'annotation'), 'calibration')
         calFile = os.listdir(pathToCal)[0]
 
         caldoc = minidom.parse(os.path.join(pathToCal, calFile))
@@ -786,8 +786,8 @@ class Metadata(object):
 
         self.calgain = calgain.astype(numpy.float32)
 
-        #if self.order_Rg.lower() == 'decreasing':
-        #    self.calgain = self.calgain[::-1].copy()  # REVERSE!!
+            #if self.order_Rg.lower() == 'decreasing':
+            #    self.calgain = self.calgain[::-1].copy()  # REVERSE!!
 
         caldoc.unlink()
 
