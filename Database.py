@@ -76,7 +76,7 @@ class Database:
         self.port = port
         self.host = host
         self.user = user
-        self.password = "dbpass"
+        self.password = password
         self.table_to_query = table_to_query   #Use this to update all scripts to unhardcode table being queried
         
         if user == None:
